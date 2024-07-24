@@ -34,6 +34,8 @@ class AtestStartEvent(metrics_base.MetricsBase):
   test_references = constants.INTERNAL
   cwd = constants.INTERNAL
   os = constants.INTERNAL
+  source_root = constants.INTERNAL
+  hostname = constants.INTERNAL
 
 
 class AtestExitEvent(metrics_base.MetricsBase):
@@ -150,3 +152,13 @@ class LocalDetectEvent(metrics_base.MetricsBase):
   _EVENT_NAME = 'local_detect_event'
   detect_type = constants.EXTERNAL
   result = constants.EXTERNAL
+
+
+def get_run_id() -> str:
+  """Returns the unique run id set for the current invocation."""
+  return metrics_base.MetricsBase.get_run_id()
+
+
+def is_internal_user() -> bool:
+  """Returns whether the user is a google internal user."""
+  return metrics_base.get_user_type() == metrics_base.INTERNAL_USER

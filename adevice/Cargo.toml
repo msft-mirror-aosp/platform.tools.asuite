@@ -25,6 +25,7 @@ tempfile = { path = "../../../external/rust/crates/tempfile" }
 tracing = { path = "../../../external/rust/crates/tracing"}
 tracing-subscriber = { path = "../../../external/rust/crates/tracing-subscriber"}
 walkdir = { path = "../../../external/rust/crates/walkdir"}
+uuid = { path = "../../../external/rust/crates/uuid" }
 
 # Since everything builds with `m` and Android.bp deps, we should be able to list all paths
 # as local, but these are still failing for me, so I pull in crates.io during development :(

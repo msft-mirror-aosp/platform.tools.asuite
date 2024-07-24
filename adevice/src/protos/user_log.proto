@@ -17,6 +17,8 @@ message AdeviceLogEvent {
     optional string cwd = 3;
     optional string os = 4;
     optional string target = 5;
+    optional string source_root = 6;
+    optional string hostname = 7;
   }
   // Occurs when adevice exits for any reason
   message AdeviceExitEvent {
@@ -42,4 +44,5 @@ message AdeviceLogEvent {
     AdeviceExitEvent adevice_exit_event = 4;
     AdeviceActionEvent adevice_action_event = 5;
   }
+  optional string invocation_id = 6;
 }

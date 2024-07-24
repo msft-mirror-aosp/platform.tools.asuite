@@ -24,8 +24,6 @@ from atest import constants
 from atest import module_info
 from atest.test_finders import test_info
 
-CLANG_VERSION = 'r475365b'
-
 
 def build_env_vars():
   """Environment variables for building with code coverage instrumentation.
@@ -37,6 +35,7 @@ def build_env_vars():
       'CLANG_COVERAGE': 'true',
       'NATIVE_COVERAGE_PATHS': '*',
       'EMMA_INSTRUMENT': 'true',
+      'LLVM_PROFILE_FILE': '/dev/null',
   }
   return env_vars
 
@@ -48,8 +47,9 @@ def tf_args(mod_info):
       A list of the command line arguments to append.
   """
   build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP))
+  clang_version = _get_clang_version(build_top)
   llvm_profdata = build_top.joinpath(
-      f'prebuilts/clang/host/linux-x86/clang-{CLANG_VERSION}'
+      f'prebuilts/clang/host/linux-x86/{clang_version}'
   )
   jacocoagent_paths = mod_info.get_installed_paths('jacocoagent')
   return (
@@ -65,77 +65,114 @@ def tf_args(mod_info):
       '--llvm-profdata-path',
       str(llvm_profdata),
       '--jacocoagent-path',
-      str(jacocoagent_paths[0])
+      str(jacocoagent_paths[0]),
   )
 
 
+def _get_clang_version(build_top):
+  """Finds out current toolchain version."""
+  version_output = subprocess.check_output(
+      f'{build_top}/build/soong/scripts/get_clang_version.py', text=True
+  )
+  return version_output.strip()
+
+
 def build_modules():
-    """Build modules needed for coverage report generation."""
-    return ('jacoco_to_lcov_converter', 'jacocoagent')
+  """Build modules needed for coverage report generation."""
+  return ('jacoco_to_lcov_converter', 'jacocoagent')
 
 
 def generate_coverage_report(
     results_dir: str,
     test_infos: List[test_info.TestInfo],
     mod_info: module_info.ModuleInfo,
+    is_host_enabled: bool,
+    code_under_test: Set[str],
 ):
-  """Generates HTML code coverage reports based on the test info."""
+  """Generates HTML code coverage reports based on the test info.
 
-  soong_intermediates = atest_utils.get_build_out_dir('soong/.intermediates')
+  Args:
+    results_dir: The directory containing the test results
+    test_infos: The TestInfo objects for this invocation
+    mod_info: The ModuleInfo object containing all build module information
+    is_host_enabled: True if --host was specified
+    code_under_test: The set of modules to include in the coverage report
+  """
+  if not code_under_test:
+    # No code-under-test was specified on the command line. Deduce the values
+    # from module-info or from the test.
+    code_under_test = _deduce_code_under_test(test_infos, mod_info)
 
-  # Collect dependency and source file information for the tests and any
-  # Mainline modules.
-  dep_modules = _get_test_deps(test_infos, mod_info)
-  src_paths = _get_all_src_paths(dep_modules, mod_info)
+  logging.debug(f'Code-under-test: {code_under_test}')
 
-  # Collect JaCoCo class jars from the build for coverage report generation.
-  jacoco_report_jars = {}
-  unstripped_native_binaries = set()
-  for module in dep_modules:
-    for path in mod_info.get_paths(module):
-      module_dir = soong_intermediates.joinpath(path, module)
-      # Check for uninstrumented Java class files to report coverage.
-      classfiles = list(module_dir.rglob('jacoco-report-classes/*.jar'))
-      if classfiles:
-        jacoco_report_jars[module] = classfiles
-
-      # Check for unstripped native binaries to report coverage.
-      unstripped_native_binaries.update(_find_native_binaries(module_dir))
-
-  # For Java host tests, the report jar is the test itself.
-  for test_info in test_infos:
-        installed = mod_info.get_installed_paths(test_info.raw_test_name)
-        jars = [f for f in installed if f.suffix == '.jar']
-        if jars:
-            jacoco_report_jars[test_info.raw_test_name] = jars
+  # Collect coverage metadata files from the build for coverage report generation.
+  jacoco_report_jars = _collect_java_report_jars(
+      code_under_test, mod_info, is_host_enabled
+  )
+  unstripped_native_binaries = _collect_native_report_binaries(
+      code_under_test, mod_info, is_host_enabled
+  )
 
   if jacoco_report_jars:
     _generate_java_coverage_report(
-            jacoco_report_jars, src_paths, results_dir, mod_info)
+        jacoco_report_jars,
+        _get_all_src_paths(code_under_test, mod_info),
+        results_dir,
+        mod_info,
+    )
 
   if unstripped_native_binaries:
     _generate_native_coverage_report(unstripped_native_binaries, results_dir)
 
 
-def _get_test_deps(test_infos, mod_info):
+def _deduce_code_under_test(
+    test_infos: List[test_info.TestInfo],
+    mod_info: module_info.ModuleInfo,
+) -> Set[str]:
+  """Deduces the code-under-test from the test info and module info.
+  If the test info contains code-under-test information, that is used.
+  Otherwise, the dependencies of the test are used.
+
+  Args:
+    test_infos: The TestInfo objects for this invocation
+    mod_info: The ModuleInfo object containing all build module information
+
+  Returns:
+    The set of modules to include in the coverage report
+  """
+  code_under_test = set()
+
+  for test_info in test_infos:
+    code_under_test.update(
+        mod_info.get_code_under_test(test_info.raw_test_name)
+    )
+
+  if code_under_test:
+    return code_under_test
+
+  # No code-under-test was specified in ModuleInfo, default to using dependency
+  # information of the test.
+  for test_info in test_infos:
+    code_under_test.update(_get_test_deps(test_info, mod_info))
+
+  return code_under_test
+
+
+def _get_test_deps(test_info, mod_info):
   """Gets all dependencies of the TestInfo, including Mainline modules."""
   deps = set()
 
-  for info in test_infos:
-    deps.add(info.raw_test_name)
+  deps.add(test_info.raw_test_name)
+  deps |= _get_transitive_module_deps(
+      mod_info.get_module_info(test_info.raw_test_name), mod_info, deps
+  )
+
+  # Include dependencies of any Mainline modules specified as well.
+  for mainline_module in test_info.mainline_modules:
+    deps.add(mainline_module)
     deps |= _get_transitive_module_deps(
-        mod_info.get_module_info(info.raw_test_name), mod_info, deps
+        mod_info.get_module_info(mainline_module), mod_info, deps
     )
-
-    # Include dependencies of any Mainline modules specified as well.
-    if not info.mainline_modules:
-      continue
-
-    for mainline_module in info.mainline_modules:
-      deps.add(mainline_module)
-      deps |= _get_transitive_module_deps(
-          mod_info.get_module_info(mainline_module), mod_info, deps
-      )
 
   return deps
 
@@ -173,6 +210,61 @@ def _get_transitive_module_deps(
   return deps
 
 
+def _collect_java_report_jars(code_under_test, mod_info, is_host_enabled):
+  soong_intermediates = atest_utils.get_build_out_dir('soong/.intermediates')
+  report_jars = {}
+
+  for module in code_under_test:
+    for path in mod_info.get_paths(module):
+      if not path:
+        continue
+      module_dir = soong_intermediates.joinpath(path, module)
+      # Check for uninstrumented Java class files to report coverage.
+      classfiles = list(module_dir.rglob('jacoco-report-classes/*.jar'))
+      if classfiles:
+        report_jars[module] = classfiles
+
+    # Host tests use the test itself to generate the coverage report.
+    info = mod_info.get_module_info(module)
+    if not info:
+      continue
+    if is_host_enabled or not mod_info.requires_device(info):
+      installed = mod_info.get_installed_paths(module)
+      installed_jars = [str(f) for f in installed if f.suffix == '.jar']
+      if installed_jars:
+        report_jars[module] = installed_jars
+
+  return report_jars
+
+
+def _collect_native_report_binaries(code_under_test, mod_info, is_host_enabled):
+  soong_intermediates = atest_utils.get_build_out_dir('soong/.intermediates')
+  report_binaries = set()
+
+  for module in code_under_test:
+    for path in mod_info.get_paths(module):
+      if not path:
+        continue
+      module_dir = soong_intermediates.joinpath(path, module)
+      # Check for unstripped binaries to report coverage.
+      report_binaries.update(_find_native_binaries(module_dir))
+
+    # Host tests use the test itself to generate the coverage report.
+    info = mod_info.get_module_info(module)
+    if not info:
+      continue
+    if constants.MODULE_CLASS_NATIVE_TESTS not in info.get(
+        constants.MODULE_CLASS, []
+    ):
+      continue
+    if is_host_enabled or not mod_info.requires_device(info):
+      report_binaries.update(
+          str(f) for f in mod_info.get_installed_paths(module)
+      )
+
+  return report_binaries
+
+
 def _find_native_binaries(module_dir):
   files = module_dir.glob('*cov*/**/unstripped/*')
 
@@ -182,7 +274,7 @@ def _find_native_binaries(module_dir):
   # Exclude .d and .d.raw files. These are Rust dependency files and are also
   # stored in the unstripped directory.
   return [
-      file
+      str(file)
       for file in files
       if '.rsp' not in file.suffixes and '.d' not in file.suffixes
   ]

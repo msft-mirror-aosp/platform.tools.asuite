@@ -23,7 +23,9 @@ import sys
 import unittest
 from unittest import mock
 
+from atest.metrics import metrics_base
 from atest.metrics import metrics_utils
+from atest.proto import internal_user_log_pb2
 
 
 class MetricsUtilsUnittests(unittest.TestCase):
@@ -38,19 +40,11 @@ class MetricsUtilsUnittests(unittest.TestCase):
 
     # get_user_type return 1(external).
     mock_get_user_type.return_value = 1
-    notice_str = (
-        '\n==================\nNotice:\n   We collect anonymous usage'
-        ' statistics in accordance with our Content Licenses'
-        ' (https://source.android.com/setup/start/licenses), Contributor'
-        ' License Agreement (https://opensource.google.com/docs/cla/), Privacy'
-        ' Policy (https://policies.google.com/privacy) and Terms of Service'
-        ' (https://policies.google.com/terms).\n==================\n\n'
-    )
     capture_output = StringIO()
     sys.stdout = capture_output
     metrics_utils.print_data_collection_notice(colorful=False)
     sys.stdout = sys.__stdout__
-    self.assertEqual(capture_output.getvalue(), notice_str)
+    self.assertEqual(capture_output.getvalue(), '')
 
     # get_user_type return 0(internal).
     red = '31m'
@@ -60,7 +54,7 @@ class MetricsUtilsUnittests(unittest.TestCase):
     mock_get_user_type.return_value = 0
     notice_str = (
         f'\n==================\n{start}{red}Notice:{end}\n'
-        f'{start}{green}   We collect usage statistics '
+        f'{start}{green} We collect usage statistics (including usernames) '
         'in accordance with our '
         'Content Licenses (https://source.android.com/setup/start/licenses), '
         'Contributor License Agreement (https://cla.developers.google.com/), '
@@ -73,3 +67,49 @@ class MetricsUtilsUnittests(unittest.TestCase):
     metrics_utils.print_data_collection_notice()
     sys.stdout = sys.__stdout__
     self.assertEqual(capture_output.getvalue(), notice_str)
+
+  def test_send_start_event(self):
+    metrics_base.MetricsBase.tool_name = 'test_tool'
+    metrics_base.MetricsBase.user_type = metrics_base.INTERNAL_USER
+    fake_cc = FakeClearcutClient()
+    metrics_base.MetricsBase.cc = fake_cc
+
+    metrics_utils.send_start_event(
+        command_line='test_command',
+        test_references=['test'],
+        cwd='cwd',
+        operating_system='test system',
+        source_root='test_source',
+        hostname='test_host',
+    )
+
+    logged_events = fake_cc.get_logged_events()
+    expected_start_event = (
+        internal_user_log_pb2.AtestLogEventInternal.AtestStartEvent(
+            command_line='test_command',
+            test_references=['test'],
+            cwd='cwd',
+            os='test system',
+            source_root='test_source',
+            hostname='test_host',
+        )
+    )
+    self.assertEqual(len(logged_events), 1)
+    self.assertEqual(
+        expected_start_event,
+        internal_user_log_pb2.AtestLogEventInternal.FromString(
+            logged_events[0].source_extension
+        ).atest_start_event,
+    )
+
+
+class FakeClearcutClient:
+
+  def __init__(self):
+    self.logged_event = []
+
+  def log(self, event):
+    self.logged_event.extend([event])
+
+  def get_logged_events(self):
+    return self.logged_event

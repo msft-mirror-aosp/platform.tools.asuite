@@ -14,14 +14,13 @@
 
 """Utility functions for metrics."""
 
-import os
-import platform
 import sys
 import time
 import traceback
 
 from atest.metrics import metrics
 from atest.metrics import metrics_base
+
 
 CONTENT_LICENSES_URL = 'https://source.android.com/setup/start/licenses'
 CONTRIBUTOR_AGREEMENT_URL = {
@@ -112,57 +111,48 @@ def send_exit_event(exit_code, stacktrace='', logs=''):
 
 
 def send_start_event(
-    tool_name,
-    command_line='',
-    test_references='',
-    cwd=None,
-    operating_system=None,
+    command_line, test_references, cwd, operating_system, source_root, hostname
 ):
   """Log start event of clearcut.
 
   Args:
-      tool_name: A string of the asuite product name.
       command_line: A string of the user input command.
       test_references: A string of the input tests.
       cwd: A string of current path.
       operating_system: A string of user's operating system.
+      source_root: A string of the Android build source.
+      hostname: A string of the host workstation name.
   """
-  if not cwd:
-    cwd = os.getcwd()
-  if not operating_system:
-    operating_system = platform.platform()
-  # Without tool_name information, asuite's clearcut client will not send
-  # event to server.
-  metrics_base.MetricsBase.tool_name = tool_name
   get_start_time()
   metrics.AtestStartEvent(
       command_line=command_line,
       test_references=test_references,
       cwd=cwd,
       os=operating_system,
+      source_root=source_root,
+      hostname=hostname,
   )
 
 
 def print_data_collection_notice(colorful=True):
   """Print the data collection notice."""
+  # Do not print notice for external users as we are not collecting any external
+  # data.
+  if metrics_base.get_user_type() == metrics_base.EXTERNAL_USER:
+    return
+
   red = '31m'
   green = '32m'
   start = '\033[1;'
   end = '\033[0m'
   delimiter = '=' * 18
-  anonymous = ''
-  user_type = 'INTERNAL'
-  if metrics_base.get_user_type() == metrics_base.EXTERNAL_USER:
-    anonymous = ' anonymous'
-    user_type = 'EXTERNAL'
   notice = (
-      '  We collect%s usage statistics in accordance with our Content '
-      'Licenses (%s), Contributor License Agreement (%s), Privacy '
-      'Policy (%s) and Terms of Service (%s).'
+      'We collect usage statistics (including usernames) in accordance with our'
+      ' Content Licenses (%s), Contributor License Agreement (%s), Privacy'
+      ' Policy (%s) and Terms of Service (%s).'
   ) % (
-      anonymous,
       CONTENT_LICENSES_URL,
-      CONTRIBUTOR_AGREEMENT_URL[user_type],
+      CONTRIBUTOR_AGREEMENT_URL['INTERNAL'],
       PRIVACY_POLICY_URL,
       TERMS_SERVICE_URL,
   )

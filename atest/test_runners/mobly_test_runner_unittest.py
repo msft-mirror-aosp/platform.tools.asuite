@@ -52,7 +52,11 @@ class MoblyResultUploaderUnittests(unittest.TestCase):
   def setUp(self) -> None:
     self.patchers = [
         mock.patch(
-            'atest.logstorage.atest_gcp_utils.do_upload_flow',
+            'atest.logstorage.logstorage_utils.is_upload_enabled',
+            return_value=True,
+        ),
+        mock.patch(
+            'atest.logstorage.logstorage_utils.do_upload_flow',
             return_value=('creds', {'invocationId': 'I00001'}),
         ),
         mock.patch('atest.logstorage.logstorage_utils.BuildClient'),

@@ -87,17 +87,19 @@ def create_atest_arg_parser():
       action='store_true',
       help=(
           'Build and deploy your changes to the device. By default, ATest'
-          ' will build `sync` and use `adevice` to update the device.'
+          ' will build `sync` and use `adevice` to update the device. '
+          'Note, this feature currently only works for incremental device '
+          'updates and not after a repo sync. Please flash the device after a '
+          'repo sync.'
       ),
   )
   parser.add_argument(
-      '--adevice:targets',
-      dest='adevice_targets',
+      '--update:modules',
+      dest='update_modules',
       type=lambda value: value.split(','),
-      default='sync',
       help=(
-          'Targets that are built if the device is being updated by Adevice. '
-          'Targets should be separated by comma.'
+          'Modules that are built if the device is being updated. '
+          'Modules should be separated by comma.'
       ),
   )
 
@@ -144,6 +146,17 @@ def create_atest_arg_parser():
       action='store_true',
       help='Disable test teardown and cleanup.',
   )
+
+  parser.add_argument(
+      '--code-under-test',
+      type=lambda value: set(value.split(',')),
+      help=(
+          'Comma-separated list of modules whose sources should be included in'
+          ' the code coverage report. The dependencies of these modules are not'
+          ' included. For use with the --experimental-coverage flag.'
+      ),
+  )
+
   parser.add_argument(
       '--experimental-coverage',
       action='store_true',
@@ -395,12 +408,6 @@ def create_atest_arg_parser():
       help='Wipe out the test_infos cache of the test and start a new search.',
   )
   parser.add_argument(
-      '-g',
-      '--generate-runner-cmd',
-      action='store_true',
-      help='Generate the runner command(s) of given tests.',
-  )
-  parser.add_argument(
       '-D',
       '--tf-debug',
       nargs='?',
@@ -425,9 +432,10 @@ def create_atest_arg_parser():
       # TODO(b/326141263): TradeFed to support wildcard in include-filter for
       # parametrized JarHostTests
       help=(
-          'Run only the tests which are specified with this option. '
-          'Filtering by method and with wildcard is not yet supported for '
-          'all test types.'
+          'Run only the tests which are specified with this option. This value'
+          ' is passed directly to the testing framework so you should use'
+          " appropriate syntax (e.g. JUnit supports regex, while python's"
+          ' unittest supports fnmatch syntax).'
       ),
   )
   parser.add_argument(

@@ -106,18 +106,21 @@ class MetricsBase:
   """Class for separating allowed fields and sending metric."""
 
   _run_id = str(uuid.uuid4())
-  try:
-    # pylint: disable=protected-access
-    _user_key = str(get_user_key())
-  # pylint: disable=broad-except
-  except Exception:
-    _user_key = str(uuid.UUID(int=0))
   user_type = get_user_type()
+  if user_type == INTERNAL_USER:
+    _user_key = getpass.getuser()
+  else:
+    try:
+      # pylint: disable=protected-access
+      _user_key = str(get_user_key())
+      # pylint: disable=broad-except
+    except Exception:
+      _user_key = str(uuid.UUID(int=0))
+
   _log_source = ATEST_LOG_SOURCE[user_type]
   cc = clearcut_client.Clearcut(_log_source)
   tool_name = None
   sub_tool_name = ''
-  user_name = getpass.getuser()
 
   def __new__(cls, **kwargs):
     """Send metric event to clearcut.
@@ -155,11 +158,14 @@ class MetricsBase:
         'sub_tool_name': cls.sub_tool_name,
         cls._EVENT_NAME: fields_and_values,
     }
-    if cls.user_type == INTERNAL_USER:
-      params['user_name'] = cls.user_name
     log_event = cls._build_full_event(ATEST_EVENTS[cls.user_type](**params))
     cls.cc.log(log_event)
     return cls.cc
+
+  @classmethod
+  def get_run_id(cls) -> str:
+    """Returns the unique run id set for the current invocation."""
+    return cls._run_id
 
   @classmethod
   def _build_full_event(cls, atest_event):
@@ -173,6 +179,6 @@ class MetricsBase:
         A clientanalytics_pb2.LogEvent instance.
     """
     log_event = clientanalytics_pb2.LogEvent()
-    log_event.event_time_ms = int((time.time() - random.randint(1, 600)) * 1000)
+    log_event.event_time_ms = int(time.time() * 1000)
     log_event.source_extension = atest_event.SerializeToString()
     return log_event

@@ -26,15 +26,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import argparse
+import atexit
 from collections import OrderedDict, defaultdict, deque
 from collections.abc import Iterable
 import contextlib
 import dataclasses
 import enum
 import functools
+import importlib.resources
 import logging
 import os
-from pathlib import Path
+import pathlib
 import re
 import shlex
 import shutil
@@ -172,7 +174,7 @@ def add_parser_arguments(parser: argparse.ArgumentParser, dest: str):
     )
 
 
-def get_bazel_workspace_dir() -> Path:
+def get_bazel_workspace_dir() -> pathlib.Path:
   return atest_utils.get_build_out_dir(_BAZEL_WORKSPACE_DIR)
 
 
@@ -182,12 +184,14 @@ def generate_bazel_workspace(
   """Generate or update the Bazel workspace used for running tests."""
 
   start = time.time()
-  src_root_path = Path(os.environ.get(constants.ANDROID_BUILD_TOP))
+  src_root_path = pathlib.Path(os.environ.get(constants.ANDROID_BUILD_TOP))
   workspace_path = get_bazel_workspace_dir()
   resource_manager = ResourceManager(
       src_root_path=src_root_path,
       resource_root_path=_get_resource_root(),
-      product_out_path=Path(os.environ.get(constants.ANDROID_PRODUCT_OUT)),
+      product_out_path=pathlib.Path(
+          os.environ.get(constants.ANDROID_PRODUCT_OUT)
+      ),
       md5_checksum_file_path=workspace_path.joinpath('workspace_md5_checksum'),
   )
   jdk_path = _read_robolectric_jdk_path(
@@ -197,7 +201,7 @@ def generate_bazel_workspace(
   workspace_generator = WorkspaceGenerator(
       resource_manager=resource_manager,
       workspace_out_path=workspace_path,
-      host_out_path=Path(os.environ.get(constants.ANDROID_HOST_OUT)),
+      host_out_path=pathlib.Path(os.environ.get(constants.ANDROID_HOST_OUT)),
       build_out_dir=atest_utils.get_build_out_dir(),
       mod_info=mod_info,
       jdk_path=jdk_path,
@@ -222,23 +226,23 @@ class ResourceManager:
 
   def __init__(
       self,
-      src_root_path: Path,
-      resource_root_path: Path,
-      product_out_path: Path,
-      md5_checksum_file_path: Path,
+      src_root_path: pathlib.Path,
+      resource_root_path: pathlib.Path,
+      product_out_path: pathlib.Path,
+      md5_checksum_file_path: pathlib.Path,
   ):
     self._root_type_to_path = {
         file_md5_pb2.RootType.SRC_ROOT: src_root_path,
         file_md5_pb2.RootType.RESOURCE_ROOT: resource_root_path,
-        file_md5_pb2.RootType.ABS_PATH: Path(),
+        file_md5_pb2.RootType.ABS_PATH: pathlib.Path(),
         file_md5_pb2.RootType.PRODUCT_OUT: product_out_path,
     }
     self._md5_checksum_file = md5_checksum_file_path
     self._file_checksum_list = file_md5_pb2.FileChecksumList()
 
   def get_src_file_path(
-      self, rel_path: Path = None, affects_workspace: bool = False
-  ) -> Path:
+      self, rel_path: pathlib.Path = None, affects_workspace: bool = False
+  ) -> pathlib.Path:
     """Get the abs file path from the relative path of source_root.
 
     Args:
@@ -254,9 +258,9 @@ class ResourceManager:
 
   def get_resource_file_path(
       self,
-      rel_path: Path = None,
+      rel_path: pathlib.Path = None,
       affects_workspace: bool = False,
-  ) -> Path:
+  ) -> pathlib.Path:
     """Get the abs file path from the relative path of resource_root.
 
     Args:
@@ -271,8 +275,8 @@ class ResourceManager:
     )
 
   def get_product_out_file_path(
-      self, rel_path: Path = None, affects_workspace: bool = False
-  ) -> Path:
+      self, rel_path: pathlib.Path = None, affects_workspace: bool = False
+  ) -> pathlib.Path:
     """Get the abs file path from the relative path of product out.
 
     Args:
@@ -289,10 +293,12 @@ class ResourceManager:
   def _get_file_path(
       self,
       root_type: file_md5_pb2.RootType,
-      rel_path: Path,
+      rel_path: pathlib.Path,
       affects_workspace: bool = True,
-  ) -> Path:
-    abs_path = self._root_type_to_path[root_type].joinpath(rel_path or Path())
+  ) -> pathlib.Path:
+    abs_path = self._root_type_to_path[root_type].joinpath(
+        rel_path or pathlib.Path()
+    )
 
     if not affects_workspace:
       return abs_path
@@ -304,7 +310,9 @@ class ResourceManager:
       self._register_file(root_type, abs_path)
     return abs_path
 
-  def _register_file(self, root_type: file_md5_pb2.RootType, abs_path: Path):
+  def _register_file(
+      self, root_type: file_md5_pb2.RootType, abs_path: pathlib.Path
+  ):
     if not abs_path.is_file():
       logging.debug(' ignore %s: not a file.', abs_path)
       return
@@ -321,7 +329,7 @@ class ResourceManager:
         )
     )
 
-  def register_file_with_abs_path(self, abs_path: Path):
+  def register_file_with_abs_path(self, abs_path: pathlib.Path):
     """Register a file which affects the workspace.
 
     Args:
@@ -344,13 +352,15 @@ class ResourceManager:
       try:
         file_md5_list.ParseFromString(f.read())
       except DecodeError:
-        logging.warning('Failed to parse the workspace md5 checksum file.')
+        atest_utils.print_and_log_warning(
+            'Failed to parse the workspace md5 checksum file.'
+        )
         return False
 
       for file_md5 in file_md5_list.file_checksums:
-        abs_path = Path(self._root_type_to_path[file_md5.root_type]).joinpath(
-            file_md5.rel_path
-        )
+        abs_path = pathlib.Path(
+            self._root_type_to_path[file_md5.root_type]
+        ).joinpath(file_md5.rel_path)
         if not abs_path.is_file():
           return False
         if atest_utils.md5sum(abs_path) != file_md5.md5sum:
@@ -365,11 +375,11 @@ class WorkspaceGenerator:
   def __init__(
       self,
       resource_manager: ResourceManager,
-      workspace_out_path: Path,
-      host_out_path: Path,
-      build_out_dir: Path,
+      workspace_out_path: pathlib.Path,
+      host_out_path: pathlib.Path,
+      build_out_dir: pathlib.Path,
       mod_info: module_info.ModuleInfo,
-      jdk_path: Path = None,
+      jdk_path: pathlib.Path = None,
       enabled_features: Set[Features] = None,
   ):
     """Initializes the generator.
@@ -645,9 +655,7 @@ class WorkspaceGenerator:
     if self.resource_manager.get_src_file_path(device_infra_path).exists():
       self._symlink(src=device_infra_path, target=device_infra_path)
 
-    self._link_required_src_file_path(
-        'build/bazel_common_rules/rules/python/stubs'
-    )
+    self._link_required_src_file_path('external/bazelbuild-rules_python')
     self._link_required_src_file_path('external/bazelbuild-rules_java')
 
     self._create_constants_file()
@@ -709,16 +717,17 @@ class WorkspaceGenerator:
     self.workspace_out_path.joinpath('BUILD.bazel').touch()
 
   def _add_bazel_bootstrap_files(self):
+    self._add_workspace_resource(src='bazel.sh', dst='bazel.sh')
+    # Restore permissions as execute permissions are not preserved by soong
+    # packaging.
+    os.chmod(self.workspace_out_path.joinpath('bazel.sh'), 0o755)
     self._symlink(
-        src='tools/asuite/atest/bazel/resources/bazel.sh', target='bazel.sh'
+        src='prebuilts/jdk/jdk21/BUILD.bazel',
+        target='prebuilts/jdk/jdk21/BUILD.bazel',
     )
     self._symlink(
-        src='prebuilts/jdk/jdk17/BUILD.bazel',
-        target='prebuilts/jdk/jdk17/BUILD.bazel',
-    )
-    self._symlink(
-        src='prebuilts/jdk/jdk17/linux-x86',
-        target='prebuilts/jdk/jdk17/linux-x86',
+        src='prebuilts/jdk/jdk21/linux-x86',
+        target='prebuilts/jdk/jdk21/linux-x86',
     )
     self._symlink(
         src='prebuilts/bazel/linux-x86_64/bazel',
@@ -773,8 +782,50 @@ class WorkspaceGenerator:
     self._symlink(src=path, target=path)
 
 
-def _get_resource_root():
-  return Path(os.path.dirname(__file__)).joinpath('bazel/resources')
+@functools.cache
+def _get_resource_root() -> pathlib.Path:
+  tmp_resource_dir = pathlib.Path(tempfile.mkdtemp())
+  atexit.register(lambda: shutil.rmtree(tmp_resource_dir))
+
+  def _extract_resources(
+      resource_path: pathlib.Path,
+      dst: pathlib.Path,
+      ignore_file_names: list[str] = None,
+  ):
+    resource = importlib.resources.files(resource_path.as_posix())
+    dst.mkdir(parents=True, exist_ok=True)
+    for child in resource.iterdir():
+      if child.is_file():
+        if child.name in ignore_file_names:
+          continue
+        with importlib.resources.as_file(child) as child_file:
+          shutil.copy(child_file, dst.joinpath(child.name))
+      elif child.is_dir():
+        _extract_resources(
+            resource_path.joinpath(child.name),
+            dst.joinpath(child.name),
+            ignore_file_names,
+        )
+      else:
+        atest_utils.print_and_log_warning(
+            'Ignoring unknown resource: %s', child
+        )
+
+  try:
+    _extract_resources(
+        pathlib.Path('atest/bazel/resources'),
+        tmp_resource_dir,
+        ignore_file_names=['__init__.py'],
+    )
+  except ModuleNotFoundError as e:
+    logging.debug(
+        'Bazel resource not found from package path, possible due to running'
+        ' atest from source. Returning resource source path instead: %s',
+        e,
+    )
+    return pathlib.Path(os.path.dirname(__file__)).joinpath('bazel/resources')
+
+  return tmp_resource_dir
 
 
 class Package:
@@ -799,18 +850,18 @@ class Package:
     for i in target.required_imports():
       self.imports[i.bzl_package].add(i.symbol)
 
-  def generate(self, workspace_out_path: Path):
+  def generate(self, workspace_out_path: pathlib.Path):
     package_dir = workspace_out_path.joinpath(self.path)
     package_dir.mkdir(parents=True, exist_ok=True)
 
     self._create_filesystem_layout(package_dir)
     self._write_build_file(package_dir)
 
-  def _create_filesystem_layout(self, package_dir: Path):
+  def _create_filesystem_layout(self, package_dir: pathlib.Path):
     for target in self.name_to_target.values():
       target.create_filesystem_layout(package_dir)
 
-  def _write_build_file(self, package_dir: Path):
+  def _write_build_file(self, package_dir: pathlib.Path):
     with package_dir.joinpath('BUILD.bazel').open('w') as f:
       f.write('package(default_visibility = ["//visibility:public"])\n')
       f.write('\n')
@@ -836,7 +887,7 @@ class Import:
 @dataclasses.dataclass(frozen=True)
 class Config:
   name: str
-  out_path: Path
+  out_path: pathlib.Path
 
 
 class ModuleRef:
@@ -890,13 +941,15 @@ class Target(ABC):
   def write_to_build_file(self, f: IO):
     pass
 
-  def create_filesystem_layout(self, package_dir: Path):
+  def create_filesystem_layout(self, package_dir: pathlib.Path):
     pass
 
 
 class FilegroupTarget(Target):
 
-  def __init__(self, package_name: str, target_name: str, srcs_root: Path):
+  def __init__(
+      self, package_name: str, target_name: str, srcs_root: pathlib.Path
+  ):
     self._package_name = package_name
     self._target_name = target_name
     self._srcs_root = srcs_root
@@ -921,7 +974,7 @@ class FilegroupTarget(Target):
 
     writer.write_line(')')
 
-  def create_filesystem_layout(self, package_dir: Path):
+  def create_filesystem_layout(self, package_dir: pathlib.Path):
     symlink = package_dir.joinpath(f'{self._target_name}_files')
     symlink.symlink_to(self._srcs_root)
 
@@ -1081,13 +1134,15 @@ class TestTarget(Target):
     writer.write_line(')')
 
 
-def _read_robolectric_jdk_path(test_xml_config_template: Path) -> Path:
+def _read_robolectric_jdk_path(
+    test_xml_config_template: pathlib.Path,
+) -> pathlib.Path:
   if not test_xml_config_template.is_file():
     return None
 
   xml_root = ET.parse(test_xml_config_template).getroot()
   option = xml_root.find(".//option[@name='java-folder']")
-  jdk_path = Path(option.get('value', ''))
+  jdk_path = pathlib.Path(option.get('value', ''))
 
   if not jdk_path.is_relative_to('prebuilts/jdk'):
     raise ValueError(
@@ -1227,7 +1282,7 @@ class SoongPrebuiltTarget(Target):
       self,
       info: Dict[str, Any],
       package_name: str,
-      config_files: Dict[Config, List[Path]],
+      config_files: Dict[Config, List[pathlib.Path]],
       deps: Dependencies,
       supported_configs: List[Config],
   ):
@@ -1298,7 +1353,7 @@ class SoongPrebuiltTarget(Target):
 
     writer.write_line(')')
 
-  def create_filesystem_layout(self, package_dir: Path):
+  def create_filesystem_layout(self, package_dir: pathlib.Path):
     prebuilts_dir = package_dir.joinpath(self._target_name)
     prebuilts_dir.mkdir()
 
@@ -1353,8 +1408,8 @@ class SoongPrebuiltTarget(Target):
 
 
 def group_paths_by_config(
-    configs: List[Config], paths: List[Path]
-) -> Dict[Config, List[Path]]:
+    configs: List[Config], paths: List[pathlib.Path]
+) -> Dict[Config, List[pathlib.Path]]:
 
   config_files = defaultdict(list)
 
@@ -1397,7 +1452,7 @@ def filter_configs(
   return {k: v for (k, v) in config_dict.items() if k in configs}
 
 
-def _is_relative_to(path1: Path, path2: Path) -> bool:
+def _is_relative_to(path1: pathlib.Path, path2: pathlib.Path) -> bool:
   """Return True if the path is relative to another path or False."""
   # Note that this implementation is required because Path.is_relative_to only
   # exists starting with Python 3.9.
@@ -1409,14 +1464,14 @@ def _is_relative_to(path1: Path, path2: Path) -> bool:
 
 
 def get_module_installed_paths(
-    info: Dict[str, Any], src_root_path: Path
-) -> List[Path]:
+    info: Dict[str, Any], src_root_path: pathlib.Path
+) -> List[pathlib.Path]:
 
   # Install paths in module-info are usually relative to the Android
   # source root ${ANDROID_BUILD_TOP}. When the output directory is
   # customized by the user however, the install paths are absolute.
   def resolve(install_path_string):
-    install_path = Path(install_path_string)
+    install_path = pathlib.Path(install_path_string)
     if not install_path.expanduser().is_absolute():
       return src_root_path.joinpath(install_path)
     return install_path
@@ -1428,7 +1483,7 @@ def find_runtime_dep_refs(
     mod_info: module_info.ModuleInfo,
     info: module_info.Module,
     configs: List[Config],
-    src_root_path: Path,
+    src_root_path: pathlib.Path,
     enabled_features: List[Features],
 ) -> List[ModuleRef]:
   """Return module references for runtime dependencies."""
@@ -1473,7 +1528,7 @@ def find_data_dep_refs(
     mod_info: module_info.ModuleInfo,
     info: module_info.Module,
     configs: List[Config],
-    src_root_path: Path,
+    src_root_path: pathlib.Path,
 ) -> List[ModuleRef]:
   """Return module references for data dependencies."""
 
@@ -1500,7 +1555,7 @@ def find_static_dep_refs(
     mod_info: module_info.ModuleInfo,
     info: module_info.Module,
     configs: List[Config],
-    src_root_path: Path,
+    src_root_path: pathlib.Path,
     enabled_features: List[Features],
 ) -> List[ModuleRef]:
   """Return module references for static libraries."""
@@ -1518,7 +1573,7 @@ def find_static_dep_refs(
 def _find_module_refs(
     mod_info: module_info.ModuleInfo,
     configs: List[Config],
-    src_root_path: Path,
+    src_root_path: pathlib.Path,
     module_names: List[str],
 ) -> List[ModuleRef]:
   """Return module references for modules."""
@@ -1669,7 +1724,7 @@ class RunCommandError(subprocess.CalledProcessError):
     return f'{super().__str__()}\nstdout={self.stdout}\n\nstderr={self.stderr}'
 
 
-def default_run_command(args: List[str], cwd: Path) -> str:
+def default_run_command(args: List[str], cwd: pathlib.Path) -> str:
   result = subprocess.run(
       args=args,
       cwd=cwd,
@@ -1704,8 +1759,8 @@ class BazelTestRunner(trb.TestRunnerBase):
       results_dir,
       mod_info: module_info.ModuleInfo,
       extra_args: Dict[str, Any] = None,
-      src_top: Path = None,
-      workspace_path: Path = None,
+      src_top: pathlib.Path = None,
+      workspace_path: pathlib.Path = None,
       run_command: Callable = default_run_command,
       build_metadata: BuildMetadata = None,
       env: Dict[str, str] = None,
@@ -1715,7 +1770,9 @@ class BazelTestRunner(trb.TestRunnerBase):
   ):
     super().__init__(results_dir, **kwargs)
     self.mod_info = mod_info
-    self.src_top = src_top or Path(os.environ.get(constants.ANDROID_BUILD_TOP))
+    self.src_top = src_top or pathlib.Path(
+        os.environ.get(constants.ANDROID_BUILD_TOP)
+    )
     self.starlark_file = _get_resource_root().joinpath(
         'format_as_soong_module_name.cquery'
     )
@@ -1771,7 +1828,7 @@ class BazelTestRunner(trb.TestRunnerBase):
       # AtestExecutionInfo will find all log files in 'results_dir/log'
       # directory and generate an HTML file to display to users when
       # 'results_dir/log' directory exist.
-      log_path = Path(self.results_dir).joinpath(
+      log_path = pathlib.Path(self.results_dir).joinpath(
           'log', f'{package_name}', f'{t_info.test_name}_{target_suffix}'
       )
       log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1781,7 +1838,7 @@ class BazelTestRunner(trb.TestRunnerBase):
   def _get_feature_config_or_warn(self, feature, env_var_name):
     feature_config = self.env.get(env_var_name)
     if not feature_config:
-      logging.warning(
+      atest_utils.print_and_log_warning(
           'Ignoring `%s` because the `%s` environment variable is not set.',
           # pylint: disable=no-member
           feature,
@@ -1899,15 +1956,16 @@ class BazelTestRunner(trb.TestRunnerBase):
 
   def retrieve_test_output_info(
       self, test_info: test_info.TestInfo
-  ) -> Tuple[Path, str, str]:
+  ) -> Tuple[pathlib.Path, str, str]:
     """Return test output information.
 
     Args:
         test_info (test_info.TestInfo): Information about the test.
 
     Returns:
-        Tuple[Path, str, str]: A tuple containing the following elements:
-            - test_output_dir (Path): Absolute path of the test output
+        Tuple[pathlib.Path, str, str]: A tuple containing the following
+        elements:
+            - test_output_dir (pathlib.Path): Absolute path of the test output
                 folder.
             - package_name (str): Name of the package.
             - target_suffix (str): Target suffix.
@@ -1917,7 +1975,7 @@ class BazelTestRunner(trb.TestRunnerBase):
     package_name = info.get(constants.MODULE_PATH)[0]
     target_suffix = self.get_target_suffix(info)
 
-    test_output_dir = Path(
+    test_output_dir = pathlib.Path(
         self.bazel_workspace,
         BAZEL_TEST_LOGS_DIR_NAME,
         package_name,

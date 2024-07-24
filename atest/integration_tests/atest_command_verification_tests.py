@@ -16,8 +16,8 @@
 
 """A collection of integration test cases for atest."""
 
+import os
 from typing import Any, Callable
-
 import atest_integration_test
 
 # Note: The following constants should ideally be imported from their
@@ -34,7 +34,7 @@ _DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
 class CommandVerificationTests(atest_integration_test.AtestTestCase):
   """Checks atest tradefed commands."""
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_animator_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'AnimatorTest'
@@ -57,7 +57,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_cts_animation_test_cases_animator_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'CtsAnimationTestCases:AnimatorTest'
@@ -80,7 +80,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_cts_sample_device_cases_shared_prefs_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = (
@@ -103,7 +103,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_cts_sample_device_cases_android_sample_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'CtsSampleDeviceTestCases:android.sample.cts'
@@ -124,7 +124,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_cts_sample_device_cases_device_report_log_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = (
@@ -147,7 +147,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_cts_animation_cases_sample_device_cases_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'CtsAnimationTestCases CtsSampleDeviceTestCases'
@@ -167,7 +167,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_hello_world_tests_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'HelloWorldTests'
@@ -185,28 +185,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
-  def test_mixed_managed_profile_ownr_pw_sufficient_test(self):
-    """Verify that the test's command runs correctly."""
-    atest_cmd = 'MixedManagedProfileOwnerTest#testPasswordSufficientInitially'
-    expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
-        ' --no-enable-granular-attempts --module'
-        ' CtsDevicePolicyManagerTestCases --atest-include-filter'
-        ' CtsDevicePolicyManagerTestCases:com.android.cts.devicepolicy.MixedManagedProfileOwnerTest#testPasswordSufficientInitially'
-        ' --skip-loading-config-jar --log-level-display VERBOSE --log-level'
-        ' VERBOSE --no-early-device-release --enable-parameterized-modules'
-        ' --exclude-module-parameters instant_app --exclude-module-parameters'
-        ' secondary_user --exclude-module-parameters multi_abi'
-    )
-    self._verify_atest_internal_runner_command(
-        atest_cmd,
-        self._assert_equivalent_cmds,
-        expected_cmd=expected_cmd,
-    )
-
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_perinstance_camerahidl_config_injection_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = (
@@ -228,7 +207,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_vts_hal_camera_provider_config_injection_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = (
@@ -251,7 +230,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_android_animation_cts_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'android.animation.cts'
@@ -273,7 +252,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_android_sample_cts_device_report_log_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'android.sample.cts.SampleDeviceReportLogTest'
@@ -294,7 +273,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_android_sample_cts_shared_prefs_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'android.sample.cts.SampleDeviceTest#testSharedPreferences'
@@ -315,7 +294,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_hello_world_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'hello_world_test'
@@ -332,7 +311,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_native_benchmark_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'native-benchmark'
@@ -349,7 +328,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_platform_native_example_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'platform_testing/tests/example/native'
@@ -366,7 +345,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_platform_android_example_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'platform_testing/tests/example/native/Android.bp'
@@ -383,7 +362,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_tf_core_config_native_benchmark_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'tools/tradefederation/core/res/config/native-benchmark.xml'
@@ -400,7 +379,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_quick_access_wallet_robo_test(self):
     """Verify that the test's command runs correctly."""
     test_cmd = 'QuickAccessWalletRoboTests'
@@ -418,7 +397,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_quick_access_wallet_robo_host_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'QuickAccessWalletRoboTests --host'
@@ -437,7 +416,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_cts_wifi_aware_cases_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'CtsWifiAwareTestCases'
@@ -455,7 +434,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_pts_bot_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'pts-bot:PAN/GN/MISC/UUID/BV-01-C'
@@ -473,7 +452,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_tee_ui_utils_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'TeeUIUtilsTest'
@@ -491,7 +470,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_tee_ui_utils_intersect_convext_obj_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = (
@@ -513,7 +492,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_cts_activity_mgr_register_ui_change_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = (
@@ -538,7 +517,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_cts_activity_mgr_register_ui_change_java_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = (
@@ -563,7 +542,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_permission_memory_footprint_apps_size_kt_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = (
@@ -588,7 +567,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_permission_memory_footprint_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'android.security.cts.PermissionMemoryFootprintTest'
@@ -609,7 +588,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.ParallelTestRunner.run_in_parallel
+  @atest_integration_test.run_in_parallel
   def test_permission_memory_footprint_apps_size_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = (
@@ -633,6 +612,26 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         self._assert_equivalent_cmds,
         expected_cmd=expected_cmd,
     )
+
+  @classmethod
+  @atest_integration_test.setup_parallel_in_build_env
+  def setUpClassForParallelInBuild(cls):
+    """Setup method for parallel run in build env.
+
+    This setup executes an initial run of atest on a simple method,
+    disregarding the results. This is needed so that atest will build any
+    dependencies required before the parallel run starts. Without this
+    setup, on certain build environment the parallel run may trigger
+    parallel soong build which will result in lock timeout.
+    """
+    cls.run_atest_command(
+        'hello_world_test --dry-run -cit',
+        atest_integration_test.StepInput(
+            os.environ, os.environ['ANDROID_BUILD_TOP'], cls.get_config(), {}
+        ),
+        include_device_serial=False,
+        print_output=False,
+    ).check_returncode()
 
   def _sanitize_runner_command(self, cmd: str) -> str:
     """Sanitize an atest runner command by removing non-essential args."""
@@ -712,7 +711,9 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
     def build_step(
         step_in: atest_integration_test.StepInput,
     ) -> atest_integration_test.StepOutput:
-      result = self.run_atest_command(atest_cmd + ' --dry-run -cit', step_in)
+      result = self.run_atest_command(
+          atest_cmd + ' --dry-run -cit', step_in, include_device_serial=False
+      )
       result.check_returncode()
       runner_cmd = result.get_atest_log_values_from_prefix(
           _DRY_RUN_COMMAND_LOG_PREFIX

@@ -40,13 +40,13 @@ import shutil
 import subprocess
 import sys
 from threading import Thread
+import traceback
 from typing import Any, Dict, List, Set, Tuple
 import urllib
 import xml.etree.ElementTree as ET
 import zipfile
 
 from atest import atest_decorator
-from atest import atest_error
 from atest import constants
 from atest.atest_enum import DetectType, ExitCode, FilterType
 from atest.metrics import metrics
@@ -99,8 +99,6 @@ _REGULAR_FILTER_RE = re.compile(r'.*\w$')
 _HTML_LOG_PRINT_PREFIX = 'To access logs, press "ctrl" and click on'
 
 SUGGESTIONS = {
-    # (b/198581508) Do not run "adb sync" for the users.
-    'CANNOT LINK EXECUTABLE': 'Please run "adb sync" or reflash the device(s).',
     # (b/177626045) If Atest does not install target application properly.
     'Runner reported an invalid method': 'Please reflash the device(s).',
 }
@@ -108,6 +106,8 @@ SUGGESTIONS = {
 _BUILD_ENV = {}
 
 CACHE_VERSION = 1
+
+_original_sys_stdout = sys.stdout
 
 
 @dataclass
@@ -125,6 +125,7 @@ class BuildEnvProfiler:
 @enum.unique
 class BuildOutputMode(enum.Enum):
   'Represents the different ways to display build output.'
+
   STREAMED = 'streamed'
   LOGGED = 'logged'
 
@@ -220,7 +221,12 @@ def get_build_cmd(dump=False):
   )
   if dump:
     return [make_cmd, '--dumpvar-mode', 'report_config']
-  return [make_cmd, '--make-mode', 'WRAPPER_TOOL=atest']
+  return [
+      make_cmd,
+      '--make-mode',
+      'WRAPPER_TOOL=atest',
+      f'ATEST_RUN_ID={metrics.get_run_id()}',
+  ]
 
 
 def _capture_fail_section(full_log):
@@ -433,12 +439,12 @@ def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
       )
       _run_build_cmd_with_limited_output(cmd, env_vars=env_vars)
     _send_build_condition_metrics(build_profiler, cmd)
-    logging.info('Build successful')
+    print_and_log_info('Build successful')
     return True
   except subprocess.CalledProcessError as err:
-    logging.error('Build failure when running: %s', ' '.join(cmd))
+    print_and_log_error('Build failure when running: %s', ' '.join(cmd))
     if err.output:
-      logging.error(err.output)
+      print_and_log_error(err.output)
     return False
 
 
@@ -538,7 +544,7 @@ def colorize(text, color, bp_color=None):
   """
   clr_pref = '\033[1;'
   clr_suff = '\033[0m'
-  has_colors = _has_colors(sys.stdout)
+  has_colors = _has_colors(_original_sys_stdout)
   if has_colors:
     background_color = ''
     if bp_color:
@@ -605,6 +611,59 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
     print(output)
   else:
     print(output, end='')
+
+
+def _print_to_console(
+    prefix: str, color: int, msg: Any, *fmt_args: list[Any]
+) -> None:
+  """Print a message to the console.
+
+  Args:
+    msg: The message to format.
+    *fmt_args: Format arguments for the message.
+  """
+  if not fmt_args:
+    evaluated_msg = str(msg)
+  else:
+    try:
+      evaluated_msg = msg % fmt_args
+    except (TypeError, ValueError):
+      traceback.print_exc()
+      return
+  colorful_print(f'{prefix}{evaluated_msg}', color)
+
+
+def print_and_log_error(msg, *fmt_args):
+  """Print error message to the console and log it.
+
+  Args:
+    msg: The message to print.
+    *fmt_args: Format arguments for the message.
+  """
+  logging.error(msg, *fmt_args)
+  _print_to_console('Error: ', constants.RED, msg, *fmt_args)
+
+
+def print_and_log_warning(msg, *fmt_args):
+  """Print warning message to the console and log it.
+
+  Args:
+    msg: The message to print.
+    *fmt_args: Format arguments for the message.
+  """
+  logging.warning(msg, *fmt_args)
+  _print_to_console('Warning: ', constants.YELLOW, msg, *fmt_args)
+
+
+def print_and_log_info(msg, *fmt_args):
+  """Print info message to the console and log it.
+
+  Args:
+    msg: The message to print.
+    *fmt_args: Format arguments for the message.
+  """
+  logging.info(msg, *fmt_args)
+  _print_to_console('Info: ', constants.WHITE, msg, *fmt_args)
 
 
 def get_terminal_size():
@@ -705,7 +764,7 @@ def save_md5(filenames, save_file):
   for f in filenames:
     name = Path(f)
     if not name.is_file():
-      logging.warning(' ignore %s: not a file.', name)
+      print_and_log_warning(' ignore %s: not a file.', name)
     data.update({str(name): md5sum(name)})
   with open(save_file, 'w+', encoding='utf-8') as _file:
     json.dump(data, _file)
@@ -1051,10 +1110,21 @@ def get_atest_version():
       If the git command fails for unexpected reason:
           2022-11-24_unknown  (<today_date>_unknown)
   """
-  atest_dir = Path(__file__).resolve().parent
-  version_file = atest_dir.joinpath('VERSION')
-  if Path(version_file).is_file():
-    return open(version_file, encoding='utf-8').read()
+  try:
+    with importlib.resources.as_file(
+        importlib.resources.files('atest').joinpath('VERSION')
+    ) as version_file_path:
+      return version_file_path.read_text(encoding='utf-8')
+  except (ModuleNotFoundError, FileNotFoundError):
+    logging.debug(
+        'Failed to load package resource atest/VERSION, possibly due to running'
+        ' from atest-dev, atest-src, a prebuilt without embedded launcher, or a'
+        ' prebuilt not created by the asuite release tool. Falling back to'
+        ' legacy source search.'
+    )
+    version_file = Path(__file__).resolve().parent.joinpath('VERSION')
+    if Path(version_file).is_file():
+      return open(version_file, encoding='utf-8').read()
 
   # Try fetching commit date (%ci) and commit hash (%h).
   git_cmd = 'git log -1 --pretty=format:"%ci;%h"'
@@ -1539,33 +1609,6 @@ def get_verify_key(tests, extra_args):
   return ' '.join(test_commands)
 
 
-def gen_runner_cmd_to_file(
-    tests, dry_run_cmd, result_path=constants.RUNNER_COMMAND_PATH
-):
-  """Generate test command and save to file.
-
-  Args:
-      tests: A String of input tests.
-      dry_run_cmd: A String of dry run command.
-      result_path: A file path for saving result.
-
-  Returns:
-      A composed run commands.
-  """
-  normalized_cmd = dry_run_cmd
-  root_path = os.environ.get(constants.ANDROID_BUILD_TOP)
-  if root_path in dry_run_cmd:
-    normalized_cmd = dry_run_cmd.replace(
-        root_path, f'${constants.ANDROID_BUILD_TOP}'
-    )
-  results = load_json_safely(result_path)
-  if results.get(tests) != normalized_cmd:
-    results[tests] = normalized_cmd
-  with open(result_path, 'w+', encoding='utf-8') as _file:
-    json.dump(results, _file, indent=0)
-  return results.get(tests, '')
-
-
 def save_build_files_timestamp():
   """Method that generate timestamp of Android.{bp,mk} files.
 
@@ -1656,6 +1699,11 @@ def get_misc_dir():
   if is_writable(home_dir):
     return home_dir
   return get_build_out_dir()
+
+
+def get_config_folder() -> Path:
+  """Returns the config folder path where upload config is stored."""
+  return Path(get_misc_dir()).joinpath('.atest')
 
 
 def get_full_annotation_class_name(module_info, class_name):

@@ -179,8 +179,17 @@ class Loader:
       self.load_module_info = self._load_module_info_from_file_wo_merging
     else:
       self.mod_info_file_path = atest_utils.get_product_out(_MODULE_INFO)
-      if force_build or not self.mod_info_file_path.is_file():
+      if force_build:
+        logging.debug('Triggering module info build by force build.')
         build()
+      elif not self.mod_info_file_path.is_file():
+        logging.debug(
+            'Triggering module info build due to module info file path %s not'
+            ' exist.',
+            self.mod_info_file_path,
+        )
+        build()
+
       self.update_merge_info = self.need_merge_module_info()
       self.load_module_info = self._load_module_info_file
 
@@ -517,7 +526,7 @@ class ModuleInfo:
       return True
     return False
 
-  def get_paths(self, name):
+  def get_paths(self, name) -> list[str]:
     """Return paths of supplied module name, Empty list if non-existent."""
     info = self.get_module_info(name)
     if info:
@@ -946,7 +955,8 @@ class ModuleInfo:
     )
     return install_deps
 
-  def is_unit_test(self, mod_info):
+  @staticmethod
+  def is_unit_test(mod_info):
     """Return True if input module is unit test, False otherwise.
 
     Args:
@@ -1046,7 +1056,7 @@ class ModuleInfo:
 
   def get_all_unit_tests(self):
     """Get a list of all the module names which are unit tests."""
-    return self._get_all_modules(type_predicate=self.is_unit_test)
+    return self._get_all_modules(type_predicate=ModuleInfo.is_unit_test)
 
   def get_all_host_unit_tests(self):
     """Get a list of all the module names which are host unit tests."""
@@ -1155,6 +1165,19 @@ class ModuleInfo:
       return Path(os.getenv(constants.ANDROID_BUILD_TOP), p)
 
     return [_to_abs_path(p) for p in mod_info.get('installed', [])]
+
+  def get_code_under_test(self, module_name: str) -> List[str]:
+    """Return code under test from module info."""
+    mod_info = self.get_module_info(module_name)
+    if not mod_info:
+      atest_utils.colorful_print(
+          '\nmodule %s cannot be found in module info, skip generating'
+          ' coverage for it.' % module_name,
+          constants.YELLOW,
+      )
+      return []
+
+    return mod_info.get('code_under_test', [])
 
   def build_variants(self, info: Dict[str, Any]) -> List[str]:
     return info.get(constants.MODULE_SUPPORTED_VARIANTS, [])
@@ -1547,7 +1570,7 @@ def _index_testable_modules(contents: Any, index_path: Path):
       shutil.move(cache.name, index_path)
       logging.debug('%s is created successfully.', index_path)
     except IOError:
-      logging.error('Failed in dumping %s', cache)
+      atest_utils.print_and_log_error('Failed in dumping %s', cache)
       os.remove(cache.name)
 
 

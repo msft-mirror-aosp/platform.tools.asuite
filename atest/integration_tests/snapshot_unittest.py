@@ -191,6 +191,63 @@ class SnapshotTest(fake_filesystem_unittest.TestCase):
     self.assertEqual(len(file_infos), 1)
     self.assertIn('dir1', file_infos)
 
+  def test_restore_snapshot_preserve_dangling_relative_links(self):
+    """Test restoring a dangling link relative to the workspace."""
+    workspace = self.temp_dir / 'workspace'
+    self.fs.create_dir(workspace)
+    snapshot = Snapshot(self.temp_dir / 'db')
+    snapshot_name = 'a_snapshot_name'
+    restore_dir = self.temp_dir / 'restore'
+    link_file_name = 'link'
+    target_file_name = pathlib.Path('non-existent-path')
+    workspace.joinpath(link_file_name).symlink_to(target_file_name)
+    snapshot.take_snapshot(snapshot_name, workspace, ['*'])
+
+    snapshot.restore_snapshot(snapshot_name, restore_dir)
+
+    self.assertEqual(
+        restore_dir.joinpath(link_file_name).readlink(),
+        target_file_name,
+    )
+
+  def test_restore_snapshot_preserve_dangling_absolute_links(self):
+    """Test restoring a dangling absolute link within workspace."""
+    workspace = self.temp_dir / 'workspace'
+    self.fs.create_dir(workspace)
+    snapshot = Snapshot(self.temp_dir / 'db')
+    snapshot_name = 'a_snapshot_name'
+    restore_dir = self.temp_dir / 'restore'
+    link_file_name = 'link'
+    target_file_name = 'non-existent-path'
+    internal_dangling_target = workspace / target_file_name
+    workspace.joinpath(link_file_name).symlink_to(internal_dangling_target)
+    snapshot.take_snapshot(snapshot_name, workspace, ['*'])
+
+    snapshot.restore_snapshot(snapshot_name, restore_dir)
+
+    self.assertEqual(
+        restore_dir.joinpath(link_file_name).resolve(),
+        restore_dir / target_file_name,
+    )
+
+  def test_restore_snapshot_preserve_dangling_external_links(self):
+    """Test restoring a dangling link pointing to outside the workspace."""
+    workspace = self.temp_dir / 'workspace'
+    self.fs.create_dir(workspace)
+    snapshot = Snapshot(self.temp_dir / 'db')
+    snapshot_name = 'a_snapshot_name'
+    restore_dir = self.temp_dir / 'restore'
+    link_file_name = 'link'
+    external_dangling_target = pathlib.Path('/external/non-existent-path')
+    workspace.joinpath(link_file_name).symlink_to(external_dangling_target)
+    snapshot.take_snapshot(snapshot_name, workspace, ['*'])
+
+    snapshot.restore_snapshot(snapshot_name, restore_dir)
+
+    self.assertEqual(
+        restore_dir.joinpath(link_file_name).resolve(), external_dangling_target
+    )
+
   def test_restore_snapshot_empty_dir(self):
     """Test restoring a snapshot of an empty directory."""
     workspace = self.temp_dir / 'workspace'
@@ -199,8 +256,8 @@ class SnapshotTest(fake_filesystem_unittest.TestCase):
     snapshot = Snapshot(self.temp_dir / 'db')
     snapshot_name = 'a_snapshot_name'
     snapshot.take_snapshot(snapshot_name, workspace, ['*'])
-
     restore_dir = self.temp_dir / 'restore'
+
     snapshot.restore_snapshot(snapshot_name, restore_dir)
 
     self.assertTrue(restore_dir.joinpath('dir1').exists())

@@ -16,10 +16,12 @@
 package com.android.tradefed.testtype.bazel;
 
 import com.android.annotations.VisibleForTesting;
+import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.invoker.logger.InvocationMetricLogger;
 import com.android.tradefed.invoker.logger.InvocationMetricLogger.InvocationMetricKey;
@@ -37,11 +39,14 @@ import com.android.tradefed.result.proto.ProtoResultParser;
 import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.result.proto.TestRecordProto.TestRecord;
 import com.android.tradefed.testtype.IRemoteTest;
+import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.ZipUtil;
 import com.android.tradefed.util.proto.TestRecordProtoUtil;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.io.CharStreams;
@@ -64,7 +69,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Map;
@@ -153,6 +157,11 @@ public final class BazelTest implements IRemoteTest {
     private final List<String> mIncludeTargets = new ArrayList<>();
 
     @Option(
+            name = "bazel-query",
+            description = "Bazel query to return list of tests, defaults to all deviceless tests")
+    private String mBazelQuery = "kind(tradefed_deviceless_test, tests(//...))";
+
+    @Option(
             name = "report-cached-test-results",
             description = "Whether or not to report cached test results.")
     private boolean mReportCachedTestResults = true;
@@ -236,8 +245,8 @@ public final class BazelTest implements IRemoteTest {
 
         Path workspaceDirectory = resolveWorkspacePath();
 
-        Collection<String> testTargets = listTestTargets(workspaceDirectory);
-        if (testTargets.isEmpty()) {
+        BiMap<String, String> modulesToTargets = listTestModulesToTargets(workspaceDirectory);
+        if (modulesToTargets.isEmpty()) {
             throw new AbortRunException(
                     "No targets found, aborting",
                     FailureStatus.DEPENDENCY_ISSUE,
@@ -246,11 +255,12 @@ public final class BazelTest implements IRemoteTest {
 
         Path bepFile = createTemporaryFile("BEP_output");
 
-        Process bazelTestProcess = startTests(testInfo, testTargets, workspaceDirectory, bepFile);
+        Process bazelTestProcess =
+                startTests(testInfo, modulesToTargets.values(), workspaceDirectory, bepFile);
 
         try (BepFileTailer tailer = BepFileTailer.create(bepFile)) {
             bazelTestProcess.onExit().thenRun(() -> tailer.stop());
-            reportTestResults(listener, testInfo, runFailures, tailer, stats);
+            reportTestResults(listener, testInfo, runFailures, tailer, stats, modulesToTargets);
         }
 
         // Note that if Bazel exits without writing the 'last' BEP message marker we won't get to
@@ -279,11 +289,13 @@ public final class BazelTest implements IRemoteTest {
             TestInformation testInfo,
             List<FailureDescription> runFailures,
             BepFileTailer tailer,
-            RunStats stats)
+            RunStats stats,
+            BiMap<String, String> modulesToTargets)
             throws InterruptedException, IOException {
 
         try (CloseableTraceScope ignored = new CloseableTraceScope("reportTestResults")) {
-            reportTestResultsNoTrace(listener, testInfo, runFailures, tailer, stats);
+            reportTestResultsNoTrace(
+                    listener, testInfo, runFailures, tailer, stats, modulesToTargets);
         }
     }
 
@@ -292,7 +304,8 @@ public final class BazelTest implements IRemoteTest {
             TestInformation testInfo,
             List<FailureDescription> runFailures,
             BepFileTailer tailer,
-            RunStats stats)
+            RunStats stats,
+            BiMap<String, String> modulesToTargets)
             throws InterruptedException, IOException {
 
         BuildEventStreamProtos.BuildEvent event;
@@ -313,7 +326,7 @@ public final class BazelTest implements IRemoteTest {
 
             try {
                 reportEventsInTestOutputsArchive(
-                        event.getTestResult(), listener, testInfo.getContext());
+                        event, listener, testInfo.getContext(), modulesToTargets);
             } catch (IOException
                     | InterruptedException
                     | URISyntaxException
@@ -354,15 +367,15 @@ public final class BazelTest implements IRemoteTest {
         return builder;
     }
 
-    private Collection<String> listTestTargets(Path workspaceDirectory)
+    private BiMap<String, String> listTestModulesToTargets(Path workspaceDirectory)
             throws IOException, InterruptedException {
 
-        try (CloseableTraceScope ignored = new CloseableTraceScope("listTestTargets")) {
-            return listTestTargetsNoTrace(workspaceDirectory);
+        try (CloseableTraceScope ignored = new CloseableTraceScope("listTestModulesToTargets")) {
+            return listTestModulesToTargetsNoTrace(workspaceDirectory);
         }
     }
 
-    private Collection<String> listTestTargetsNoTrace(Path workspaceDirectory)
+    private BiMap<String, String> listTestModulesToTargetsNoTrace(Path workspaceDirectory)
             throws IOException, InterruptedException {
 
         // We need to query all tests targets first in a separate Bazel query call since 'cquery
@@ -370,7 +383,7 @@ public final class BazelTest implements IRemoteTest {
         List<String> allTestTargets = queryAllTestTargets(workspaceDirectory);
         CLog.i("Found %d test targets in workspace", allTestTargets.size());
 
-        Map<String, String> moduleToTarget =
+        BiMap<String, String> moduleToTarget =
                 queryModulesToTestTargets(workspaceDirectory, allTestTargets);
 
         Set<String> moduleExcludes = groupTargetsByType(mExcludeTargets).get(FilterType.MODULE);
@@ -385,14 +398,14 @@ public final class BazelTest implements IRemoteTest {
         }
 
         if (!moduleIncludes.isEmpty()) {
-            return Maps.filterKeys(moduleToTarget, s -> moduleIncludes.contains(s)).values();
+            return Maps.filterKeys(moduleToTarget, s -> moduleIncludes.contains(s));
         }
 
         if (!moduleExcludes.isEmpty()) {
-            return Maps.filterKeys(moduleToTarget, s -> !moduleExcludes.contains(s)).values();
+            return Maps.filterKeys(moduleToTarget, s -> !moduleExcludes.contains(s));
         }
 
-        return moduleToTarget.values();
+        return moduleToTarget;
     }
 
     private List<String> queryAllTestTargets(Path workspaceDirectory)
@@ -403,7 +416,8 @@ public final class BazelTest implements IRemoteTest {
         ProcessBuilder builder = createBazelCommand(workspaceDirectory, QUERY_ALL_TARGETS);
 
         builder.command().add("query");
-        builder.command().add("tests(...)");
+        builder.command().add(mBazelQuery);
+
         builder.redirectError(Redirect.appendTo(logFile.toFile()));
 
         Process queryProcess = startProcess(QUERY_ALL_TARGETS, builder, BAZEL_QUERY_TIMEOUT);
@@ -414,7 +428,7 @@ public final class BazelTest implements IRemoteTest {
         return queryLines;
     }
 
-    private Map<String, String> queryModulesToTestTargets(
+    private BiMap<String, String> queryModulesToTestTargets(
             Path workspaceDirectory, List<String> allTestTargets)
             throws IOException, InterruptedException {
 
@@ -450,8 +464,8 @@ public final class BazelTest implements IRemoteTest {
         return CharStreams.readLines(process.inputReader());
     }
 
-    private Map<String, String> parseModulesToTargets(Collection<String> lines) {
-        Map<String, String> moduleToTarget = new HashMap<>();
+    private BiMap<String, String> parseModulesToTargets(Collection<String> lines) {
+        BiMap<String, String> moduleToTarget = HashBiMap.create(lines.size());
         StringBuilder errorMessage = new StringBuilder();
         for (String line : lines) {
             // Query output format is: "module_name //bazel/test:target" if a test target is a
@@ -479,6 +493,7 @@ public final class BazelTest implements IRemoteTest {
                 errorMessage.append(
                         "Multiple test targets found for module %s: %s, %s\n"
                                 .formatted(moduleName, duplicateEntry, targetName));
+                continue;
             }
 
             moduleToTarget.put(moduleName, targetName);
@@ -490,7 +505,7 @@ public final class BazelTest implements IRemoteTest {
                     FailureStatus.DEPENDENCY_ISSUE,
                     TestErrorIdentifier.TEST_ABORTED);
         }
-        return ImmutableMap.copyOf(moduleToTarget);
+        return ImmutableBiMap.copyOf(moduleToTarget);
     }
 
     private Process startTests(
@@ -612,25 +627,28 @@ public final class BazelTest implements IRemoteTest {
     }
 
     private void reportEventsInTestOutputsArchive(
-            BuildEventStreamProtos.TestResult result,
+            BuildEventStreamProtos.BuildEvent event,
             ITestInvocationListener listener,
-            IInvocationContext context)
+            IInvocationContext context,
+            BiMap<String, String> modulesToTargets)
             throws IOException, InvalidProtocolBufferException, InterruptedException,
                     URISyntaxException {
 
         try (CloseableTraceScope ignored =
                 new CloseableTraceScope("reportEventsInTestOutputsArchive")) {
-            reportEventsInTestOutputsArchiveNoTrace(result, listener, context);
+            reportEventsInTestOutputsArchiveNoTrace(event, listener, context, modulesToTargets);
         }
     }
 
     private void reportEventsInTestOutputsArchiveNoTrace(
-            BuildEventStreamProtos.TestResult result,
+            BuildEventStreamProtos.BuildEvent event,
             ITestInvocationListener listener,
-            IInvocationContext context)
+            IInvocationContext context,
+            BiMap<String, String> modulesToTargets)
             throws IOException, InvalidProtocolBufferException, InterruptedException,
                     URISyntaxException {
 
+        BuildEventStreamProtos.TestResult result = event.getTestResult();
         BuildEventStreamProtos.File outputsFile =
                 result.getTestActionOutputList().stream()
                         .filter(file -> file.getName().equals(TEST_UNDECLARED_OUTPUTS_ARCHIVE_NAME))
@@ -647,6 +665,12 @@ public final class BazelTest implements IRemoteTest {
         try {
             String filePrefix = "tf-test-process-";
             ZipUtil.extractZip(new ZipFile(zipFile), outputFilesDir.toFile());
+
+            // Test timed out, report as failure and upload any test output found for debugging
+            if (result.getStatus() == BuildEventStreamProtos.TestStatus.TIMEOUT) {
+                reportTimedOutTestResults(event, outputFilesDir, modulesToTargets, listener);
+                return;
+            }
 
             File protoResult = outputFilesDir.resolve(PROTO_RESULTS_FILE_NAME).toFile();
             TestRecord record = TestRecordProtoUtil.readFromFile(protoResult);
@@ -666,6 +690,56 @@ public final class BazelTest implements IRemoteTest {
             parseResultsToListener(bazelListener, context, record, filePrefix);
         } finally {
             MoreFiles.deleteRecursively(outputFilesDir);
+        }
+    }
+
+    private static void reportTimedOutTestResults(
+            BuildEventStreamProtos.BuildEvent event,
+            Path outputFilesDir,
+            BiMap<String, String> modulesToTargets,
+            ITestInvocationListener listener)
+            throws IOException {
+        String label = event.getId().getTestResult().getLabel();
+        String module = modulesToTargets.inverse().get("@" + label);
+
+        IInvocationContext moduleContext = new InvocationContext();
+        String abi = AbiUtils.getHostAbi().iterator().next();
+        moduleContext.addInvocationAttribute("module-id", abi + " " + module);
+        moduleContext.addInvocationAttribute("module-abi", abi);
+        moduleContext.addInvocationAttribute("module-name", module);
+        ConfigurationDescriptor descriptor = new ConfigurationDescriptor();
+        descriptor.addMetadata("module-name", module);
+        descriptor.setModuleName(module);
+        moduleContext.setConfigurationDescriptor(descriptor);
+
+        listener.testModuleStarted(moduleContext);
+        listener.testRunStarted(module, 0);
+        listener.testRunFailed(
+                FailureDescription.create(
+                                "Test timed out, results cannot be processed, but any outputs"
+                                        + " generated will be uploaded.",
+                                FailureStatus.TIMED_OUT)
+                        .setErrorIdentifier(TestErrorIdentifier.TEST_BINARY_TIMED_OUT));
+        listener.testRunEnded(0L, Collections.emptyMap());
+        uploadTestModuleOutputs(listener, outputFilesDir, module);
+        listener.testModuleEnded();
+    }
+
+    private static void uploadTestModuleOutputs(
+            ITestInvocationListener listener, Path outputFilesDir, String module)
+            throws IOException {
+        try (Stream<Path> testOutputs =
+                Files.walk(outputFilesDir).filter(x -> Files.isRegularFile(x))) {
+            testOutputs.forEach(
+                    testOutput -> {
+                        try (FileInputStreamSource source =
+                                new FileInputStreamSource(testOutput.toFile())) {
+                            listener.testLog(
+                                    module + "-" + testOutput.getFileName().toString(),
+                                    LogDataType.TEXT,
+                                    source);
+                        }
+                    });
         }
     }
 

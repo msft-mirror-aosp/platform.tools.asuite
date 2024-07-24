@@ -1,6 +1,6 @@
 register_toolchains(
     "//prebuilts/build-tools:py_toolchain",
-    "//prebuilts/jdk/jdk17:runtime_toolchain_definition",
+    "//prebuilts/jdk/jdk21:runtime_toolchain_definition",
 )
 
 # `device_infra` repository provides rules needed to start cuttlefish devices
@@ -13,9 +13,12 @@ local_repository(
 
 local_repository(
     name = "rules_python",
-    # TODO(b/200202912): Re-route this when rules_python is pulled into AOSP.
-    path = "build/bazel_common_rules/rules/python/stubs",
+    path = "external/bazelbuild-rules_python",
 )
+
+load("@rules_python//python:repositories.bzl", "py_repositories")
+
+py_repositories()
 
 local_repository(
     name = "rules_java",

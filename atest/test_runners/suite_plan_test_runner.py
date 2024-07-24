@@ -22,7 +22,6 @@ from typing import Any, Dict, List
 from atest import atest_utils
 from atest import constants
 from atest.atest_enum import ExitCode
-from atest.logstorage import atest_gcp_utils
 from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
 from atest.test_finders import test_info
@@ -66,7 +65,11 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
         Return code of the process for running tests.
     """
     reporter.register_unsupported_runner(self.NAME)
-    creds, inv = atest_gcp_utils.do_upload_flow(extra_args)
+    creds, inv = (
+        logstorage_utils.do_upload_flow(extra_args)
+        if logstorage_utils.is_upload_enabled(extra_args)
+        else (None, None)
+    )
 
     run_cmds = self.generate_run_commands(test_infos, extra_args)
     ret_code = ExitCode.SUCCESS
@@ -135,7 +138,7 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
         continue
       args_not_supported.append(arg)
     if args_not_supported:
-      logging.info(
+      atest_utils.print_and_log_info(
           '%s does not support the following args: %s',
           self.EXECUTABLE,
           args_not_supported,

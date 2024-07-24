@@ -21,8 +21,6 @@ from pathlib import Path
 import re
 import tempfile
 
-MODE = 'DEFAULT'
-
 # Result server constants for atest_utils.
 RESULT_SERVER = ''
 RESULT_SERVER_ARGS = []
@@ -307,7 +305,6 @@ SCOPE_BUILD_API_SCOPE = ''
 STORAGE_API_VERSION = ''
 STORAGE_API_VERSION_LEGACY = ''
 STORAGE_SERVICE_NAME = ''
-DO_NOT_UPLOAD = 'DO_NOT_UPLOAD'
 CLIENT_ID = ''
 CLIENT_SECRET = ''
 CREDENTIAL_FILE_NAME = ''
@@ -318,7 +315,6 @@ LOCAL_BUILD_ID = 'LOCAL_BUILD_ID'
 BUILD_TARGET = 'BUILD_TARGET'
 RESULT_LINK = ''
 TF_GLOBAL_CONFIG = ''
-UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
 DISCOVERY_SERVICE = ''
 DISCOVERY_SERVICE_LEGACY = ''
 STORAGE2_TEST_URI = ''
@@ -371,10 +367,6 @@ DEFAULT_EXCLUDE_NOT_PARAS = {
     'not_' + TF_PARA_SECOND_USR,
     'not_' + TF_PARA_MULTIABI,
 }
-VERIFY_ENV_PATH = os.path.join(
-    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
-    'tools/asuite/atest/test_data/test_environ.json',
-)
 RUNNER_COMMAND_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
     'tools/asuite/atest/test_data/runner_commands.json',

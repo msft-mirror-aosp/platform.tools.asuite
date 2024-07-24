@@ -13,7 +13,9 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::process;
+use std::thread::sleep;
 use std::time::Duration;
+use std::time::Instant;
 use tracing::{debug, info};
 
 pub struct RealDevice {
@@ -62,40 +64,51 @@ impl Device for RealDevice {
     /// First ask adb to wait for the device, then poll for sys.boot_completed on the device.
     fn wait(&self, profiler: &mut Profiler) -> Result<String> {
         // Typically the reboot on acloud is 25 secs
-        // And another 50 for fully booted
-        // Wait up to twice as long for either
-
+        // It can take 130 seconds after for a full boot.
+        // Setting timeouts to have at least 2x that.
         progress::start(" * [1/2] Waiting for device to connect.");
         time!(
             {
                 let args = self.adjust_adb_args(&["wait-for-device".to_string()]);
-                self.wait_for_adb_with_timeout(&args, Duration::from_secs(70))?;
+                self.wait_for_adb_with_timeout(&args, Duration::from_secs(75))?;
             },
             profiler.wait_for_device
         );
 
         progress::update(" * [2/2] Waiting for property sys.boot_completed.");
-        let result = time!(
+        time!(
             {
                 let args = self.adjust_adb_args(&[
                     "wait-for-device".to_string(),
                     "shell".to_string(),
                     "while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done".to_string(),
                 ]);
-                self.wait_for_adb_with_timeout(&args, Duration::from_secs(100))
+                let result = self.wait_for_adb_with_timeout(&args, Duration::from_secs(260));
+                progress::stop();
+                result
             },
             profiler.wait_for_boot_completed
-        );
-        progress::stop();
-        result
+        )
     }
 
-    fn prep_after_flash(&self) -> Result<()> {
-        self.run_raw_adb_command(&["remount".to_string()])?;
-        self.run_raw_adb_command(&["reboot".to_string()])?;
-        self.run_raw_adb_command(&["wait-for-device".to_string()])?;
-        self.run_raw_adb_command(&["root".to_string()])?;
-        self.run_raw_adb_command(&["wait-for-device".to_string()])?;
+    fn prep_after_flash(&self, profiler: &mut Profiler) -> Result<()> {
+        progress::start(" * [1/2] Remounting device");
+        let timeout = Duration::from_secs(60);
+
+        self.run_cmd_with_retry_until_timeout(
+            "adb",
+            &self.adjust_adb_args(&["root".to_string()]),
+            timeout,
+        )?;
+        // Remount and reboot; rebooting will return status code 255 so ignore error.
+        let _ = self.run_raw_adb_command(&["remount".to_string(), "-R".to_string()]);
+        progress::stop();
+        self.wait(profiler)?;
+        self.run_cmd_with_retry_until_timeout(
+            "adb",
+            &self.adjust_adb_args(&["root".to_string()]),
+            timeout,
+        )?;
         Ok(())
     }
 
@@ -110,17 +123,9 @@ impl Device for RealDevice {
             .output()
             .context("Error running adb commands")?;
 
-        if output.status.success() && output.stderr.is_empty() {
+        if output.status.success() {
             let stdout = String::from_utf8(output.stdout)?;
             return Ok(stdout);
-        }
-
-        // Adb remount returns status 0, but writes the mounts to stderr.
-        // Just swallow the useless output and return ok.
-        if let Some(cmd) = cmd.first() {
-            if output.status.success() && cmd == "remount" {
-                return Ok("".to_string());
-            }
         }
 
         // It is some error.
@@ -244,46 +249,70 @@ impl RealDevice {
     /// Run "adb wait-for-device" ... but exit if adb doesn't return
     /// in the `timeout` amount of time.
     pub fn wait_for_adb_with_timeout(&self, args: &[String], timeout: Duration) -> Result<String> {
-        let output = run_process_with_timeout(timeout, "adb", args);
-        progress::stop();
-        match output {
-            Ok(finished) if finished.status.success() => Ok("".to_string()),
-            Ok(finished) if matches!(finished.status.code(), Some(124)) => {
-                bail!("Waited {timeout:?} seconds for device to restart, but it hasn't yet.")
-            }
-            Ok(finished) => {
-                let stderr = match String::from_utf8(finished.stderr) {
-                    Ok(str) => str,
-                    Err(e) => bail!("Error translating stderr {}", e),
-                };
+        self.run_cmd_with_retry_until_timeout("adb", args, timeout)
+    }
 
-                // Adb writes push errors to stdout.
-                let stdout = match String::from_utf8(finished.stdout) {
-                    Ok(str) => str,
-                    Err(e) => bail!("Error translating stdout {}", e),
-                };
-
-                bail!("Waiting for device has unexpected result: {:?}\nSTDOUT {stdout}\n STDERR {stderr}.", finished.status)
-            }
-            Err(_) => bail!("Problem checking on device after reboot."),
-        }
+    /// run command with retry until timeout duration is reached
+    pub fn run_cmd_with_retry_until_timeout(
+        &self,
+        cmd: &str,
+        args: &[String],
+        timeout: Duration,
+    ) -> Result<String> {
+        run_process_with_retry_until_timeout(cmd, args, timeout)
     }
 }
 
-// Rather than spawn and kill processes in rust, use the `timeout` command
-// to do it for us.
-// TODO(rbraunstein): fix for windows. Use the wait_timeout crate.
-fn run_process_with_timeout(
-    timeout: Duration,
+// Attempts to run a command until the command is either:
+// 1) Successful
+// 2) The amount of retries exceeds 5
+// 3) The timeout (total across all retries) runs out.
+// This is used for adb wait-for-device on acloud which may return
+// errors the first few times.
+// Using timeout binary to simplify (not having to kill process in rust)
+// TODO(kevindagostino): fix for windows. Use the wait_timeout crate.
+
+pub fn run_process_with_retry_until_timeout(
     cmd: &str,
     args: &[String],
-) -> Result<std::process::Output> {
-    // Run timeout instead of `cmd` and add `cmd` to the arg list for timeout.
-    let mut timeout_args = vec![format!("{}", timeout.as_secs()), cmd.to_string()];
-    timeout_args.extend_from_slice(args);
+    timeout: Duration,
+) -> Result<String> {
+    let start_time = Instant::now();
+    let delay = Duration::from_secs(1);
+    let max_retries = 5;
+    let mut retry_count = 0;
 
-    info!("    -- timeout {}", &timeout_args.join(" "));
-    Ok(std::process::Command::new("timeout").args(timeout_args).output()?)
+    while retry_count < max_retries {
+        let time_left = timeout.saturating_sub(start_time.elapsed());
+        if time_left <= Duration::ZERO {
+            break;
+        }
+        retry_count += 1;
+
+        let mut timeout_args = vec![format!("{}", time_left.as_secs()), cmd.to_string()];
+        timeout_args.extend_from_slice(args);
+
+        info!("       -- timeout {}", &timeout_args.join(" "));
+        let output = std::process::Command::new("timeout")
+            .args(timeout_args)
+            .output()
+            .expect("command executed");
+        if output.status.success() {
+            let msg = String::from_utf8(output.stdout)?;
+            info!("       {} {}", output.status, msg);
+            return Ok(msg);
+        }
+
+        if retry_count > 1 {
+            let update_message = format!("retry attempt {} - {:?}", retry_count, cmd.to_string());
+            progress::update(&update_message)
+        }
+
+        // error; log and retry if within timeout window
+        info!("       {} {:?}", output.status, String::from_utf8(output.stderr).expect("stderr"));
+        sleep(delay);
+    }
+    bail!("Command failed to execute {}", cmd.to_string());
 }
 
 pub fn update(
@@ -314,6 +343,7 @@ pub fn update(
         profiler.adb_cmds
     );
     progress::stop();
+    println!(" * Update succeeded!");
     println!();
 
     let rtype = restart_type(restart_chooser, &installed_files);
@@ -412,9 +442,9 @@ mod tests {
     fn timeout_returns_when_process_returns() -> Result<()> {
         let timeout = Duration::from_secs(5);
         let sleep_args = &["3".to_string()];
-        let output = run_process_with_timeout(timeout, "sleep", sleep_args);
+        let output = run_process_with_retry_until_timeout("sleep", sleep_args, timeout);
         match output {
-            Ok(finished) if finished.status.success() => Ok(()),
+            Ok(_) => Ok(()),
             _ => bail!("Expected an ok status code"),
         }
     }
@@ -424,13 +454,21 @@ mod tests {
     fn timeout_exits_when_timeout_hit() -> Result<()> {
         let timeout = Duration::from_secs(5);
         let sleep_args = &["7".to_string()];
-        let output = run_process_with_timeout(timeout, "sleep", sleep_args);
+        let start_time = Instant::now();
+        let output = run_process_with_retry_until_timeout("sleep", sleep_args, timeout);
+
+        // smoke test to make sure process ran longer then timeout.
+        let duration = start_time.elapsed();
+        assert!(
+            duration > timeout,
+            "Expected process to take longer then timeout. Elapsed: {:?}, Timeout: {:?}",
+            duration,
+            timeout
+        );
+
         match output {
-            Ok(finished) if matches!(finished.status.code(), Some(124)) => {
-                // Expect this timeout case
-                Ok(())
-            }
-            _ => bail!("Expected timeout to hit."),
+            Ok(_) => bail!("Expected error status code"),
+            _ => Ok(()),
         }
     }
 
@@ -440,20 +478,23 @@ mod tests {
         let timeout = Duration::from_secs(5);
         let sleep_args = &["--bad-arg".to_string(), "7".to_string()];
         // Add a bad arg so the process we run errs out.
-        let output = run_process_with_timeout(timeout, "sleep", sleep_args);
+        let output = run_process_with_retry_until_timeout("sleep", sleep_args, timeout);
         match output {
-            Ok(finished) if finished.status.success() => bail!("Expected error"),
-            Ok(finished) if matches!(finished.status.code(), Some(124)) => bail!("Expected error"),
+            Ok(_) => bail!("Expected error status code"),
+            _ => Ok(()),
+        }
+    }
 
-            Ok(finished) => {
-                let stderr = match String::from_utf8(finished.stderr) {
-                    Ok(str) => str,
-                    Err(e) => bail!("Error translating stderr {}", e),
-                };
-                assert!(stderr.contains("unrecognized option"));
-                Ok(())
-            }
-            _ => bail!("Expected to catch err in stderr"),
+    #[ignore]
+    #[test]
+    fn reboot_wait() -> Result<()> {
+        let timeout = Duration::from_secs(5);
+        let sleep_args = &["--bad-arg".to_string(), "7".to_string()];
+        // Add a bad arg so the process we run errs out.
+        let output = run_process_with_retry_until_timeout("sleep", sleep_args, timeout);
+        match output {
+            Ok(_) => bail!("Expected error status code"),
+            _ => Ok(()),
         }
     }
 

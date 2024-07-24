@@ -18,32 +18,22 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-java_library_host {
-    name: "atest-tradefed-shell",
-    java_resource_dirs: ["res"],
-}
-
-tradefed_binary_host {
-    name: "atest-tradefed",
-    short_name: "ATEST",
-    full_name: "ATest Test Suite",
-    static_libs: ["atest-tradefed-shell"],
-    required: [
-        "atest_tradefed.sh",
-        "atest_script_help.sh",
-    ],
-}
-
-// Attributes common to both atest and atest_flag_list_generator.
+// Attributes common to both atest binaries and unittests.
 python_defaults {
     name: "atest_defaults",
     pkg_path: "atest",
     srcs: [
         "**/*.py",
     ],
+    libs: [
+        "asuite_proto",
+        "tradefed-protos-py",
+        "py-google-api-python-client",
+        "py-oauth2client",
+        "pyyaml",
+        "ca_certs_locater",
+    ],
     exclude_srcs: [
-        "*_unittest.py",
-        "*/*_unittest.py",
         "asuite_lib_test/*.py",
         "proto/*.py",
         "tf_proto/*.py",
@@ -52,30 +42,46 @@ python_defaults {
         "java_test_filter_generator.py",
         "java_test_filter_generator_test.py",
     ],
-    libs: [
-        "asuite_proto",
-        "tradefed-protos-py",
-        "py-google-api-python-client",
-        "py-oauth2client",
-        "pyyaml",
-    ],
+    version: {
+        py3: {
+            embedded_launcher: true,
+        },
+    },
+}
+
+// Attributes common to atest binaries.
+python_defaults {
+    name: "atest_binary_defaults",
+    defaults: ["atest_defaults"],
     data: [
         "bazel/resources/**/*",
+    ],
+    exclude_srcs: [
+        "integration_tests/*.py",
+        "*_unittest.py",
+        "**/*_unittest.py",
     ],
 }
 
 python_binary_host {
     name: "atest",
-    defaults: ["atest_defaults"],
+    defaults: ["atest_binary_defaults"],
     main: "atest_main.py",
     data: [
         ":atest_flag_list_for_completion",
+        ":atest_log_uploader",
     ],
     // Make atest's built name be atest-dev
     stem: "atest-dev",
     dist: {
         targets: ["droidcore"],
     },
+}
+
+python_binary_host {
+    name: "atest_log_uploader",
+    defaults: ["atest_binary_defaults"],
+    main: "logstorage/log_uploader.py",
 }
 
 // A helper binary used to generate the atest_flag_list_for_completion.txt
@@ -85,7 +91,7 @@ python_binary_host {
 // atest binary during autocompletion.
 python_binary_host {
     name: "atest_flag_list_generator",
-    defaults: ["atest_defaults"],
+    defaults: ["atest_binary_defaults"],
     main: "atest_flag_list_generator.py",
 }
 
@@ -129,10 +135,7 @@ python_library_host {
 python_test_host {
     name: "atest_unittests",
     main: "atest_run_unittests.py",
-    pkg_path: "atest",
-    srcs: [
-        "**/*.py",
-    ],
+    defaults: ["atest_defaults"],
     test_options: {
         unit_test: true,
     },
@@ -141,37 +144,12 @@ python_test_host {
         "unittest_data/**/.*",
     ],
     exclude_srcs: [
-        "asuite_lib_test/*.py",
         "tools/atest_updatedb_unittest.py",
-        "proto/*.py",
-        "tf_proto/*.py",
-        "cc_test_filter_generator.py",
-        "cc_test_filter_generator_test.py",
-        "java_test_filter_generator.py",
-        "java_test_filter_generator_test.py",
     ],
     libs: [
-        "asuite_proto",
         "pyfakefs",
-        "tradefed-protos-py",
-        "pyyaml",
+        "py-httplib2",
     ],
     test_config: "atest_unittests.xml",
     test_suites: ["general-tests"],
-    version: {
-        py3: {
-            embedded_launcher: true,
-            enabled: true,
-        },
-    },
-}
-
-sh_binary_host {
-    name: "atest_tradefed.sh",
-    src: "atest_tradefed.sh",
-}
-
-sh_binary_host {
-    name: "atest_script_help.sh",
-    src: "atest_script_help.sh",
 }

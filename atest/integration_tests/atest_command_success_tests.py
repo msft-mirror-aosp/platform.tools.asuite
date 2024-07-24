@@ -25,24 +25,34 @@ class CommandSuccessTests(atest_integration_test.AtestTestCase):
   def test_example_instrumentation_tests(self):
     """Test if atest can run for the example instrumentation test path."""
     test_path = 'platform_testing/tests/example/instrumentation'
-    self._verify_atest_command_success(test_path, [test_path])
+    self._verify_atest_command_success(
+        test_path, is_device_required=True, snapshot_include_paths=[test_path]
+    )
 
   def test_csuite_harness_tests(self):
     """Test if csuite-harness-tests command runs successfully."""
-    self._verify_atest_command_success('csuite-harness-tests')
+    self._verify_atest_command_success(
+        'csuite-harness-tests --no-bazel-mode --host', is_device_required=False
+    )
 
   def test_csuite_cli_test(self):
     """Test if csuite_cli_test command runs successfully."""
-    self._verify_atest_command_success('csuite_cli_test')
+    self._verify_atest_command_success(
+        'csuite_cli_test --no-bazel-mode --host', is_device_required=False
+    )
 
   def _verify_atest_command_success(
-      self, cmd: str, snapshot_include_paths: list[str] = None
+      self,
+      cmd: str,
+      is_device_required: bool,
+      snapshot_include_paths: list[str] = None,
   ) -> None:
     """Verifies whether an Atest command run completed with exit code 0.
 
     Args:
         cmd: The atest command to run. Note to leave 'atest' or 'atest-dev' out
           from the command.
+        is_device_required: Whether the test requires a device.
         snapshot_include_paths: Any source paths needed to run the test in test
           environment.
     """
@@ -51,14 +61,18 @@ class CommandSuccessTests(atest_integration_test.AtestTestCase):
     def build_step(
         step_in: atest_integration_test.StepInput,
     ) -> atest_integration_test.StepOutput:
-      self.run_atest_command(cmd + ' -cb', step_in).check_returncode()
+      self.run_atest_command(
+          cmd + ' -cb', step_in, include_device_serial=False
+      ).check_returncode()
       step_out = self.create_step_output()
       if snapshot_include_paths:
         step_out.add_snapshot_include_paths(snapshot_include_paths)
       return step_out
 
     def test_step(step_in: atest_integration_test.StepInput) -> None:
-      self.run_atest_command(cmd + ' -it', step_in).check_returncode()
+      self.run_atest_command(
+          cmd + ' -it', step_in, include_device_serial=is_device_required
+      ).check_returncode()
 
     script.add_build_step(build_step)
     script.add_test_step(test_step)

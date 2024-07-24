@@ -32,6 +32,7 @@ import time
 from typing import List
 
 from atest import atest_utils as au
+from atest import atest_utils
 from atest import constants
 from atest.atest_enum import DetectType
 from atest.metrics import metrics, metrics_utils
@@ -127,14 +128,16 @@ def run_updatedb(output_cache: Path, prunepaths: List[str] = None):
     logging.debug('Executing: %s', updatedb_cmd)
     result = subprocess.run(updatedb_cmd, env=full_env_vars, check=True)
   except (KeyboardInterrupt, SystemExit):
-    logging.error('Process interrupted or failure.')
+    atest_utils.print_and_log_error('Process interrupted or failure.')
   # Delete indices when plocate.db is locked() or other CalledProcessError.
   # (b/141588997)
   except subprocess.CalledProcessError as err:
-    logging.error('Executing %s error.', ' '.join(updatedb_cmd))
+    atest_utils.print_and_log_error(
+        'Executing %s error.', ' '.join(updatedb_cmd)
+    )
     metrics_utils.handle_exc_and_send_exit_event(constants.PLOCATEDB_LOCKED)
     if err.output:
-      logging.error(err.output)
+      atest_utils.print_and_log_error(err.output)
     output_cache.unlink()
 
   return result.returncode == 0
@@ -168,7 +171,7 @@ def _dump_index(dump_file, output, output_re, key, value):
       try:
         pickle.dump(_dict, cache_file, protocol=2)
       except IOError:
-        logging.error('Failed in dumping %s', dump_file)
+        atest_utils.print_and_log_error('Failed in dumping %s', dump_file)
     shutil.copy(temp_file.name, dump_file)
 
 
@@ -318,9 +321,9 @@ def _index_qualified_classes(output, index):
       try:
         pickle.dump(_dict, cache_file, protocol=2)
       except (KeyboardInterrupt, SystemExit):
-        logging.error('Process interrupted or failure.')
+        atest_utils.print_and_log_error('Process interrupted or failure.')
       except IOError:
-        logging.error('Failed in dumping %s', index)
+        atest_utils.print_and_log_error('Failed in dumping %s', index)
     shutil.copy(temp_file.name, index)
 
 
@@ -375,7 +378,7 @@ def index_targets():
       return _index_targets(indices, start)
     logging.debug('Indices remains the same. Ignore indexing...')
   else:
-    logging.warning(
+    atest_utils.print_and_log_warning(
         'Unable to run %s. Search targets will be very slow.', output_cache
     )
   return None

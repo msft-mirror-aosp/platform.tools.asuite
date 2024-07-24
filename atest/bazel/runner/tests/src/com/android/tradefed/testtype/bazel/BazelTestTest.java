@@ -388,6 +388,31 @@ public final class BazelTestTest {
     }
 
     @Test
+    public void testModuleTimesOut_testReported() throws Exception {
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    return new FakeBazelTestProcess(builder, mBazelTempPath) {
+                        @Override
+                        public void writeSingleTestResultEvent(File outputsZipFile, Path bepFile)
+                                throws IOException {
+
+                            writeSingleTestResultEvent(
+                                    outputsZipFile,
+                                    bepFile, /* status */
+                                    BuildEventStreamProtos.TestStatus.TIMEOUT);
+                        }
+                    };
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener).testRunFailed(hasFailureStatus(FailureStatus.TIMED_OUT));
+    }
+
+    @Test
     public void includeTestModule_runsOnlyThatModule() throws Exception {
         String moduleInclude = "custom_module";
         List<String> command = new ArrayList<>();
@@ -593,6 +618,44 @@ public final class BazelTestTest {
         bazelTest.run(mTestInfo, mMockListener);
 
         verify(mMockListener, never()).testStarted(any(), anyLong());
+    }
+
+    @Test
+    public void bazelQuery_default() throws Exception {
+        List<String> command = new ArrayList<>();
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.QUERY_ALL_TARGETS,
+                builder -> {
+                    command.addAll(builder.command());
+                    return newPassingProcessWithStdout("unused");
+                });
+
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+        assertThat(command).contains("kind(tradefed_deviceless_test, tests(//...))");
+    }
+
+    @Test
+    public void bazelQuery_optionOverride() throws Exception {
+        List<String> command = new ArrayList<>();
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.QUERY_ALL_TARGETS,
+                builder -> {
+                    command.addAll(builder.command());
+                    return newPassingProcessWithStdout("unused");
+                });
+
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+        OptionSetter setter = new OptionSetter(bazelTest);
+        setter.setOptionValue("bazel-query", "tests(//vendor/...)");
+
+        bazelTest.run(mTestInfo, mMockListener);
+        assertThat(command).contains("tests(//vendor/...)");
+        // Default should be overridden and not appear in command
+        assertThat(command).doesNotContain("kind(tradefed_deviceless_test");
     }
 
     @Test
@@ -999,10 +1062,28 @@ public final class BazelTestTest {
         }
 
         void writeSingleTestResultEvent(File outputsZipFile, Path bepFile) throws IOException {
-            writeSingleTestResultEvent(outputsZipFile, bepFile, false);
+            writeSingleTestResultEvent(
+                    outputsZipFile, bepFile, false, BuildEventStreamProtos.TestStatus.PASSED);
         }
 
         void writeSingleTestResultEvent(File outputsZipFile, Path bepFile, boolean cached)
+                throws IOException {
+            writeSingleTestResultEvent(
+                    outputsZipFile, bepFile, cached, BuildEventStreamProtos.TestStatus.PASSED);
+        }
+
+        void writeSingleTestResultEvent(
+                File outputsZipFile, Path bepFile, BuildEventStreamProtos.TestStatus status)
+                throws IOException {
+
+            writeSingleTestResultEvent(outputsZipFile, bepFile, false, status);
+        }
+
+        void writeSingleTestResultEvent(
+                File outputsZipFile,
+                Path bepFile,
+                boolean cached,
+                BuildEventStreamProtos.TestStatus status)
                 throws IOException {
             try (FileOutputStream bepOutputStream = new FileOutputStream(bepFile.toFile(), true)) {
                 BuildEventStreamProtos.BuildEvent.newBuilder()
@@ -1024,6 +1105,7 @@ public final class BazelTestTest {
                                                         .newBuilder()
                                                         .setCachedRemotely(cached)
                                                         .build())
+                                        .setStatus(status)
                                         .build())
                         .build()
                         .writeDelimitedTo(bepOutputStream);

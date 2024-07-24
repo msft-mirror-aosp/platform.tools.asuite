@@ -304,7 +304,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         targets.add(constants.CTS_JAR)
     return targets
 
-  def _get_module_test_config(self, module_name, rel_config=None):
+  def _get_module_test_config(self, module_name, rel_config=None) -> list[str]:
     """Get the value of test_config in module_info.
 
     Get the value of 'test_config' in module_info if its
@@ -383,7 +383,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
       ti_filter = frozenset([test_info.TestFilter(full_class_name, methods)])
     # Path to cc file.
     elif file_name and constants.CC_EXT_RE.match(file_name):
-      # TODO (b/173019813) Should setup correct filter for an input file.
+      # TODO: b/173019813 - Should setup correct filter for an input file.
       if not test_finder_utils.has_cc_class(path):
         raise atest_error.MissingCCTestCaseError(
             "Can't find CC class in %s" % path
@@ -466,9 +466,11 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     if module_names:
       for mname in module_names:
         # The real test config might be record in module-info.
+        mod_info = self.module_info.get_module_info(mname)
+        if not mod_info:
+          continue
         rel_configs = self._get_module_test_config(mname, rel_config=rel_config)
         for rel_cfg in rel_configs:
-          mod_info = self.module_info.get_module_info(mname)
           tinfo = self._process_test_info(
               test_info.TestInfo(
                   test_name=mname,
@@ -501,7 +503,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     mod_info = self.module_info.get_module_info(module_name)
     if self.module_info.is_testable_module(mod_info):
       # path is a list with only 1 element.
-      rel_config = os.path.join(mod_info['path'][0], constants.MODULE_CONFIG)
+      rel_config = os.path.join(
+          mod_info[constants.MODULE_PATH][0], constants.MODULE_CONFIG
+      )
       rel_configs = self._get_module_test_config(
           module_name, rel_config=rel_config
       )
@@ -570,8 +574,12 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     return None
 
   def find_test_by_class_name(
-      self, class_name, module_name=None, rel_config=None, is_native_test=False
-  ):
+      self,
+      class_name: str,
+      module_name: str = None,
+      rel_config: str = None,
+      is_native_test: bool = False,
+  ) -> list[test_info.TestInfo]:
     """Find test files given a class name.
 
     If module_name and rel_config not given it will calculate it determine
@@ -602,7 +610,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         search_dir, search_class_name, is_native_test, methods
     )
     if not test_paths and rel_config:
-      logging.info(
+      atest_utils.print_and_log_info(
           'Did not find class (%s) under module path (%s), '
           'researching from repo root.',
           class_name,
@@ -710,14 +718,16 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         return True
     return False
 
-  def find_test_by_module_and_class(self, module_class):
+  def find_test_by_module_and_class(
+      self, module_class: str
+  ) -> list[test_info.TestInfo]:
     """Find the test info given a MODULE:CLASS string.
 
     Args:
         module_class: A string of form MODULE:CLASS or MODULE:CLASS#METHOD.
 
     Returns:
-        A list of populated TestInfo namedtuple if found, else None.
+        A list of populated TestInfo if found, else None.
     """
     parse_result = test_finder_utils.parse_test_reference(module_class)
     if not parse_result:
@@ -728,7 +738,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     if method_name:
       class_name = class_name + '#' + method_name
 
-    # module_infos is a list with at most 1 element.
+    # module_infos is a list of TestInfo with at most 1 element.
     module_infos = self.find_test_by_module_name(module_name)
     module_info = module_infos[0] if module_infos else None
     if not module_info:
@@ -737,12 +747,12 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     # If the target module is JAVA or Python test, search class name.
     find_result = self.find_test_by_class_name(
         class_name,
-        module_info.test_name,
+        module_name,
         module_info.data.get(constants.TI_REL_CONFIG),
         self.module_info.is_native_test(module_name),
     )
     # kernel target test is also define as NATIVE_TEST in build system.
-    # TODO (b/157210083) Update find_test_by_kernel_class_name method to
+    # TODO: b/157210083 - Update find_test_by_kernel_class_name method to
     # support gen_rule use case.
     if not find_result:
       find_result = self.find_test_by_kernel_class_name(module_name, class_name)
@@ -935,7 +945,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
       # (b/202764540) Strip prefixes of a cc class.
       # Assume the class name has a format of file_name.class_name
       class_name = class_name[class_name.rindex('.') + 1 :]
-      logging.info('Search with updated class name: %s', class_name)
+      atest_utils.print_and_log_info(
+          'Search with updated class name: %s', class_name
+      )
     return self.find_test_by_class_name(
         class_name, module_name, rel_config, is_native_test=True
     )
