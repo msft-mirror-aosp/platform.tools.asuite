@@ -26,7 +26,7 @@
           <root type="composite" />
         </sourcePath>
       </roots>
-      <additional jdk="JDK17" sdk="android-28" />
+      <additional jdk="JDK21" sdk="android-28" />
     </jdk>
   </component>
 </application>

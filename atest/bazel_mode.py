@@ -722,12 +722,12 @@ class WorkspaceGenerator:
     # packaging.
     os.chmod(self.workspace_out_path.joinpath('bazel.sh'), 0o755)
     self._symlink(
-        src='prebuilts/jdk/jdk17/BUILD.bazel',
-        target='prebuilts/jdk/jdk17/BUILD.bazel',
+        src='prebuilts/jdk/jdk21/BUILD.bazel',
+        target='prebuilts/jdk/jdk21/BUILD.bazel',
     )
     self._symlink(
-        src='prebuilts/jdk/jdk17/linux-x86',
-        target='prebuilts/jdk/jdk17/linux-x86',
+        src='prebuilts/jdk/jdk21/linux-x86',
+        target='prebuilts/jdk/jdk21/linux-x86',
     )
     self._symlink(
         src='prebuilts/bazel/linux-x86_64/bazel',
