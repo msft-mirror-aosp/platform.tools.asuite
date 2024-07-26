@@ -82,6 +82,7 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
 
     self.resource_manager.get_resource_file_path('WORKSPACE').touch()
     self.resource_manager.get_resource_file_path('bazelrc').touch()
+    self.resource_manager.get_resource_file_path('bazel.sh').touch()
 
     rules_python = self.resource_manager.get_src_file_path(
         'external/bazelbuild-rules_python'
