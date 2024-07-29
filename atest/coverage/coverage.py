@@ -378,7 +378,7 @@ def _generate_native_coverage_report(unstripped_native_binaries, results_dir):
 
 
 def _generate_lcov_report(out_dir, reports, root_dir=None):
-  cmd = ['genhtml', '-q', '-o', out_dir, '--ignore-errors', 'unmapped']
+  cmd = ['genhtml', '-q', '-o', out_dir, '--ignore-errors', 'unmapped,range']
   if root_dir:
     cmd.extend(['-p', root_dir])
   cmd.extend(reports)
