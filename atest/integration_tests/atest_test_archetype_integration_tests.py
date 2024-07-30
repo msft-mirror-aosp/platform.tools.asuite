@@ -21,8 +21,8 @@ from typing import Callable
 import atest_integration_test
 
 
-class DevicelessJavaHostTest(atest_integration_test.AtestTestCase):
-  _TARGET_NAME = 'deviceless_java_host_test'
+class DevicelessJavaTestHostTest(atest_integration_test.AtestTestCase):
+  _TARGET_NAME = 'deviceless_java_test_host'
 
   def test_passed_failed_counts(self):
     _verify_test_passed_failed_ignored_counts(
@@ -35,8 +35,8 @@ class DevicelessJavaHostTest(atest_integration_test.AtestTestCase):
     )
 
 
-class DeviceLessPythonHostTest(atest_integration_test.AtestTestCase):
-  _TARGET_NAME = 'deviceless_python_host_test'
+class DeviceLessPythonTestHostTest(atest_integration_test.AtestTestCase):
+  _TARGET_NAME = 'deviceless_python_test_host'
 
   def test_passed_failed_counts(self):
     _verify_test_passed_failed_ignored_counts(
@@ -49,12 +49,12 @@ class DeviceLessPythonHostTest(atest_integration_test.AtestTestCase):
     )
 
 
-class JavaInstrumentationTest(atest_integration_test.AtestTestCase):
+class DeviceAndroidTestTest(atest_integration_test.AtestTestCase):
 
   def test_passed_failed_counts(self):
     _verify_test_passed_failed_ignored_counts(
         self,
-        atest_command='java_instrumentation_test',
+        atest_command='device_android_test',
         is_device_required=True,
         expected_passed_count=2,
         expected_failed_count=1,
@@ -64,7 +64,7 @@ class JavaInstrumentationTest(atest_integration_test.AtestTestCase):
   def test_early_tradefed_exit_shows_useful_output(self):
     _run_and_verify(
         self,
-        atest_command='non_starting_java_instrumentation_test',
+        atest_command='device_android_test_non_starting',
         is_device_required=True,
         verifier=self._verify_stdout_on_early_termination,
     )
@@ -80,6 +80,20 @@ class JavaInstrumentationTest(atest_integration_test.AtestTestCase):
     )
     test_case.assertNotIn(
         'Traceback (most recent call last)', result.get_stdout()
+    )
+
+
+class DeviceCcTestTest(atest_integration_test.AtestTestCase):
+  _TARGET_NAME = 'device_cc_test'
+
+  def test_passed_failed_counts(self):
+    _verify_test_passed_failed_ignored_counts(
+        self,
+        atest_command=self._TARGET_NAME,
+        is_device_required=True,
+        expected_passed_count=2,
+        expected_failed_count=1,
+        expected_ignored_count=0,
     )
 
 

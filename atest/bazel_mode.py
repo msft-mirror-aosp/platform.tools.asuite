@@ -717,16 +717,17 @@ class WorkspaceGenerator:
     self.workspace_out_path.joinpath('BUILD.bazel').touch()
 
   def _add_bazel_bootstrap_files(self):
+    self._add_workspace_resource(src='bazel.sh', dst='bazel.sh')
+    # Restore permissions as execute permissions are not preserved by soong
+    # packaging.
+    os.chmod(self.workspace_out_path.joinpath('bazel.sh'), 0o755)
     self._symlink(
-        src='tools/asuite/atest/bazel/resources/bazel.sh', target='bazel.sh'
+        src='prebuilts/jdk/jdk21/BUILD.bazel',
+        target='prebuilts/jdk/jdk21/BUILD.bazel',
     )
     self._symlink(
-        src='prebuilts/jdk/jdk17/BUILD.bazel',
-        target='prebuilts/jdk/jdk17/BUILD.bazel',
-    )
-    self._symlink(
-        src='prebuilts/jdk/jdk17/linux-x86',
-        target='prebuilts/jdk/jdk17/linux-x86',
+        src='prebuilts/jdk/jdk21/linux-x86',
+        target='prebuilts/jdk/jdk21/linux-x86',
     )
     self._symlink(
         src='prebuilts/bazel/linux-x86_64/bazel',
