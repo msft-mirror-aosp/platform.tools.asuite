@@ -40,6 +40,7 @@ import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.result.proto.TestRecordProto.TestRecord;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.AbiUtils;
+import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.ZipUtil;
 import com.android.tradefed.util.proto.TestRecordProtoUtil;
 
@@ -689,7 +690,7 @@ public final class BazelTest implements IRemoteTest {
                     new BazelTestListener(listener, extraLogCalls, isTestResultCached(result));
             parseResultsToListener(bazelListener, context, record, filePrefix);
         } finally {
-            MoreFiles.deleteRecursively(outputFilesDir);
+            FileUtil.recursiveDelete(outputFilesDir.toFile());
         }
     }
 
@@ -840,11 +841,7 @@ public final class BazelTest implements IRemoteTest {
     }
 
     private void cleanup() {
-        try {
-            MoreFiles.deleteRecursively(mRunTemporaryDirectory);
-        } catch (IOException e) {
-            CLog.e(e);
-        }
+        FileUtil.recursiveDelete(mRunTemporaryDirectory.toFile());
     }
 
     interface ProcessStarter {
