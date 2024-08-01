@@ -160,8 +160,9 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
       return self.create_step_output()
 
     def test_step(step_in: atest_integration_test.StepInput) -> None:
+      product = step_in.get_env()["TARGET_PRODUCT"]
       self._run_shell_command(
-          'touch out/soong/build.aosp_cf_x86_64_phone.ninja'.split(),
+          f'touch out/soong/build.{product}.ninja'.split(),
           env=step_in.get_env(),
           cwd=step_in.get_repo_root(),
           print_output=False,
