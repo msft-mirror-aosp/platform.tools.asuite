@@ -26,11 +26,17 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
 
   def setUp(self):
     super().setUp()
-    self._default_snapshot_include_paths += [
+    self._default_snapshot_include_paths = [
         '$OUT_DIR/combined-*.ninja*',
         '$OUT_DIR/*.ninja*',
-        '$OUT_DIR/soong/*.ninja*',
         '$OUT_DIR/target/product/',
+        '$OUT_DIR/host/linux-x86/bin/adevice',
+        '$OUT_DIR/target/product/*/module-info*',
+        '$OUT_DIR/target/product/*/all_modules.txt',
+        '$OUT_DIR/soong/module_bp*',
+        '.repo/manifest.xml',
+        'build/soong/soong_ui.bash',
+        'prebuilts/build-tools/linux-x86',
     ]
 
     self._default_snapshot_env_keys += ['TARGET_PRODUCT', 'ANDROID_BUILD_TOP']
@@ -44,6 +50,7 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
         '$OUT_DIR/host/linux-x86/obj',
         '$OUT_DIR/host/linux-x86/cvd-host_package',
         '$OUT_DIR/host/linux-x86/testcases',
+        'prebuilts/jdk',
     ]
 
   def test_1_status(self):
@@ -139,7 +146,6 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
               cwd=step_in.get_repo_root(),
               print_output=True,
           ).check_returncode()
-        return self.create_step_output()
       except subprocess.CalledProcessError as e:
         self.fail(e)
       finally:
@@ -151,8 +157,16 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
               cwd=step_in.get_repo_root(),
               print_output=False,
           )
+      return self.create_step_output()
 
     def test_step(step_in: atest_integration_test.StepInput) -> None:
+      product = step_in.get_env()["TARGET_PRODUCT"]
+      self._run_shell_command(
+          f'touch out/soong/build.{product}.ninja'.split(),
+          env=step_in.get_env(),
+          cwd=step_in.get_repo_root(),
+          print_output=False,
+      )
       result = self._run_shell_command(
           test_cmd,
           env=step_in.get_env(),
