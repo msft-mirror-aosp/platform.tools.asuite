@@ -31,6 +31,8 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
         '$OUT_DIR/*.ninja*',
         '$OUT_DIR/target/product/',
         '$OUT_DIR/host/linux-x86/bin/adevice',
+        '$OUT_DIR/host/linux-x86/bin/adb',
+        '$OUT_DIR/host/linux-x86/bin/aapt2',
         '$OUT_DIR/target/product/*/module-info*',
         '$OUT_DIR/target/product/*/all_modules.txt',
         '$OUT_DIR/soong/module_bp*',
