@@ -31,6 +31,8 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
         '$OUT_DIR/*.ninja*',
         '$OUT_DIR/target/product/',
         '$OUT_DIR/host/linux-x86/bin/adevice',
+        '$OUT_DIR/host/linux-x86/bin/adb',
+        '$OUT_DIR/host/linux-x86/bin/aapt2',
         '$OUT_DIR/target/product/*/module-info*',
         '$OUT_DIR/target/product/*/all_modules.txt',
         '$OUT_DIR/soong/module_bp*',
@@ -55,6 +57,15 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
 
   def test_1_status(self):
     """Test if status command runs successfully on latest repo sync."""
+    # Get device info
+    self._verify_adevice_command(
+        build_cmd=[],
+        build_clean_up_cmd=[],
+        test_cmd='adb shell getprop && adb root'.split(),
+        expected_in_log=[],
+        expected_not_in_log=[],
+    )
+
     self._verify_adevice_command(
         build_cmd='build/soong/soong_ui.bash --make-mode droid adevice'.split(),
         build_clean_up_cmd=[],
@@ -155,7 +166,7 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
               build_clean_up_cmd,
               env=step_in.get_env(),
               cwd=step_in.get_repo_root(),
-              print_output=False,
+              print_output=True,
           )
       return self.create_step_output()
 
