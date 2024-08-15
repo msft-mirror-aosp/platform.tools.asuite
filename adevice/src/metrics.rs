@@ -43,6 +43,7 @@ pub struct Metrics {
     events: Vec<LogEvent>,
     user: String,
     invocation_id: String,
+    hostname: String,
 }
 
 impl MetricSender for Metrics {
@@ -51,6 +52,7 @@ impl MetricSender for Metrics {
         start_event.set_command_line(command_line.to_string());
         start_event.set_source_root(source_root.to_string());
         start_event.set_target(env::var(ENV_TARGET).unwrap_or("".to_string()));
+        start_event.set_hostname(self.hostname.to_string());
 
         let mut event = self.default_log_event();
         event.set_adevice_start_event(start_event);
@@ -147,6 +149,7 @@ impl Default for Metrics {
             events: Vec::new(),
             user: env::var(ENV_USER).unwrap_or("".to_string()),
             invocation_id: Uuid::new_v4().to_string(),
+            hostname: get_hostname(),
         }
     }
 }
@@ -175,14 +178,15 @@ impl Metrics {
         let temp_file_path = format!("{}/adevice/adevice.bin", out);
         fs::create_dir_all(temp_dir).expect("Failed to create folder for metrics");
         fs::write(temp_file_path.clone(), body).expect("Failed to write to metrics file");
-        Command::new(METRICS_UPLOADER)
+        if let Err(e) = Command::new(METRICS_UPLOADER)
             .args([&temp_file_path])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .expect("Failed to send metrics");
-
+        {
+            return Err(anyhow!("Failed to send metrics {}", e));
+        }
         // TODO implement next_request_wait_millis that comes back in response
 
         Ok(())
@@ -194,6 +198,19 @@ impl Metrics {
         event.set_invocation_id(self.invocation_id.to_string());
         event
     }
+}
+
+fn get_hostname() -> String {
+    Command::new("hostname").output().map_or_else(
+        |_err| String::new(),
+        |output| {
+            if output.status.success() {
+                String::from_utf8_lossy(&output.stdout).trim().to_string()
+            } else {
+                String::new()
+            }
+        },
+    )
 }
 
 impl Drop for Metrics {
