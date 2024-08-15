@@ -341,10 +341,13 @@ class ResultReporter:
         failure_msg: A string of the failure message to pass to user.
     """
     self.runners[runner_name] = FAILURE_FLAG
+
     print('\n', runner_name, '\n', '-' * len(runner_name), sep='')
     print(
-        'Runner encountered a critical failure. Skipping.\nFAILURE: %s'
-        % failure_msg
+        au.mark_red(
+            'Runner encountered a critical failure. Skipping.\nFAILURE: %s'
+            % failure_msg
+        )
     )
 
   def register_unsupported_runner(self, runner_name):
