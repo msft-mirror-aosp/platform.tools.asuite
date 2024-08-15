@@ -26,12 +26,14 @@ import pathlib
 import sys
 from typing import List
 
+from atest import atest_enum
 from atest import atest_utils
 from atest import constants
 from atest import feedback
 from atest import usb_speed_detect as usb
 from atest.atest_enum import ExitCode
 from atest.logstorage import log_uploader
+from atest.metrics import metrics
 from atest.metrics import metrics_utils
 
 _ARGS_KEY = 'args'
@@ -344,7 +346,19 @@ class AtestExecutionInfo:
     if log_uploader.is_uploading_logs():
       log_uploader.upload_logs_detached(pathlib.Path(self.work_dir))
     feedback.print_feedback_message()
-    usb.verify_and_print_usb_speed_warning(usb.get_device_proto_binary())
+
+    device_proto = usb.get_device_proto_binary()
+    usb.verify_and_print_usb_speed_warning(device_proto)
+    metrics.LocalDetectEvent(
+        detect_type=atest_enum.DetectType.USB_NEGOTIATED_SPEED,
+        result=device_proto.negotiated_speed
+        if device_proto.negotiated_speed
+        else 0,
+    )
+    metrics.LocalDetectEvent(
+        detect_type=atest_enum.DetectType.USB_MAX_SPEED,
+        result=device_proto.max_speed if device_proto.max_speed else 0,
+    )
 
   @staticmethod
   def _generate_execution_detail(args):

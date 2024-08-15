@@ -78,7 +78,7 @@ def _speed_to_string(speed: int) -> str:
       10000: 'USB-3.1 (10,000 Mbps)',
       20000: 'USB-3.2 (20,000 Mbps)',
       40000: 'USB-4.0 (40,000 Mbps)',
-  }.get(speed, f'{speed:,} Mbps') or f'{speed:,} Mbps'
+  }.get(speed, f'{speed:,} Mbps')
 
 
 def get_device_proto_binary() -> adb_host_pb2.Device:

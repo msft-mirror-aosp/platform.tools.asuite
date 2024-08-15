@@ -24,9 +24,9 @@ class UsbSpeedDetectTest(unittest.TestCase):
     device.connection_type = adb_host_pb2.ConnectionType.SOCKET
     device.state = adb_host_pb2.ConnectionState.DEVICE
 
-    self.assertFalse(
-        usb_speed_detect.verify_and_print_usb_speed_warning(device)
-    )
+    warning = usb_speed_detect.verify_and_print_usb_speed_warning(device)
+
+    self.assertFalse(warning)
 
   def test_usb_device_expected_speed_doesnt_print(self):
     device = adb_host_pb2.Device()
@@ -35,9 +35,9 @@ class UsbSpeedDetectTest(unittest.TestCase):
     device.negotiated_speed = 5000
     device.max_speed = 5000
 
-    self.assertFalse(
-        usb_speed_detect.verify_and_print_usb_speed_warning(device)
-    )
+    warning = usb_speed_detect.verify_and_print_usb_speed_warning(device)
+
+    self.assertFalse(warning)
 
   def test_usb_device_slow_speed_prints_warning(self):
     device = adb_host_pb2.Device()
@@ -46,11 +46,13 @@ class UsbSpeedDetectTest(unittest.TestCase):
     device.negotiated_speed = 480
     device.max_speed = 5000
 
-    self.assertTrue(usb_speed_detect.verify_and_print_usb_speed_warning(device))
+    warning = usb_speed_detect.verify_and_print_usb_speed_warning(device)
+
+    self.assertTrue(warning)
 
   def test_adb_unavailable_doesnt_print(self):
     device = adb_host_pb2.Device()
 
-    self.assertFalse(
-        usb_speed_detect.verify_and_print_usb_speed_warning(device)
-    )
+    warning = usb_speed_detect.verify_and_print_usb_speed_warning(device)
+
+    self.assertFalse(warning)
