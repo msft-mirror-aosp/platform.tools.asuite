@@ -57,15 +57,6 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
 
   def test_1_status(self):
     """Test if status command runs successfully on latest repo sync."""
-    # Get device info
-    self._verify_adevice_command(
-        build_cmd=[],
-        build_clean_up_cmd=[],
-        test_cmd='adb shell getprop && adb root'.split(),
-        expected_in_log=[],
-        expected_not_in_log=[],
-    )
-
     self._verify_adevice_command(
         build_cmd='build/soong/soong_ui.bash --make-mode droid adevice'.split(),
         build_clean_up_cmd=[],
@@ -74,10 +65,11 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
         expected_not_in_log=[],
     )
 
+  # TODO: b/359849846 - renable restart when device reliably comes back
   def test_2_update(self):
     """Test if update command runs successfully on latest repo sync."""
     self._verify_adevice_command_success(
-        'adevice update --max-allowed-changes=6000'.split()
+        'adevice update --max-allowed-changes=6000 --restart=none'.split()
     )
 
   def test_3_status_no_changes(self):
@@ -91,11 +83,11 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
     )
 
   def test_4_update_no_changes(self):
-    """Test if status command doesn't perform any updates after adevice update."""
+    """Test if update command doesn't perform any updates after adevice update."""
     self._verify_adevice_command(
         build_cmd=[],
         build_clean_up_cmd=[],
-        test_cmd='adevice update'.split(),
+        test_cmd='adevice update --restart=none'.split(),
         expected_in_log=['Adb Cmds - 0'],
         expected_not_in_log=['push'],
     )
@@ -171,7 +163,7 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
       return self.create_step_output()
 
     def test_step(step_in: atest_integration_test.StepInput) -> None:
-      product = step_in.get_env()["TARGET_PRODUCT"]
+      product = step_in.get_env()['TARGET_PRODUCT']
       self._run_shell_command(
           f'touch out/soong/build.{product}.ninja'.split(),
           env=step_in.get_env(),
