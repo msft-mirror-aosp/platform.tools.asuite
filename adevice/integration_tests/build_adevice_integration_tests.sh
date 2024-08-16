@@ -16,8 +16,8 @@
 
 # This script is dedicated to build the atest integration test in build server.
 # To run the test locally, it's recommended to invoke the test via
-# `atest atest_integration_tests` or `python atest_integration_tests.py`.
-# For usage examples please run `python atest_integration_tests.py --help`.
+# `atest adevice_integration_tests` or `python adevice_integration_tests.py`.
+# For usage examples please run `python adevice_integration_tests.py --help`.
 
 set -eo pipefail
 set -x
@@ -98,4 +98,6 @@ export PATH=${PWD}/prebuilts/build-tools/path/linux-x86:${PWD}/build/bazel/bin:$
 # build with minimal reliance on host tools.
 export PATH=${ANDROID_JAVA_HOME}/bin:${PATH}
 
-python3 tools/asuite/atest/integration_tests/adevice_integration_tests.py "${filtered_args[@]}" --build --tar_snapshot
+echo "Starting Adevice Integration Tests"
+
+python3 tools/asuite/atest/integration_tests/adevice_integration_tests.py "${filtered_args[@]}" --build --tar_snapshot --use-prebuilt-atest-binary
