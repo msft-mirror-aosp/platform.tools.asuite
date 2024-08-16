@@ -59,6 +59,11 @@ pub struct GlobalOptions {
     // TODO(rbraunstein): Add system_other to the default list, but deal gracefully
     // with it not being on the device.
     /// Partitions in the product tree to sync. Repeat arg or comma-separate.
+    ///
+    /// By default this includes: "system", "system_ext", "odm", "product"
+    ///
+    /// If a partition is explicitly passed in but that does not exist in the
+    /// tracked files then adevice will error.
     #[clap(long, short, global = true, value_delimiter = ',')]
     pub partitions: Option<Vec<String>>,
     // TODO(rbraunstein): Validate relative, not absolute paths.
