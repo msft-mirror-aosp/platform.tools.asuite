@@ -31,6 +31,8 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
         '$OUT_DIR/*.ninja*',
         '$OUT_DIR/target/product/',
         '$OUT_DIR/host/linux-x86/bin/adevice',
+        '$OUT_DIR/host/linux-x86/bin/adb',
+        '$OUT_DIR/host/linux-x86/bin/aapt2',
         '$OUT_DIR/target/product/*/module-info*',
         '$OUT_DIR/target/product/*/all_modules.txt',
         '$OUT_DIR/soong/module_bp*',
@@ -63,10 +65,11 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
         expected_not_in_log=[],
     )
 
+  # TODO: b/359849846 - renable restart when device reliably comes back
   def test_2_update(self):
     """Test if update command runs successfully on latest repo sync."""
     self._verify_adevice_command_success(
-        'adevice update --max-allowed-changes=6000'.split()
+        'adevice update --max-allowed-changes=6000 --restart=none'.split()
     )
 
   def test_3_status_no_changes(self):
@@ -80,11 +83,11 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
     )
 
   def test_4_update_no_changes(self):
-    """Test if status command doesn't perform any updates after adevice update."""
+    """Test if update command doesn't perform any updates after adevice update."""
     self._verify_adevice_command(
         build_cmd=[],
         build_clean_up_cmd=[],
-        test_cmd='adevice update'.split(),
+        test_cmd='adevice update --restart=none'.split(),
         expected_in_log=['Adb Cmds - 0'],
         expected_not_in_log=['push'],
     )
@@ -155,12 +158,12 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
               build_clean_up_cmd,
               env=step_in.get_env(),
               cwd=step_in.get_repo_root(),
-              print_output=False,
+              print_output=True,
           )
       return self.create_step_output()
 
     def test_step(step_in: atest_integration_test.StepInput) -> None:
-      product = step_in.get_env()["TARGET_PRODUCT"]
+      product = step_in.get_env()['TARGET_PRODUCT']
       self._run_shell_command(
           f'touch out/soong/build.{product}.ninja'.split(),
           env=step_in.get_env(),
