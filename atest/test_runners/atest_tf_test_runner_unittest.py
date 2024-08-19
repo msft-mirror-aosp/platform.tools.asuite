@@ -793,25 +793,40 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     # Only compile '--skip-loading-config-jar' in TF if it's not
     # INTEGRATION finder or the finder property isn't set.
     mock_config.return_value = '', ''
-    args = self.tr._create_test_args([MOD_INFO])
+    args = self.tr._create_test_args([MOD_INFO], {})
     self.assertTrue(constants.TF_SKIP_LOADING_CONFIG_JAR in args)
 
-    args = self.tr._create_test_args([INT_INFO])
+    args = self.tr._create_test_args([INT_INFO], {})
     self.assertFalse(constants.TF_SKIP_LOADING_CONFIG_JAR in args)
 
-    args = self.tr._create_test_args([MOD_INFO_NO_TEST_FINDER])
+    args = self.tr._create_test_args([MOD_INFO_NO_TEST_FINDER], {})
     self.assertFalse(constants.TF_SKIP_LOADING_CONFIG_JAR in args)
 
-    args = self.tr._create_test_args([MOD_INFO_NO_TEST_FINDER, INT_INFO])
+    args = self.tr._create_test_args([MOD_INFO_NO_TEST_FINDER, INT_INFO], {})
     self.assertFalse(constants.TF_SKIP_LOADING_CONFIG_JAR in args)
 
-    args = self.tr._create_test_args([MOD_INFO_NO_TEST_FINDER])
+    args = self.tr._create_test_args([MOD_INFO_NO_TEST_FINDER], {})
     self.assertFalse(constants.TF_SKIP_LOADING_CONFIG_JAR in args)
 
     args = self.tr._create_test_args(
-        [MOD_INFO_NO_TEST_FINDER, INT_INFO, MOD_INFO]
+        [MOD_INFO_NO_TEST_FINDER, INT_INFO, MOD_INFO], {}
     )
     self.assertFalse(constants.TF_SKIP_LOADING_CONFIG_JAR in args)
+
+  @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
+  def test_create_test_args_with_test_filter_appends_to_atest_include_filter(
+      self, mock_config
+  ):
+    mock_config.return_value = '', ''
+    args = self.tr._create_test_args(
+        [MOD_INFO], {constants.TEST_FILTER: '*MyTestFilter*'}
+    )
+
+    self.assertEqual(args.count(constants.TF_ATEST_INCLUDE_FILTER), 1)
+    self.assertEqual(
+        args[args.index(constants.TF_ATEST_INCLUDE_FILTER) + 1],
+        uc.MODULE_NAME + ':*MyTestFilter*',
+    )
 
   @mock.patch.object(
       atf_tr.AtestTradefedTestRunner,
@@ -1029,7 +1044,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     """Test _create_test_args method with auto enabled parameter config."""
     # Should have --m on args and should not have --include-filter.
     mock_config.return_value = '', ''
-    args = self.tr._create_test_args([MOD_INFO])
+    args = self.tr._create_test_args([MOD_INFO], {})
     self.assertTrue(constants.TF_MODULE_FILTER in args)
     self.assertFalse(constants.TF_INCLUDE_FILTER in args)
 
@@ -1197,7 +1212,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     """
     # Should not --m on args and should have --include-filter.
     mock_config.return_value = '', ''
-    args = self.tr._create_test_args([MOD_INFO])
+    args = self.tr._create_test_args([MOD_INFO], {})
 
     self.assertFalse(constants.TF_MODULE_FILTER in args)
     self.assertTrue(constants.TF_INCLUDE_FILTER in args)
