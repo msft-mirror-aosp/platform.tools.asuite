@@ -130,6 +130,7 @@ def _deduce_code_under_test(
     mod_info: module_info.ModuleInfo,
 ) -> Set[str]:
   """Deduces the code-under-test from the test info and module info.
+
   If the test info contains code-under-test information, that is used.
   Otherwise, the dependencies of the test are used.
 
@@ -273,10 +274,14 @@ def _find_native_binaries(module_dir):
   # the actual output binary.
   # Exclude .d and .d.raw files. These are Rust dependency files and are also
   # stored in the unstripped directory.
+  # Exclude .toc files. These are just a table of conents of a shared library,
+  # but are also stored in the unstripped directory.
   return [
       str(file)
       for file in files
-      if '.rsp' not in file.suffixes and '.d' not in file.suffixes
+      if '.rsp' not in file.suffixes
+      and '.d' not in file.suffixes
+      and '.toc' not in file.suffixes
   ]
 
 
