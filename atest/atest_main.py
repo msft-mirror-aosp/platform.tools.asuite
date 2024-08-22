@@ -182,7 +182,7 @@ def _get_args_from_config():
   print(
       '\n{} {}'.format(
           atest_utils.mark_cyan('Reading config:'),
-          atest_utils.mark_yellow(_config),
+          _config,
       )
   )
   # pylint: disable=global-statement:
