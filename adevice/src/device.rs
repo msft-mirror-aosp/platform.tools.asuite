@@ -218,7 +218,7 @@ impl RealDevice {
             } else {
                 // If pontis is running, add to the error message to check pontis UI
                 let pontis_status = process::Command::new("pontis")
-                    .args(&vec!["status".to_string()])
+                    .args(vec!["status".to_string()])
                     .output()
                     .context("Error checking pontis status")?;
 
