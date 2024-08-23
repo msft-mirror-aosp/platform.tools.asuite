@@ -26,12 +26,14 @@ import pathlib
 import sys
 from typing import List
 
-from atest import atest_utils as au
+from atest import atest_enum
 from atest import atest_utils
 from atest import constants
 from atest import feedback
+from atest import usb_speed_detect as usb
 from atest.atest_enum import ExitCode
 from atest.logstorage import log_uploader
+from atest.metrics import metrics
 from atest.metrics import metrics_utils
 
 _ARGS_KEY = 'args'
@@ -130,7 +132,7 @@ def print_test_result(root, history_arg):
     )
   for path in paths[0 : int(history_arg) + 1]:
     result_path = os.path.join(path, 'test_result')
-    result = au.load_json_safely(result_path)
+    result = atest_utils.load_json_safely(result_path)
     total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
     summary_str = ', '.join(
         [k[:1] + ':' + str(v) for k, v in total_summary.items()]
@@ -169,27 +171,27 @@ def print_test_result_by_path(path):
   Args:
       path: A string of test result path.
   """
-  result = au.load_json_safely(path)
+  result = atest_utils.load_json_safely(path)
   if not result:
     return
   print('\natest {}'.format(result.get(_ARGS_KEY, '')))
   test_result_url = result.get(_TEST_RESULT_LINK, '')
   if test_result_url:
     print('\nTest Result Link: {}'.format(test_result_url))
-  print('\nTotal Summary:\n{}'.format(au.delimiter('-')))
+  print('\nTotal Summary:\n{}'.format(atest_utils.delimiter('-')))
   total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
   print(', '.join([(k + ':' + str(v)) for k, v in total_summary.items()]))
   fail_num = total_summary.get(_STATUS_FAILED_KEY)
   if fail_num > 0:
     message = '%d test failed' % fail_num
-    print(f'\n{au.mark_red(message)}\n{"-" * len(message)}')
+    print(f'\n{atest_utils.mark_red(message)}\n{"-" * len(message)}')
     test_runner = result.get(_TEST_RUNNER_KEY, {})
     for runner_name in test_runner.keys():
       test_dict = test_runner.get(runner_name, {})
       for test_name in test_dict:
         test_details = test_dict.get(test_name, {})
         for fail in test_details.get(_STATUS_FAILED_KEY):
-          print(au.mark_red(f'{fail.get(_TEST_NAME_KEY)}'))
+          print(atest_utils.mark_red(f'{fail.get(_TEST_NAME_KEY)}'))
           failure_files = glob.glob(
               _LOGCAT_FMT.format(
                   os.path.dirname(path), fail.get(_TEST_NAME_KEY)
@@ -198,12 +200,14 @@ def print_test_result_by_path(path):
           if failure_files:
             print(
                 '{} {}'.format(
-                    au.mark_cyan('LOGCAT-ON-FAILURES:'), failure_files[0]
+                    atest_utils.mark_cyan('LOGCAT-ON-FAILURES:'),
+                    failure_files[0],
                 )
             )
           print(
               '{} {}'.format(
-                  au.mark_cyan('STACKTRACE:\n'), fail.get(_TEST_DETAILS_KEY)
+                  atest_utils.mark_cyan('STACKTRACE:\n'),
+                  fail.get(_TEST_DETAILS_KEY),
               )
           )
 
@@ -235,7 +239,7 @@ def has_url_results():
       if file != 'test_result':
         continue
       json_file = os.path.join(root, 'test_result')
-      result = au.load_json_safely(json_file)
+      result = atest_utils.load_json_safely(json_file)
       url_link = result.get(_TEST_RESULT_LINK, '')
       if url_link:
         return True
@@ -321,8 +325,8 @@ class AtestExecutionInfo:
           AtestExecutionInfo._generate_execution_detail(self.args)
       )
       self.result_file_obj.close()
-      au.prompt_suggestions(self.test_result)
-      au.generate_print_result_html(self.test_result)
+      atest_utils.prompt_suggestions(self.test_result)
+      atest_utils.generate_print_result_html(self.test_result)
       symlink_latest_result(self.work_dir)
     main_module = sys.modules.get(_MAIN_MODULE_KEY)
     main_exit_code = (
@@ -342,6 +346,19 @@ class AtestExecutionInfo:
     if log_uploader.is_uploading_logs():
       log_uploader.upload_logs_detached(pathlib.Path(self.work_dir))
     feedback.print_feedback_message()
+
+    device_proto = usb.get_device_proto_binary()
+    usb.verify_and_print_usb_speed_warning(device_proto)
+    metrics.LocalDetectEvent(
+        detect_type=atest_enum.DetectType.USB_NEGOTIATED_SPEED,
+        result=device_proto.negotiated_speed
+        if device_proto.negotiated_speed
+        else 0,
+    )
+    metrics.LocalDetectEvent(
+        detect_type=atest_enum.DetectType.USB_MAX_SPEED,
+        result=device_proto.max_speed if device_proto.max_speed else 0,
+    )
 
   @staticmethod
   def _generate_execution_detail(args):
