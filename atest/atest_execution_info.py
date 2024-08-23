@@ -23,7 +23,9 @@ import json
 import logging
 import os
 import pathlib
+import shutil
 import sys
+import time
 from typing import List
 
 from atest import atest_enum
@@ -286,7 +288,8 @@ class AtestExecutionInfo:
   result_reporters = []
 
   def __init__(
-      self, args: List[str], work_dir: str, args_ns: argparse.ArgumentParser
+      self, args: List[str], work_dir: str, args_ns: argparse.ArgumentParser, start_time:float=None,
+      repo_out_dir: pathlib.Path=None
   ):
     """Initialise an AtestExecutionInfo instance.
 
@@ -294,6 +297,8 @@ class AtestExecutionInfo:
         args: Command line parameters.
         work_dir: The directory for saving information.
         args_ns: An argparse.ArgumentParser class instance holding parsed args.
+        start_time: The execution start time. Can be None.
+        repo_out_dir: The repo output directory. Can be None.
 
     Returns:
            A json format string.
@@ -309,6 +314,8 @@ class AtestExecutionInfo:
         args,
         work_dir,
     )
+    self._start_time = start_time if start_time is not None else time.time()
+    self._repo_out_dir = repo_out_dir if repo_out_dir is not None else atest_utils.get_build_out_dir()
 
   def __enter__(self):
     """Create and return information file object."""
@@ -343,8 +350,12 @@ class AtestExecutionInfo:
       logging.debug('handle_exc_and_send_exit_event:%s', main_exit_code)
       metrics_utils.handle_exc_and_send_exit_event(main_exit_code)
 
+    log_path = pathlib.Path(self.work_dir)
+    AtestExecutionInfo._copy_build_trace_to_log_dir(
+        self._start_time, time.time(), self._repo_out_dir, log_path
+    )
     if log_uploader.is_uploading_logs():
-      log_uploader.upload_logs_detached(pathlib.Path(self.work_dir))
+      log_uploader.upload_logs_detached(log_path)
     feedback.print_feedback_message()
 
     device_proto = usb.get_device_proto_binary()
@@ -359,6 +370,22 @@ class AtestExecutionInfo:
         detect_type=atest_enum.DetectType.USB_MAX_SPEED,
         result=device_proto.max_speed if device_proto.max_speed else 0,
     )
+
+  @staticmethod
+  def _copy_build_trace_to_log_dir(
+      start_time: float,
+      end_time: float,
+      repo_out_path: pathlib.Path,
+      log_path: pathlib.Path,
+  ):
+
+    for file in repo_out_path.iterdir():
+      if (
+          file.is_file()
+          and file.name.startswith('build.trace')
+          and start_time <= file.stat().st_mtime <= end_time
+      ):
+        shutil.copy(file, log_path)
 
   @staticmethod
   def _generate_execution_detail(args):
