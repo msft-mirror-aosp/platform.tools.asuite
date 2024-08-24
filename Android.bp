@@ -22,9 +22,26 @@ python_library_host {
     srcs: [
         "atest/proto/*.proto",
     ],
+    libs: [
+        "asuite_adb_host_proto_py",
+    ],
     proto: {
         canonical_path_from_root: false,
     },
+}
+
+python_library_host {
+    name: "asuite_adb_host_proto_py",
+    srcs: [
+        ":adb_host_proto",
+    ],
+    proto: {
+        type: "full",
+        include_dirs: ["external/protobuf/src"],
+    },
+    visibility: [
+        "//tools/asuite:__subpackages__",
+    ],
 }
 
 java_library_host {
