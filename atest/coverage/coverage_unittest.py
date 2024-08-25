@@ -175,7 +175,7 @@ class CollectNativeReportBinariesUnittests(unittest.TestCase):
       return_value=PosixPath('/out/soong/.intermediates'),
   )
   @mock.patch.object(PosixPath, 'glob')
-  def test_skip_rsp_and_d_files(self, _glob, _get_build_out_dir):
+  def test_skip_rsp_and_d_and_toc_files(self, _glob, _get_build_out_dir):
     _glob.return_value = [
         PosixPath(
             '/out/soong/.intermediates/path/to/native_bin/variant-name-cov/unstripped/native_bin'
@@ -185,6 +185,9 @@ class CollectNativeReportBinariesUnittests(unittest.TestCase):
         ),
         PosixPath(
             '/out/soong/.intermediates/path/to/native_bin/variant-name-cov/unstripped/native_bin.d'
+        ),
+        PosixPath(
+            '/out/soong/.intermediates/path/to/native_bin/variant-name-cov/unstripped/native_bin.toc'
         ),
     ]
     code_under_test = {'native_bin'}

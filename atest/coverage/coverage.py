@@ -35,6 +35,7 @@ def build_env_vars():
       'CLANG_COVERAGE': 'true',
       'NATIVE_COVERAGE_PATHS': '*',
       'EMMA_INSTRUMENT': 'true',
+      'EMMA_INSTRUMENT_FRAMEWORK': 'true',
       'LLVM_PROFILE_FILE': '/dev/null',
   }
   return env_vars
@@ -130,6 +131,7 @@ def _deduce_code_under_test(
     mod_info: module_info.ModuleInfo,
 ) -> Set[str]:
   """Deduces the code-under-test from the test info and module info.
+
   If the test info contains code-under-test information, that is used.
   Otherwise, the dependencies of the test are used.
 
@@ -273,10 +275,14 @@ def _find_native_binaries(module_dir):
   # the actual output binary.
   # Exclude .d and .d.raw files. These are Rust dependency files and are also
   # stored in the unstripped directory.
+  # Exclude .toc files. These are just a table of conents of a shared library,
+  # but are also stored in the unstripped directory.
   return [
       str(file)
       for file in files
-      if '.rsp' not in file.suffixes and '.d' not in file.suffixes
+      if '.rsp' not in file.suffixes
+      and '.d' not in file.suffixes
+      and '.toc' not in file.suffixes
   ]
 
 
@@ -378,7 +384,16 @@ def _generate_native_coverage_report(unstripped_native_binaries, results_dir):
 
 
 def _generate_lcov_report(out_dir, reports, root_dir=None):
-  cmd = ['genhtml', '-q', '-o', out_dir, '--ignore-errors', 'unmapped,range']
+  cmd = [
+      'genhtml',
+      '-q',
+      '-o',
+      out_dir,
+      # TODO(b/361334044): These errors are ignored to continue to generate a
+      # flawed result but ultimately need to be resolved, see bug for details.
+      '--ignore-errors',
+      'unmapped,range,empty,corrupt',
+  ]
   if root_dir:
     cmd.extend(['-p', root_dir])
   cmd.extend(reports)
