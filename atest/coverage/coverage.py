@@ -35,6 +35,7 @@ def build_env_vars():
       'CLANG_COVERAGE': 'true',
       'NATIVE_COVERAGE_PATHS': '*',
       'EMMA_INSTRUMENT': 'true',
+      'EMMA_INSTRUMENT_FRAMEWORK': 'true',
       'LLVM_PROFILE_FILE': '/dev/null',
   }
   return env_vars
@@ -383,7 +384,16 @@ def _generate_native_coverage_report(unstripped_native_binaries, results_dir):
 
 
 def _generate_lcov_report(out_dir, reports, root_dir=None):
-  cmd = ['genhtml', '-q', '-o', out_dir, '--ignore-errors', 'unmapped,range']
+  cmd = [
+      'genhtml',
+      '-q',
+      '-o',
+      out_dir,
+      # TODO(b/361334044): These errors are ignored to continue to generate a
+      # flawed result but ultimately need to be resolved, see bug for details.
+      '--ignore-errors',
+      'unmapped,range,empty,corrupt',
+  ]
   if root_dir:
     cmd.extend(['-p', root_dir])
   cmd.extend(reports)

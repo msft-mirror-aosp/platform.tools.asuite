@@ -111,7 +111,12 @@ def send_exit_event(exit_code, stacktrace='', logs=''):
 
 
 def send_start_event(
-    command_line, test_references, cwd, operating_system, source_root, hostname
+    command_line,
+    test_references,
+    cwd,
+    operating_system,
+    source_root,
+    hostname,
 ):
   """Log start event of clearcut.
 
