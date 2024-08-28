@@ -35,7 +35,7 @@ class DevicelessJavaTestHostTest(atest_integration_test.AtestTestCase):
     )
 
 
-class DeviceLessPythonTestHostTest(atest_integration_test.AtestTestCase):
+class DevicelessPythonTestHostTest(atest_integration_test.AtestTestCase):
   _TARGET_NAME = 'deviceless_python_test_host'
 
   def test_passed_failed_counts(self):
