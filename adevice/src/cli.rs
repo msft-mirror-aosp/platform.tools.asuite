@@ -82,6 +82,9 @@ pub struct GlobalOptions {
     /// Path to config file.  Uses $HOME/.config/asuite/adevice-tracking.json if unset.
     #[clap(long = "config", global = true)]
     pub config_path: Option<String>,
+    #[clap(long = "force", global = true, alias = "force", alias = "force")]
+    // Force device update even if unbuilt modules are detected.
+    pub force: bool,
     // Don't wait for device to become available after restarting it.
     #[clap(long = "nowait", global = true, alias = "no_wait", alias = "no-wait")]
     pub nowait: bool,
@@ -142,6 +145,18 @@ mod tests {
 
     use super::Cli;
     use clap::Parser;
+
+    #[test]
+    fn force_default_false() {
+        let cli = Cli::parse_from(["fake_prog", "update"]);
+        assert!(!cli.global_options.force);
+    }
+
+    #[test]
+    fn force_works() {
+        let cli = Cli::parse_from(["fake_prog", "update", "--force"]);
+        assert!(cli.global_options.force);
+    }
 
     #[test]
     fn nowait_works() {
