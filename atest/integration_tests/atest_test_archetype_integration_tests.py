@@ -34,7 +34,8 @@ class DevicelessJavaTestHostTest(atest_integration_test.AtestTestCase):
             expected_passed_count=2,
             expected_failed_count=1,
             expected_ignored_count=0,
-        ),
+        )
+        + _create_elapsed_time_verifiers(max_sec=10),
     )
 
 
@@ -50,7 +51,8 @@ class DevicelessPythonTestHostTest(atest_integration_test.AtestTestCase):
             expected_passed_count=2,
             expected_failed_count=1,
             expected_ignored_count=0,
-        ),
+        )
+        + _create_elapsed_time_verifiers(max_sec=10),
     )
 
 
@@ -65,7 +67,8 @@ class DeviceAndroidTestTest(atest_integration_test.AtestTestCase):
             expected_passed_count=2,
             expected_failed_count=1,
             expected_ignored_count=0,
-        ),
+        )
+        + _create_elapsed_time_verifiers(max_sec=20),
     )
 
   def test_early_tradefed_exit_shows_useful_output(self):
@@ -104,7 +107,8 @@ class DeviceCcTestTest(atest_integration_test.AtestTestCase):
             expected_passed_count=2,
             expected_failed_count=1,
             expected_ignored_count=0,
-        ),
+        )
+        + _create_elapsed_time_verifiers(max_sec=20),
     )
 
 
@@ -117,6 +121,17 @@ class _Verifier:
       atest_integration_test.AtestRunResult,
   ]
   name: str
+
+
+def _create_elapsed_time_verifiers(max_sec: float) -> list[_Verifier]:
+  return [
+      _Verifier(
+          lambda test_case, result: test_case.assertLessEqual(
+              result.get_elapsed_time(), max_sec
+          ),
+          'elapsed_time',
+      )
+  ]
 
 
 def _create_pass_fail_ignore_verifiers(
