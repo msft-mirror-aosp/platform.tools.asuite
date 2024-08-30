@@ -350,13 +350,16 @@ class AtestExecutionInfo:
         result=device_proto.max_speed if device_proto.max_speed else 0,
     )
 
+    log_path = pathlib.Path(self.work_dir)
+    html_path = None
+
     if self.result_file_obj and not has_non_test_options(self.args_ns):
       self.result_file_obj.write(
           AtestExecutionInfo._generate_execution_detail(self.args)
       )
       self.result_file_obj.close()
       atest_utils.prompt_suggestions(self.test_result)
-      atest_utils.generate_print_result_html(self.test_result)
+      html_path = atest_utils.generate_print_result_html(self.test_result)
       symlink_latest_result(self.work_dir)
     main_module = sys.modules.get(_MAIN_MODULE_KEY)
     main_exit_code = (
@@ -364,6 +367,19 @@ class AtestExecutionInfo:
         if isinstance(value, SystemExit)
         else (getattr(main_module, _EXIT_CODE_ATTR, ExitCode.ERROR))
     )
+
+    # Ideally log_path does not need to be printed when html is available to
+    # avoid redundant printing. But there are external scripts currently
+    # parsing the hard coded 'Test Logs have been saved in ', we keep it for
+    # now to help with backward compatibility.
+    if log_path:
+      print(f'Test Logs have been saved in {log_path / "log"}')
+    if html_path:
+      print(
+          'To see the list of log files: '
+          f'{atest_utils.mark_magenta(f"file://{html_path}")}\n'
+      )
+
     # Do not send stacktrace with send_exit_event when exit code is not
     # ERROR.
     if main_exit_code != ExitCode.ERROR:
@@ -373,7 +389,6 @@ class AtestExecutionInfo:
       logging.debug('handle_exc_and_send_exit_event:%s', main_exit_code)
       metrics_utils.handle_exc_and_send_exit_event(main_exit_code)
 
-    log_path = pathlib.Path(self.work_dir)
     AtestExecutionInfo._copy_build_trace_to_log_dir(
         self._start_time, time.time(), self._repo_out_dir, log_path
     )

@@ -95,8 +95,6 @@ _WILDCARD_CHARS = {'?', '*'}
 
 _WILDCARD_FILTER_RE = re.compile(r'.*[?|*]$')
 _REGULAR_FILTER_RE = re.compile(r'.*\w$')
-# Printed before the html log line. May be used in tests to parse the html path.
-_HTML_LOG_PRINT_PREFIX = 'To access logs, press "ctrl" and click on'
 
 SUGGESTIONS = {
     # (b/177626045) If Atest does not install target application properly.
@@ -1921,7 +1919,7 @@ def get_manifest_info(manifest: Path) -> Dict[str, Any]:
 
 
 # pylint: disable=broad-except
-def generate_print_result_html(result_file: Path):
+def generate_print_result_html(result_file: Path) -> Path:
   """Generate a html that collects all log files."""
   result_file = Path(result_file)
   search_dir = Path(result_file).parent.joinpath('log')
@@ -1941,12 +1939,11 @@ def generate_print_result_html(result_file: Path):
             f'{html.escape(Path(log).name)}</a></p>'
         )
       cache.write('</body></html>')
-    print(
-        f'\n{_HTML_LOG_PRINT_PREFIX}\n{mark_magenta(f"file://{result_html}")}\n'
-    )
     send_tradeded_elapsed_time_metric(search_dir)
+    return result_html
   except Exception as e:
     logging.debug('Did not generate log html for reason: %s', e)
+    return None
 
 
 def send_tradeded_elapsed_time_metric(search_dir: Path):
