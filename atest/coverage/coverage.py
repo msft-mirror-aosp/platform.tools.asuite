@@ -333,6 +333,7 @@ def _generate_java_coverage_report(
       cmd.append('-sourcepath')
       cmd.append(src_path)
     cmd.extend(jacoco_files)
+    logging.debug(f'Running jacoco_lcov to generate coverage report: {cmd}.')
     try:
       subprocess.run(
           cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
@@ -369,6 +370,7 @@ def _generate_native_coverage_report(unstripped_native_binaries, results_dir):
   for binary in unstripped_native_binaries:
     cmd.append(f'--object={str(binary)}')
 
+  logging.debug(f'Running llvm-cov to generate coverage report: {cmd}.')
   try:
     subprocess.run(
         cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
@@ -397,6 +399,7 @@ def _generate_lcov_report(out_dir, reports, root_dir=None):
   if root_dir:
     cmd.extend(['-p', root_dir])
   cmd.extend(reports)
+  logging.debug(f'Running genhtml to generate coverage report: {cmd}.')
   try:
     subprocess.run(
         cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT

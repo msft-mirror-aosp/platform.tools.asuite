@@ -113,11 +113,17 @@ class AtestRunResult:
       env: dict[str, str],
       repo_root: str,
       config: split_build_test_script.IntegrationTestConfiguration,
+      elapsed_time: float,
   ):
     self._completed_process = completed_process
     self._env = env
     self._repo_root = repo_root
     self._config = config
+    self._elapsed_time = elapsed_time
+
+  def get_elapsed_time(self) -> float:
+    """Returns the elapsed time of the atest command execution."""
+    return self._elapsed_time
 
   def get_returncode(self) -> int:
     """Returns the return code of the completed process."""
@@ -376,16 +382,20 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     logging.debug(
         '%sCommand environment variables: %s', indentation, step_in.get_env()
     )
+    start_time = time.time()
+    shell_result = cls._run_shell_command(
+        complete_cmd.split(),
+        env=step_in.get_env(),
+        cwd=step_in.get_repo_root(),
+        print_output=print_output,
+    )
+    elapsed_time = time.time() - start_time
     result = AtestRunResult(
-        cls._run_shell_command(
-            complete_cmd.split(),
-            env=step_in.get_env(),
-            cwd=step_in.get_repo_root(),
-            print_output=print_output,
-        ),
+        shell_result,
         step_in.get_env(),
         step_in.get_repo_root(),
         step_in.get_config(),
+        elapsed_time,
     )
 
     wrap_output_lines = lambda output_str: ''.join((
