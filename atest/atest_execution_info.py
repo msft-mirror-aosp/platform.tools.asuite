@@ -359,7 +359,7 @@ class AtestExecutionInfo:
       )
       self.result_file_obj.close()
       atest_utils.prompt_suggestions(self.test_result)
-      html_path = atest_utils.generate_print_result_html(self.test_result)
+      html_path = atest_utils.generate_result_html(self.test_result)
       symlink_latest_result(self.work_dir)
     main_module = sys.modules.get(_MAIN_MODULE_KEY)
     main_exit_code = (

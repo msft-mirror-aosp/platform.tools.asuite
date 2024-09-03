@@ -1919,11 +1919,11 @@ def get_manifest_info(manifest: Path) -> Dict[str, Any]:
 
 
 # pylint: disable=broad-except
-def generate_print_result_html(result_file: Path) -> Path:
+def generate_result_html(result_file: Path) -> Path:
   """Generate a html that collects all log files."""
   result_file = Path(result_file)
-  search_dir = Path(result_file).parent.joinpath('log')
-  result_html = Path(search_dir, 'test_logs.html')
+  search_dir = Path(result_file).parent
+  result_html = Path(result_file.parent, 'local_log_file_list.html')
   try:
     logs = sorted(find_files(str(search_dir), file_name='*', followlinks=True))
     with open(result_html, 'w', encoding='utf-8') as cache:
@@ -1936,7 +1936,7 @@ def generate_print_result_html(result_file: Path) -> Path:
       for log in logs:
         cache.write(
             f'<p><a href="{urllib.parse.quote(log)}">'
-            f'{html.escape(Path(log).name)}</a></p>'
+            f'{html.escape(Path(log).relative_to(search_dir).as_posix())}</a></p>'
         )
       cache.write('</body></html>')
     send_tradeded_elapsed_time_metric(search_dir)
