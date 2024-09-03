@@ -16,7 +16,6 @@ clap = { features = ["derive"]}
 googletest = {path = "../../../external/rust/crates/googletest" }
 hex = { path = "../../../external/rust/crates/hex" }
 itertools = { path = "../../../external/rust/crates/itertools"}
-lazy_static = { path = "../../../external/rust/crates/lazy_static"}
 protobuf = { path = "../../../external/rust/crates/protobuf" }
 rayon = { path = "../../../external/rust/crates/rayon"}
 regex = { path = "../../../external/rust/crates/regex"}
@@ -45,5 +44,3 @@ path = "src/main.rs"
 [[bin]]
 name = "adevice_fingerprint"
 path = "src/adevice_fingerprint.rs"
-
-
