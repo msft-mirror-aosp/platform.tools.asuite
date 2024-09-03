@@ -19,49 +19,21 @@ from atest.logstorage import log_uploader
 from atest.metrics import metrics
 
 
-# Keep it disabled until we can tell the capability of tmux.
-_DISABLE_HYPER_LINK_FORMAT_BY_DEFAULT = True
-
-
 _non_redirected_sys_stdout = sys.stdout
 
 
-def print_feedback_message(
-    is_internal_user=None, is_uploading_logs=None, use_hyper_link=None
-):
+def print_feedback_message(is_internal_user=None, is_uploading_logs=None):
   """Print the feedback message to console."""
   if is_internal_user is None:
     is_internal_user = metrics.is_internal_user()
   if is_uploading_logs is None:
     is_uploading_logs = log_uploader.is_uploading_logs()
-  if use_hyper_link is None:
-    use_hyper_link = (
-        not _DISABLE_HYPER_LINK_FORMAT_BY_DEFAULT
-        and getattr(_non_redirected_sys_stdout, 'isatty', lambda: False)()
-    )
 
   if not is_internal_user:
     return
 
-  if use_hyper_link:
-    print_link = lambda text, target: print(
-        f'\u001b]8;;{target}\u001b\\{text}\u001b]8;;\u001b\\'
-    )
-    if is_uploading_logs:
-      print_link(
-          'Click here to share feedback about this atest run.',
-          f'http://go/atest-feedback/{metrics.get_run_id()}',
-      )
-    else:
-      print_link(
-          'Click here to share feedback about atest.',
-          'http://go/atest-feedback-aosp',
-      )
+  prefix = 'To report an issue/concern: '
+  if is_uploading_logs:
+    print(f'{prefix}http://go/from-atest-runid/{metrics.get_run_id()}')
   else:
-    if is_uploading_logs:
-      print(
-          'To share feedback about this run:\n'
-          f'http://go/atest-feedback/{metrics.get_run_id()}'
-      )
-    else:
-      print('To share feedback about atest: http://go/atest-feedback-aosp')
+    print(f'{prefix}http://go/new-atest-issue')

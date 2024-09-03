@@ -57,23 +57,3 @@ class FeedbackTest(unittest.TestCase):
 
     mock_print.assert_called_once()
     self.assertNotIn(metrics.get_run_id(), mock_print.call_args[0][0])
-
-  @patch('builtins.print')
-  def test_get_buganizer_url_use_hyper_link_use_hyper_link(self, mock_print):
-    feedback.print_feedback_message(
-        is_internal_user=True, is_uploading_logs=False, use_hyper_link=True
-    )
-
-    mock_print.assert_called_once()
-    self.assertIn('\u001b]8;;\u001b\\', mock_print.call_args[0][0])
-
-  @patch('builtins.print')
-  def test_get_buganizer_url_does_not_use_hyper_link_does_not_use_hyper_link(
-      self, mock_print
-  ):
-    feedback.print_feedback_message(
-        is_internal_user=True, is_uploading_logs=False, use_hyper_link=False
-    )
-
-    mock_print.assert_called_once()
-    self.assertNotIn('\u001b]8;;\u001b\\', mock_print.call_args[0][0])

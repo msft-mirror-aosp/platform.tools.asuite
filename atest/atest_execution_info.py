@@ -374,10 +374,11 @@ class AtestExecutionInfo:
     # now to help with backward compatibility.
     if log_path:
       print(f'Test Logs have been saved in {log_path / "log"}')
+    print()
     if html_path:
       print(
-          'To see the list of log files: '
-          f'{atest_utils.mark_magenta(f"file://{html_path}")}\n'
+          'To access log files: '
+          f'{atest_utils.mark_magenta(f"file://{html_path}")}'
       )
 
     # Do not send stacktrace with send_exit_event when exit code is not
@@ -395,6 +396,7 @@ class AtestExecutionInfo:
     if log_uploader.is_uploading_logs():
       log_uploader.upload_logs_detached(log_path)
     feedback.print_feedback_message()
+    print()
 
   @staticmethod
   def _copy_build_trace_to_log_dir(
