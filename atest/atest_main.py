@@ -1527,8 +1527,6 @@ if __name__ == '__main__':
       metrics.LocalDetectEvent(
           detect_type=DetectType.BUG_DETECTED, result=detector.caught_result
       )
-      if result_file:
-        print("Run 'atest --history' to review test result history.")
 
   banner_printer.print()
 
