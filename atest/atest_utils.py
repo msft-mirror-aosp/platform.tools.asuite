@@ -596,7 +596,7 @@ def mark_blue(text):
   return colorize(text, constants.BLUE)
 
 
-def colorful_print(text, color, bp_color=None, auto_wrap=True):
+def colorful_print(text, color=None, bp_color=None, auto_wrap=True):
   """Print out the text with color.
 
   Args:
@@ -606,7 +606,7 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
       bp_color: Backgroud color which is an ANSI code shift for colorful print.
       auto_wrap: If True, Text wraps while print.
   """
-  output = colorize(text, color, bp_color)
+  output = colorize(text, color, bp_color) if color else text
   if auto_wrap:
     print(output)
   else:
@@ -614,7 +614,7 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
 
 
 def _print_to_console(
-    prefix: str, color: int, msg: Any, *fmt_args: list[Any]
+    prefix: str, msg: Any, *fmt_args: list[Any], color: int = None
 ) -> None:
   """Print a message to the console.
 
@@ -641,7 +641,7 @@ def print_and_log_error(msg, *fmt_args):
     *fmt_args: Format arguments for the message.
   """
   logging.error(msg, *fmt_args)
-  _print_to_console('Error: ', constants.RED, msg, *fmt_args)
+  _print_to_console('Error: ', msg, *fmt_args, color=constants.RED)
 
 
 def print_and_log_warning(msg, *fmt_args):
@@ -652,7 +652,7 @@ def print_and_log_warning(msg, *fmt_args):
     *fmt_args: Format arguments for the message.
   """
   logging.warning(msg, *fmt_args)
-  _print_to_console('Warning: ', constants.YELLOW, msg, *fmt_args)
+  _print_to_console('Warning: ', msg, *fmt_args, color=constants.MAGENTA)
 
 
 def print_and_log_info(msg, *fmt_args):
@@ -663,7 +663,7 @@ def print_and_log_info(msg, *fmt_args):
     *fmt_args: Format arguments for the message.
   """
   logging.info(msg, *fmt_args)
-  _print_to_console('Info: ', constants.WHITE, msg, *fmt_args)
+  _print_to_console(mark_cyan('Info: '), msg, *fmt_args)
 
 
 def get_terminal_size():
