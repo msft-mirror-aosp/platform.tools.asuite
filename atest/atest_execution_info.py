@@ -367,22 +367,13 @@ class AtestExecutionInfo:
         else (getattr(main_module, _EXIT_CODE_ATTR, ExitCode.ERROR))
     )
 
-    # Ideally log_path does not need to be printed when html is available to
-    # avoid redundant printing. But there are external scripts currently
-    # parsing the hard coded 'Test Logs have been saved in ', we keep it for
-    # now to help with backward compatibility.
-    if log_path:
-      print(f'Test Logs have been saved in {log_path / "log"}')
     print()
-    if html_path:
-      print(
-          'To access log files: '
-          f'{atest_utils.mark_magenta(f"file://{html_path}")}'
-      )
-
+    log_link = html_path if html_path else log_path
+    if log_link:
+      print(f'Logs: {atest_utils.mark_magenta(f"file://{log_link}")}')
     bug_report_url = AtestExecutionInfo._create_bug_report_url()
     if bug_report_url:
-      print(f'To report an issue/concern: {bug_report_url}')
+      print(f'Issue report: {bug_report_url}')
     print()
 
     # Do not send stacktrace with send_exit_event when exit code is not
