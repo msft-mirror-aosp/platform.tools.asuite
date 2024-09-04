@@ -5,13 +5,13 @@
 ///  2) Integration with ninja to derive "installed" files from
 ///     this module set.
 use anyhow::{bail, Context, Result};
-use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::process;
+use std::sync::LazyLock;
 use tracing::{debug, warn};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -298,10 +298,9 @@ fn tracked_files(output: &process::Output) -> Result<Vec<String>> {
 //     innie/target/product/vsoc_x86_64/system/app/CameraExtensionsProxy/CameraExtensionsProxy.apk
 // Match any files with target/product as the second and third dir paths and capture
 // everything from 5th path element to the end.
-lazy_static! {
-    static ref NINJA_OUT_PATH_MATCHER: Regex =
-        Regex::new(r"^[^/]+/target/product/[^/]+/(.+)$").expect("regex does not compile");
-}
+static NINJA_OUT_PATH_MATCHER: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^[^/]+/target/product/[^/]+/(.+)$").expect("regex does not compile")
+});
 
 fn strip_product_prefix(path: &str) -> Option<String> {
     NINJA_OUT_PATH_MATCHER.captures(path).map(|x| x[1].to_string())
