@@ -31,7 +31,6 @@ from typing import List
 from atest import atest_enum
 from atest import atest_utils
 from atest import constants
-from atest import feedback
 from atest import usb_speed_detect as usb
 from atest.atest_enum import ExitCode
 from atest.logstorage import log_uploader
@@ -381,6 +380,11 @@ class AtestExecutionInfo:
           f'{atest_utils.mark_magenta(f"file://{html_path}")}'
       )
 
+    bug_report_url = AtestExecutionInfo._create_bug_report_url()
+    if bug_report_url:
+      print(f'To report an issue/concern: {bug_report_url}')
+    print()
+
     # Do not send stacktrace with send_exit_event when exit code is not
     # ERROR.
     if main_exit_code != ExitCode.ERROR:
@@ -395,8 +399,14 @@ class AtestExecutionInfo:
     )
     if log_uploader.is_uploading_logs():
       log_uploader.upload_logs_detached(log_path)
-    feedback.print_feedback_message()
-    print()
+
+  @staticmethod
+  def _create_bug_report_url() -> str:
+    if not metrics.is_internal_user():
+      return ''
+    if not log_uploader.is_uploading_logs():
+      return 'http://go/new-atest-issue'
+    return f'http://go/from-atest-runid/{metrics.get_run_id()}'
 
   @staticmethod
   def _copy_build_trace_to_log_dir(
