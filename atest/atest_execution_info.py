@@ -23,15 +23,19 @@ import json
 import logging
 import os
 import pathlib
+import shutil
 import sys
+import time
 from typing import List
 
-from atest import atest_utils as au
+from atest import atest_enum
 from atest import atest_utils
 from atest import constants
 from atest import feedback
+from atest import usb_speed_detect as usb
 from atest.atest_enum import ExitCode
 from atest.logstorage import log_uploader
+from atest.metrics import metrics
 from atest.metrics import metrics_utils
 
 _ARGS_KEY = 'args'
@@ -130,7 +134,7 @@ def print_test_result(root, history_arg):
     )
   for path in paths[0 : int(history_arg) + 1]:
     result_path = os.path.join(path, 'test_result')
-    result = au.load_json_safely(result_path)
+    result = atest_utils.load_json_safely(result_path)
     total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
     summary_str = ', '.join(
         [k[:1] + ':' + str(v) for k, v in total_summary.items()]
@@ -169,27 +173,27 @@ def print_test_result_by_path(path):
   Args:
       path: A string of test result path.
   """
-  result = au.load_json_safely(path)
+  result = atest_utils.load_json_safely(path)
   if not result:
     return
   print('\natest {}'.format(result.get(_ARGS_KEY, '')))
   test_result_url = result.get(_TEST_RESULT_LINK, '')
   if test_result_url:
     print('\nTest Result Link: {}'.format(test_result_url))
-  print('\nTotal Summary:\n{}'.format(au.delimiter('-')))
+  print('\nTotal Summary:\n{}'.format(atest_utils.delimiter('-')))
   total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
   print(', '.join([(k + ':' + str(v)) for k, v in total_summary.items()]))
   fail_num = total_summary.get(_STATUS_FAILED_KEY)
   if fail_num > 0:
     message = '%d test failed' % fail_num
-    print(f'\n{au.mark_red(message)}\n{"-" * len(message)}')
+    print(f'\n{atest_utils.mark_red(message)}\n{"-" * len(message)}')
     test_runner = result.get(_TEST_RUNNER_KEY, {})
     for runner_name in test_runner.keys():
       test_dict = test_runner.get(runner_name, {})
       for test_name in test_dict:
         test_details = test_dict.get(test_name, {})
         for fail in test_details.get(_STATUS_FAILED_KEY):
-          print(au.mark_red(f'{fail.get(_TEST_NAME_KEY)}'))
+          print(atest_utils.mark_red(f'{fail.get(_TEST_NAME_KEY)}'))
           failure_files = glob.glob(
               _LOGCAT_FMT.format(
                   os.path.dirname(path), fail.get(_TEST_NAME_KEY)
@@ -198,12 +202,14 @@ def print_test_result_by_path(path):
           if failure_files:
             print(
                 '{} {}'.format(
-                    au.mark_cyan('LOGCAT-ON-FAILURES:'), failure_files[0]
+                    atest_utils.mark_cyan('LOGCAT-ON-FAILURES:'),
+                    failure_files[0],
                 )
             )
           print(
               '{} {}'.format(
-                  au.mark_cyan('STACKTRACE:\n'), fail.get(_TEST_DETAILS_KEY)
+                  atest_utils.mark_cyan('STACKTRACE:\n'),
+                  fail.get(_TEST_DETAILS_KEY),
               )
           )
 
@@ -235,7 +241,7 @@ def has_url_results():
       if file != 'test_result':
         continue
       json_file = os.path.join(root, 'test_result')
-      result = au.load_json_safely(json_file)
+      result = atest_utils.load_json_safely(json_file)
       url_link = result.get(_TEST_RESULT_LINK, '')
       if url_link:
         return True
@@ -282,7 +288,12 @@ class AtestExecutionInfo:
   result_reporters = []
 
   def __init__(
-      self, args: List[str], work_dir: str, args_ns: argparse.ArgumentParser
+      self,
+      args: List[str],
+      work_dir: str,
+      args_ns: argparse.ArgumentParser,
+      start_time: float = None,
+      repo_out_dir: pathlib.Path = None,
   ):
     """Initialise an AtestExecutionInfo instance.
 
@@ -290,6 +301,8 @@ class AtestExecutionInfo:
         args: Command line parameters.
         work_dir: The directory for saving information.
         args_ns: An argparse.ArgumentParser class instance holding parsed args.
+        start_time: The execution start time. Can be None.
+        repo_out_dir: The repo output directory. Can be None.
 
     Returns:
            A json format string.
@@ -305,6 +318,12 @@ class AtestExecutionInfo:
         args,
         work_dir,
     )
+    self._start_time = start_time if start_time is not None else time.time()
+    self._repo_out_dir = (
+        repo_out_dir
+        if repo_out_dir is not None
+        else atest_utils.get_build_out_dir()
+    )
 
   def __enter__(self):
     """Create and return information file object."""
@@ -316,13 +335,28 @@ class AtestExecutionInfo:
 
   def __exit__(self, exit_type, value, traceback):
     """Write execution information and close information file."""
+
+    # Read the USB speed and send usb metrics.
+    device_proto = usb.get_device_proto_binary()
+    usb.verify_and_print_usb_speed_warning(device_proto)
+    metrics.LocalDetectEvent(
+        detect_type=atest_enum.DetectType.USB_NEGOTIATED_SPEED,
+        result=device_proto.negotiated_speed
+        if device_proto.negotiated_speed
+        else 0,
+    )
+    metrics.LocalDetectEvent(
+        detect_type=atest_enum.DetectType.USB_MAX_SPEED,
+        result=device_proto.max_speed if device_proto.max_speed else 0,
+    )
+
     if self.result_file_obj and not has_non_test_options(self.args_ns):
       self.result_file_obj.write(
           AtestExecutionInfo._generate_execution_detail(self.args)
       )
       self.result_file_obj.close()
-      au.prompt_suggestions(self.test_result)
-      au.generate_print_result_html(self.test_result)
+      atest_utils.prompt_suggestions(self.test_result)
+      atest_utils.generate_print_result_html(self.test_result)
       symlink_latest_result(self.work_dir)
     main_module = sys.modules.get(_MAIN_MODULE_KEY)
     main_exit_code = (
@@ -339,9 +373,29 @@ class AtestExecutionInfo:
       logging.debug('handle_exc_and_send_exit_event:%s', main_exit_code)
       metrics_utils.handle_exc_and_send_exit_event(main_exit_code)
 
+    log_path = pathlib.Path(self.work_dir)
+    AtestExecutionInfo._copy_build_trace_to_log_dir(
+        self._start_time, time.time(), self._repo_out_dir, log_path
+    )
     if log_uploader.is_uploading_logs():
-      log_uploader.upload_logs_detached(pathlib.Path(self.work_dir))
+      log_uploader.upload_logs_detached(log_path)
     feedback.print_feedback_message()
+
+  @staticmethod
+  def _copy_build_trace_to_log_dir(
+      start_time: float,
+      end_time: float,
+      repo_out_path: pathlib.Path,
+      log_path: pathlib.Path,
+  ):
+
+    for file in repo_out_path.iterdir():
+      if (
+          file.is_file()
+          and file.name.startswith('build.trace')
+          and start_time <= file.stat().st_mtime <= end_time
+      ):
+        shutil.copy(file, log_path)
 
   @staticmethod
   def _generate_execution_detail(args):
