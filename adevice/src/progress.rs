@@ -1,16 +1,12 @@
 use std::io::{self, Write};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use lazy_static::lazy_static;
-
-lazy_static! {
-    static ref PROGRESS: Progress = Progress {
-        message: Arc::new(Mutex::new("".to_string())),
-        is_complete: Arc::new(Mutex::new(false))
-    };
-}
+static PROGRESS: LazyLock<Progress> = LazyLock::new(|| Progress {
+    message: Arc::new(Mutex::new("".to_string())),
+    is_complete: Arc::new(Mutex::new(false)),
+});
 
 pub struct Progress {
     message: Arc<Mutex<String>>,
