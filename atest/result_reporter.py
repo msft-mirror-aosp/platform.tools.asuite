@@ -97,8 +97,6 @@ INT_KEYS = {}
 ITER_SUMMARY = {}
 ITER_COUNTS = {}
 
-_TEST_LOG_PATH_PRINT_PREFIX = 'Test Logs have been saved in '
-
 
 class PerfInfo:
   """Class for storing performance test of a test run."""
@@ -484,7 +482,6 @@ class ResultReporter:
     if self.log_path:
       # Print aggregate result if any.
       self._print_aggregate_test_metrics()
-      print(f'{_TEST_LOG_PATH_PRINT_PREFIX}{self.log_path}')
     # TODO(b/174535786) Error handling while uploading test results has
     # unexpected exceptions.
     # TODO (b/174627499) Saving this information in atest history.
