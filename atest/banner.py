@@ -86,7 +86,7 @@ class BannerPrinter:
       return
 
     if not print_func:
-      print_func = lambda m: atest_utils.colorful_print(m, constants.YELLOW)
+      print_func = lambda m: atest_utils.colorful_print(m, constants.MAGENTA)
 
     if not date_supplier:
       date_supplier = lambda: str(date.today())
