@@ -182,7 +182,7 @@ def _get_args_from_config():
   print(
       '\n{} {}'.format(
           atest_utils.mark_cyan('Reading config:'),
-          atest_utils.mark_yellow(_config),
+          _config,
       )
   )
   # pylint: disable=global-statement:
@@ -979,10 +979,12 @@ def _main(
   """
   _begin_time = time.time()
   logging.debug(
-      'Running atest script with argv %s, results_dir %s, args %s.',
+      'Running atest script with argv: %s\n  results_dir: %s\n  args: %s\n  run'
+      ' id: %s',
       argv,
       results_dir,
       args,
+      metrics.get_run_id(),
   )
 
   # Sets coverage environment variables.
