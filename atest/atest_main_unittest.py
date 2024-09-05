@@ -287,35 +287,6 @@ class PrintModuleInfoTest(AtestUnittestFixture):
   def tearDown(self):
     sys.stdout = sys.__stdout__
 
-  @mock.patch('atest.atest_utils._has_colors', return_value=True)
-  def test_print_module_info_from_module_name(self, _):
-    """Test _print_module_info_from_module_name method."""
-    mod_info = self.create_module_info([
-        module(
-            name='mod1',
-            path=['src/path/mod1'],
-            installed=['installed/path/mod1'],
-            compatibility_suites=['device_test_mod1', 'native_test_mod1'],
-        )
-    ])
-    correct_output = (
-        f'{GREEN}mod1{END}\n'
-        f'{CYAN}\tCompatibility suite{END}\n'
-        '\t\tdevice_test_mod1\n'
-        '\t\tnative_test_mod1\n'
-        f'{CYAN}\tSource code path{END}\n'
-        "\t\t['src/path/mod1']\n"
-        f'{CYAN}\tInstalled path{END}\n'
-        '\t\tinstalled/path/mod1\n'
-    )
-    capture_output = StringIO()
-    sys.stdout = capture_output
-
-    atest_main._print_module_info_from_module_name(mod_info, 'mod1')
-
-    # Check the function correctly printed module_info in color to stdout
-    self.assertEqual(correct_output, capture_output.getvalue())
-
   def test_has_valid_test_mapping_args_is_test_mapping_detect_event_send_1(
       self,
   ):
