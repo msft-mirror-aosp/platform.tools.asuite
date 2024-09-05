@@ -272,7 +272,7 @@ class EventHandlerUnittests(unittest.TestCase):
     self.mock_reporter.process_test_result.assert_has_calls([call])
 
   # pylint: disable=protected-access
-  def test_process_event_not_balanced(self):
+  def test_process_event_test_run_end_without_test_end_throws(self):
     """Test process_event method with start/end event name not balanced."""
     events = (
         _Event()
@@ -311,18 +311,38 @@ class EventHandlerUnittests(unittest.TestCase):
         e_h.EventHandleError,
         self.fake_eh._check_events_are_balanced,
         name,
+        data,
         self.mock_reporter,
     )
-    # Event pair: TEST_RUN_STARTED -> TEST_MODULE_ENDED
-    # It should raise TradeFedExitError in _check_events_are_balanced()
-    name = 'TEST_MODULE_ENDED'
-    data = {'foo': 'bar'}
-    self.assertRaises(
-        e_h.EventHandleError,
-        self.fake_eh._check_events_are_balanced,
-        name,
-        self.mock_reporter,
+
+  def test_process_event_module_end_without_test_run_end_no_throw(self):
+    """Test process_event method with start/end event name not balanced."""
+    events = (
+        _Event()
+        .add_test_module_started('someTestModule')
+        .add_test_run_started('com.android.UnitTests', 2)
+        .add_test_module_ended({'foo': 'bar'})
+        .get_events()
     )
+    for name, data in events[:-1]:
+      self.fake_eh.process_event(name, data)
+
+    self.fake_eh.process_event(*events[-1])
+
+  def test_process_event_run_end_without_test_end_no_throw(self):
+    """Test process_event method with start/end event name not balanced."""
+    events = (
+        _Event()
+        .add_test_module_started('someTestModule')
+        .add_test_run_started('com.android.UnitTests', 2)
+        .add_test_started(10, 'someClassName', 'someTestName')
+        .add_test_run_ended({})
+        .get_events()
+    )
+    for name, data in events[:-1]:
+      self.fake_eh.process_event(name, data)
+
+    self.fake_eh.process_event(*events[-1])
 
   def test_process_event_ignore(self):
     """Test _process_event method for normal test results."""
