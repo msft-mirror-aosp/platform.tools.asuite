@@ -546,34 +546,6 @@ def _validate_args(args):
     sys.exit(ExitCode.INVALID_TM_ARGS)
 
 
-def _print_module_info_from_module_name(mod_info, module_name):
-  """print out the related module_info for a module_name.
-
-  Args:
-      mod_info: ModuleInfo object.
-      module_name: A string of module.
-
-  Returns:
-      True if the module_info is found.
-  """
-  title_mapping = collections.OrderedDict()
-  title_mapping[constants.MODULE_COMPATIBILITY_SUITES] = 'Compatibility suite'
-  title_mapping[constants.MODULE_PATH] = 'Source code path'
-  title_mapping[constants.MODULE_INSTALLED] = 'Installed path'
-  target_module_info = mod_info.get_module_info(module_name)
-  is_module_found = False
-  if target_module_info:
-    atest_utils.colorful_print(module_name, constants.GREEN)
-    for title_key in title_mapping:
-      atest_utils.colorful_print(
-          '\t%s' % title_mapping[title_key], constants.CYAN
-      )
-      for info_value in target_module_info[title_key]:
-        print('\t\t{}'.format(info_value))
-    is_module_found = True
-  return is_module_found
-
-
 def _print_deprecation_warning(arg_to_deprecate: str):
   """For features that are up for deprecation in the near future, print a message
 
@@ -1527,8 +1499,6 @@ if __name__ == '__main__':
       metrics.LocalDetectEvent(
           detect_type=DetectType.BUG_DETECTED, result=detector.caught_result
       )
-      if result_file:
-        print("Run 'atest --history' to review test result history.")
 
   banner_printer.print()
 
