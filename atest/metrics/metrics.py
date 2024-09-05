@@ -13,7 +13,6 @@
 # limitations under the License.
 
 """Metrics class."""
-
 from atest import constants
 from atest.metrics import metrics_base
 
@@ -147,6 +146,8 @@ class LocalDetectEvent(metrics_base.MetricsBase):
       metrics.LocalDetectEvent(
           detect_type=0,
           result=0)
+      detect_type: a value from atest_enum.DetectType.
+      result: the value corresponding to the result of the detected event.
   """
 
   _EVENT_NAME = 'local_detect_event'
