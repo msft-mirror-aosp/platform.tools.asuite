@@ -6,13 +6,13 @@ use crate::{fingerprint, time};
 
 use anyhow::{anyhow, bail, Context, Result};
 use itertools::Itertools;
-use lazy_static::lazy_static;
 use regex::Regex;
 use serde::__private::ToString;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::process;
+use std::sync::LazyLock;
 use std::thread::sleep;
 use std::time::Duration;
 use std::time::Instant;
@@ -151,15 +151,14 @@ impl Device for RealDevice {
     }
 }
 
-lazy_static! {
-    // Sample output, one installed, one not:
-    // % adb exec-out pm list packages  -s -f  | grep shell
-    //   package:/product/app/Browser2/Browser2.apk=org.chromium.webview_shell
-    //   package:/data/app/~~PxHDtZDEgAeYwRyl-R3bmQ==/com.android.shell--R0z7ITsapIPKnt4BT0xkg==/base.apk=com.android.shell
-    // # capture the package name (com.android.shell)
-    static ref PM_LIST_PACKAGE_MATCHER: Regex =
-        Regex::new(r"^package:/data/app/.*/base.apk=(.+)$").expect("regex does not compile");
-}
+// Sample output, one installed, one not:
+// % adb exec-out pm list packages  -s -f  | grep shell
+//   package:/product/app/Browser2/Browser2.apk=org.chromium.webview_shell
+//   package:/data/app/~~PxHDtZDEgAeYwRyl-R3bmQ==/com.android.shell--R0z7ITsapIPKnt4BT0xkg==/base.apk=com.android.shell
+// # capture the package name (com.android.shell)
+static PM_LIST_PACKAGE_MATCHER: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^package:/data/app/.*/base.apk=(.+)$").expect("regex does not compile")
+});
 
 /// Filter package manager output to figure out if the apk is installed in /data.
 fn apks_from_pm_list_output(stdout: &str) -> HashSet<String> {
@@ -218,7 +217,7 @@ impl RealDevice {
             } else {
                 // If pontis is running, add to the error message to check pontis UI
                 let pontis_status = process::Command::new("pontis")
-                    .args(&vec!["status".to_string()])
+                    .args(vec!["status".to_string()])
                     .output()
                     .context("Error checking pontis status")?;
 
