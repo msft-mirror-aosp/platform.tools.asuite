@@ -1095,7 +1095,7 @@ def _main(
     )
     metrics.LocalDetectEvent(
         detect_type=DetectType.BUILD_TIME_PER_TARGET,
-        result=int(build_duration / len(build_targets)),
+        result=int(round(build_duration / len(build_targets))),
     )
     rebuild_module_info = DetectType.NOT_REBUILD_MODULE_INFO
     if is_clean:
@@ -1105,7 +1105,7 @@ def _main(
     elif smart_rebuild:
       rebuild_module_info = DetectType.SMART_REBUILD_MODULE_INFO
     metrics.LocalDetectEvent(
-        detect_type=rebuild_module_info, result=int(build_duration)
+        detect_type=rebuild_module_info, result=int(round(build_duration))
     )
     if not success:
       return ExitCode.BUILD_FAILURE
@@ -1131,7 +1131,7 @@ def _main(
       logging.debug('Initiation and finding tests took %ss', _init_and_find)
       metrics.LocalDetectEvent(
           detect_type=DetectType.INIT_AND_FIND_MS,
-          result=int(_init_and_find * 1000),
+          result=int(round(_init_and_find * 1000)),
       )
 
     tests_exit_code = test_execution_plan.execute()
