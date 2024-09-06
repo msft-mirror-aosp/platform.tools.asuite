@@ -1020,11 +1020,16 @@ def _main(
     _print_testable_modules(mod_info, args.list_modules)
     return ExitCode.SUCCESS
   test_infos = set()
-  # (b/242567487) index_targets may finish after cli_translator; to
-  # mitigate the overhead, the main waits until it finished when no index
-  # files are available (e.g. fresh repo sync)
+
   if proc_idx.is_alive() and not indexing.Indices().has_all_indices():
+    start_wait_for_indexing = time.time()
+    print('Waiting for the module indexing to complete.')
     proc_idx.join()
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.WAIT_FOR_INDEXING_MS,
+        result=int(round((time.time() - start_wait_for_indexing) * 1000)),
+    )
+
   find_start = time.time()
   test_infos = translator.translate(args)
 
