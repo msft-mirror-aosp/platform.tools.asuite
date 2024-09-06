@@ -26,277 +26,104 @@ from atest.test_runners import event_handler as e_h
 from atest.test_runners import test_runner_base
 
 
-EVENTS_NORMAL = [
-    (
+class _Event:
+
+  def __init__(self):
+    self.events = []
+
+  def get_events(self):
+    return self.events
+
+  def add_test_module_started(self, name):
+    self.events.append((
         'TEST_MODULE_STARTED',
         {
             'moduleContextFileName': 'serial-util1146216{974}2772610436.ser',
-            'moduleName': 'someTestModule',
+            'moduleName': name,
         },
-    ),
-    ('TEST_RUN_STARTED', {'testCount': 2, 'runName': 'com.android.UnitTests'}),
-    (
-        'TEST_STARTED',
-        {
-            'start_time': 52,
-            'className': 'someClassName',
-            'testName': 'someTestName',
-        },
-    ),
-    (
-        'TEST_ENDED',
-        {
-            'end_time': 1048,
-            'className': 'someClassName',
-            'testName': 'someTestName',
-        },
-    ),
-    (
-        'TEST_STARTED',
-        {
-            'start_time': 48,
-            'className': 'someClassName2',
-            'testName': 'someTestName2',
-        },
-    ),
-    (
-        'TEST_FAILED',
-        {
-            'className': 'someClassName2',
-            'testName': 'someTestName2',
-            'trace': 'someTrace',
-        },
-    ),
-    (
-        'TEST_ENDED',
-        {
-            'end_time': 9876450,
-            'className': 'someClassName2',
-            'testName': 'someTestName2',
-        },
-    ),
-    ('TEST_RUN_ENDED', {}),
-    ('TEST_MODULE_ENDED', {'foo': 'bar'}),
-]
+    ))
+    return self
 
-EVENTS_RUN_FAILURE = [
-    (
-        'TEST_MODULE_STARTED',
-        {
-            'moduleContextFileName': 'serial-util11462169742772610436.ser',
-            'moduleName': 'someTestModule',
-        },
-    ),
-    ('TEST_RUN_STARTED', {'testCount': 2, 'runName': 'com.android.UnitTests'}),
-    (
-        'TEST_STARTED',
-        {
-            'start_time': 10,
-            'className': 'someClassName',
-            'testName': 'someTestName',
-        },
-    ),
-    ('TEST_RUN_FAILED', {'reason': 'someRunFailureReason'}),
-]
+  def add_test_module_ended(self, data):
+    self.events.append(('TEST_MODULE_ENDED', data))
+    return self
 
-
-EVENTS_INVOCATION_FAILURE = [
-    (
+  def add_test_run_started(self, name, count):
+    self.events.append((
         'TEST_RUN_STARTED',
-        {'testCount': None, 'runName': 'com.android.UnitTests'},
-    ),
-    ('INVOCATION_FAILED', {'cause': 'someInvocationFailureReason'}),
-]
+        {
+            'testCount': count,
+            'runName': name,
+        },
+    ))
+    return self
 
-EVENTS_MISSING_TEST_RUN_STARTED_EVENT = [
-    (
-        'TEST_STARTED',
+  def add_test_run_failed(self, reason):
+    self.events.append((
+        'TEST_RUN_FAILED',
         {
-            'start_time': 52,
-            'className': 'someClassName',
-            'testName': 'someTestName',
+            'reason': reason,
         },
-    ),
-    (
-        'TEST_ENDED',
-        {
-            'end_time': 1048,
-            'className': 'someClassName',
-            'testName': 'someTestName',
-        },
-    ),
-]
+    ))
+    return self
 
-EVENTS_NOT_BALANCED_BEFORE_RAISE = [
-    (
-        'TEST_MODULE_STARTED',
-        {
-            'moduleContextFileName': 'serial-util1146216{974}2772610436.ser',
-            'moduleName': 'someTestModule',
-        },
-    ),
-    ('TEST_RUN_STARTED', {'testCount': 2, 'runName': 'com.android.UnitTests'}),
-    (
-        'TEST_STARTED',
-        {
-            'start_time': 10,
-            'className': 'someClassName',
-            'testName': 'someTestName',
-        },
-    ),
-    (
-        'TEST_ENDED',
-        {
-            'end_time': 18,
-            'className': 'someClassName',
-            'testName': 'someTestName',
-        },
-    ),
-    (
-        'TEST_STARTED',
-        {
-            'start_time': 19,
-            'className': 'someClassName',
-            'testName': 'someTestName',
-        },
-    ),
-    (
-        'TEST_FAILED',
-        {
-            'className': 'someClassName2',
-            'testName': 'someTestName2',
-            'trace': 'someTrace',
-        },
-    ),
-]
+  def add_test_run_ended(self, data):
+    self.events.append(('TEST_RUN_ENDED', data))
+    return self
 
-EVENTS_IGNORE = [
-    (
-        'TEST_MODULE_STARTED',
-        {
-            'moduleContextFileName': 'serial-util1146216{974}2772610436.ser',
-            'moduleName': 'someTestModule',
-        },
-    ),
-    ('TEST_RUN_STARTED', {'testCount': 2, 'runName': 'com.android.UnitTests'}),
-    (
+  def add_test_started(self, start_time, class_name, test_name):
+    self.events.append((
         'TEST_STARTED',
         {
-            'start_time': 8,
-            'className': 'someClassName',
-            'testName': 'someTestName',
+            'start_time': start_time,
+            'className': class_name,
+            'testName': test_name,
         },
-    ),
-    (
-        'TEST_ENDED',
-        {
-            'end_time': 18,
-            'className': 'someClassName',
-            'testName': 'someTestName',
-        },
-    ),
-    (
-        'TEST_STARTED',
-        {
-            'start_time': 28,
-            'className': 'someClassName2',
-            'testName': 'someTestName2',
-        },
-    ),
-    (
+    ))
+    return self
+
+  def add_test_ignored(self, class_name, test_name, trace):
+    self.events.append((
         'TEST_IGNORED',
         {
-            'className': 'someClassName2',
-            'testName': 'someTestName2',
-            'trace': 'someTrace',
+            'className': class_name,
+            'testName': test_name,
+            'trace': trace,
         },
-    ),
-    (
-        'TEST_ENDED',
-        {
-            'end_time': 90,
-            'className': 'someClassName2',
-            'testName': 'someTestName2',
-        },
-    ),
-    ('TEST_RUN_ENDED', {}),
-    ('TEST_MODULE_ENDED', {'foo': 'bar'}),
-]
+    ))
+    return self
 
-EVENTS_WITH_PERF_INFO = [
-    (
-        'TEST_MODULE_STARTED',
-        {
-            'moduleContextFileName': 'serial-util1146216{974}2772610436.ser',
-            'moduleName': 'someTestModule',
-        },
-    ),
-    ('TEST_RUN_STARTED', {'testCount': 2, 'runName': 'com.android.UnitTests'}),
-    (
-        'TEST_STARTED',
-        {
-            'start_time': 52,
-            'className': 'someClassName',
-            'testName': 'someTestName',
-        },
-    ),
-    (
+  def add_test_ended(self, end_time, class_name, test_name, **kwargs):
+    self.events.append((
         'TEST_ENDED',
         {
-            'end_time': 1048,
-            'className': 'someClassName',
-            'testName': 'someTestName',
-        },
-    ),
-    (
-        'TEST_STARTED',
-        {
-            'start_time': 48,
-            'className': 'someClassName2',
-            'testName': 'someTestName2',
-        },
-    ),
-    (
+            'end_time': end_time,
+            'className': class_name,
+            'testName': test_name,
+        }
+        | kwargs,
+    ))
+    return self
+
+  def add_test_failed(self, class_name, test_name, trace):
+    self.events.append((
         'TEST_FAILED',
         {
-            'className': 'someClassName2',
-            'testName': 'someTestName2',
-            'trace': 'someTrace',
+            'className': class_name,
+            'testName': test_name,
+            'trace': trace,
         },
-    ),
-    (
-        'TEST_ENDED',
+    ))
+    return self
+
+  def add_invocation_failed(self, reason):
+    self.events.append((
+        'INVOCATION_FAILED',
         {
-            'end_time': 9876450,
-            'className': 'someClassName2',
-            'testName': 'someTestName2',
-            'cpu_time': '1234.1234(ns)',
-            'real_time': '5678.5678(ns)',
-            'iterations': '6666',
+            'cause': reason,
         },
-    ),
-    (
-        'TEST_STARTED',
-        {
-            'start_time': 10,
-            'className': 'someClassName3',
-            'testName': 'someTestName3',
-        },
-    ),
-    (
-        'TEST_ENDED',
-        {
-            'end_time': 70,
-            'className': 'someClassName3',
-            'testName': 'someTestName3',
-            'additional_info_min': '102773',
-            'additional_info_mean': '105973',
-            'additional_info_median': '103778',
-        },
-    ),
-    ('TEST_RUN_ENDED', {}),
-    ('TEST_MODULE_ENDED', {'foo': 'bar'}),
-]
+    ))
+    return self
 
 
 class EventHandlerUnittests(unittest.TestCase):
@@ -314,7 +141,20 @@ class EventHandlerUnittests(unittest.TestCase):
 
   def test_process_event_normal_results(self):
     """Test process_event method for normal test results."""
-    for name, data in EVENTS_NORMAL:
+    events = (
+        _Event()
+        .add_test_module_started('someTestModule')
+        .add_test_run_started('com.android.UnitTests', 2)
+        .add_test_started(52, 'someClassName', 'someTestName')
+        .add_test_ended(1048, 'someClassName', 'someTestName')
+        .add_test_started(48, 'someClassName2', 'someTestName2')
+        .add_test_failed('someClassName2', 'someTestName2', 'someTrace')
+        .add_test_ended(9876450, 'someClassName2', 'someTestName2')
+        .add_test_run_ended({})
+        .add_test_module_ended({'foo': 'bar'})
+        .get_events()
+    )
+    for name, data in events:
       self.fake_eh.process_event(name, data)
     call1 = mock.call(
         test_runner_base.TestResult(
@@ -350,7 +190,15 @@ class EventHandlerUnittests(unittest.TestCase):
 
   def test_process_event_run_failure(self):
     """Test process_event method run failure."""
-    for name, data in EVENTS_RUN_FAILURE:
+    events = (
+        _Event()
+        .add_test_module_started('someTestModule')
+        .add_test_run_started('com.android.UnitTests', 2)
+        .add_test_started(10, 'someClassName', 'someTestName')
+        .add_test_run_failed('someRunFailureReason')
+        .get_events()
+    )
+    for name, data in events:
       self.fake_eh.process_event(name, data)
     call = mock.call(
         test_runner_base.TestResult(
@@ -371,7 +219,13 @@ class EventHandlerUnittests(unittest.TestCase):
 
   def test_process_event_invocation_failure(self):
     """Test process_event method with invocation failure."""
-    for name, data in EVENTS_INVOCATION_FAILURE:
+    events = (
+        _Event()
+        .add_test_run_started('com.android.UnitTests', None)
+        .add_invocation_failed('someInvocationFailureReason')
+        .get_events()
+    )
+    for name, data in events:
       self.fake_eh.process_event(name, data)
     call = mock.call(
         test_runner_base.TestResult(
@@ -392,7 +246,13 @@ class EventHandlerUnittests(unittest.TestCase):
 
   def test_process_event_missing_test_run_started_event(self):
     """Test process_event method for normal test results."""
-    for name, data in EVENTS_MISSING_TEST_RUN_STARTED_EVENT:
+    events = (
+        _Event()
+        .add_test_started(52, 'someClassName', 'someTestName')
+        .add_test_ended(1048, 'someClassName', 'someTestName')
+        .get_events()
+    )
+    for name, data in events:
       self.fake_eh.process_event(name, data)
     call = mock.call(
         test_runner_base.TestResult(
@@ -414,7 +274,18 @@ class EventHandlerUnittests(unittest.TestCase):
   # pylint: disable=protected-access
   def test_process_event_not_balanced(self):
     """Test process_event method with start/end event name not balanced."""
-    for name, data in EVENTS_NOT_BALANCED_BEFORE_RAISE:
+    events = (
+        _Event()
+        .add_test_module_started('someTestModule')
+        .add_test_run_started('com.android.UnitTests', 2)
+        .add_test_started(10, 'someClassName', 'someTestName')
+        .add_test_ended(18, 'someClassName', 'someTestName')
+        .add_test_started(19, 'someClassName', 'someTestName')
+        .add_test_failed('someClassName2', 'someTestName2', 'someTrace')
+        .get_events()
+    )
+
+    for name, data in events:
       self.fake_eh.process_event(name, data)
     call = mock.call(
         test_runner_base.TestResult(
@@ -455,7 +326,20 @@ class EventHandlerUnittests(unittest.TestCase):
 
   def test_process_event_ignore(self):
     """Test _process_event method for normal test results."""
-    for name, data in EVENTS_IGNORE:
+    events = (
+        _Event()
+        .add_test_module_started('someTestModule')
+        .add_test_run_started('com.android.UnitTests', 2)
+        .add_test_started(8, 'someClassName', 'someTestName')
+        .add_test_ended(18, 'someClassName', 'someTestName')
+        .add_test_started(28, 'someClassName2', 'someTestName2')
+        .add_test_ignored('someClassName2', 'someTestName2', 'someTrace')
+        .add_test_ended(90, 'someClassName2', 'someTestName2')
+        .add_test_run_ended({})
+        .add_test_module_ended({'foo': 'bar'})
+        .get_events()
+    )
+    for name, data in events:
       self.fake_eh.process_event(name, data)
     call1 = mock.call(
         test_runner_base.TestResult(
@@ -491,7 +375,36 @@ class EventHandlerUnittests(unittest.TestCase):
 
   def test_process_event_with_additional_info(self):
     """Test process_event method with perf information."""
-    for name, data in EVENTS_WITH_PERF_INFO:
+    events = (
+        _Event()
+        .add_test_module_started('someTestModule')
+        .add_test_run_started('com.android.UnitTests', 2)
+        .add_test_started(52, 'someClassName', 'someTestName')
+        .add_test_ended(1048, 'someClassName', 'someTestName')
+        .add_test_started(48, 'someClassName2', 'someTestName2')
+        .add_test_failed('someClassName2', 'someTestName2', 'someTrace')
+        .add_test_ended(
+            9876450,
+            'someClassName2',
+            'someTestName2',
+            cpu_time='1234.1234(ns)',
+            real_time='5678.5678(ns)',
+            iterations='6666',
+        )
+        .add_test_started(10, 'someClassName3', 'someTestName3')
+        .add_test_ended(
+            70,
+            'someClassName3',
+            'someTestName3',
+            additional_info_min='102773',
+            additional_info_mean='105973',
+            additional_info_median='103778',
+        )
+        .add_test_run_ended({})
+        .add_test_module_ended({'foo': 'bar'})
+        .get_events()
+    )
+    for name, data in events:
       self.fake_eh.process_event(name, data)
     call1 = mock.call(
         test_runner_base.TestResult(
