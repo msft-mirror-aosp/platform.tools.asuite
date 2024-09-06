@@ -1479,6 +1479,24 @@ if __name__ == '__main__':
     metrics.LocalDetectEvent(detect_type=DetectType.ATEST_CONFIG, result=0)
 
   args = _parse_args(final_args)
+
+  # Checks whether any empty serial strings exist in the argument array.
+  if args.serial and not all(args.serial):
+    atest_utils.print_and_log_warning(
+        'Empty device serial specified via command-line argument. This may'
+        ' cause unexpected behavior in TradeFed. If not targeting a specific'
+        ' device, consider remove the serial argument. See b/330365573 for'
+        ' details.'
+    )
+  # Checks whether ANDROID_SERIAL environment variable is set to an empty string.
+  if 'ANDROID_SERIAL' in os.environ and not os.environ['ANDROID_SERIAL']:
+    atest_utils.print_and_log_warning(
+        'Empty device serial detected in the ANDROID_SERIAL environment'
+        ' variable. This may causes unexpected behavior in TradeFed. If not'
+        ' targeting a specific device, consider unset the ANDROID_SERIAL'
+        ' environment variable. See b/330365573 for details.'
+    )
+
   atest_configs.GLOBAL_ARGS = args
   _configure_logging(args.verbose, results_dir)
 
