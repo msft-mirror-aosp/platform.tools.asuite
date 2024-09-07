@@ -21,7 +21,6 @@
 
 import os
 from pathlib import Path
-import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -231,21 +230,16 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     )
 
   @mock.patch('builtins.input', return_value='1')
-  @mock.patch.object(sys, 'exit')
-  def test_extract_test_from_multiselect(self, mock_exit, mock_input):
+  def test_extract_test_from_multiselect(self, mock_input):
     """Test method extract_selected_tests method."""
     # selecting 'All'
     paths = ['/a/b/c.java', '/d/e/f.java', '/g/h/i.java']
-    mock_input.return_value = 'A'
+    mock_input.return_value = '3'
     unittest_utils.assert_strict_equal(
         self,
         sorted(test_finder_utils.extract_selected_tests(FIND_THREE_LIST)),
         sorted(paths),
     )
-    # Cancelling the command
-    mock_input.return_value = 'c'  # Testing it also works on lowercase
-    test_finder_utils.extract_selected_tests(FIND_THREE_LIST)
-    mock_exit.assert_called_once_with(0)
     # multi-select
     paths = ['/a/b/c.java', '/g/h/i.java']
     mock_input.return_value = '0,2'

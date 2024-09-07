@@ -31,6 +31,7 @@ from typing import List
 from atest import atest_enum
 from atest import atest_utils
 from atest import constants
+from atest import feedback
 from atest import usb_speed_detect as usb
 from atest.atest_enum import ExitCode
 from atest.logstorage import log_uploader
@@ -349,16 +350,13 @@ class AtestExecutionInfo:
         result=device_proto.max_speed if device_proto.max_speed else 0,
     )
 
-    log_path = pathlib.Path(self.work_dir)
-    html_path = None
-
     if self.result_file_obj and not has_non_test_options(self.args_ns):
       self.result_file_obj.write(
           AtestExecutionInfo._generate_execution_detail(self.args)
       )
       self.result_file_obj.close()
       atest_utils.prompt_suggestions(self.test_result)
-      html_path = atest_utils.generate_result_html(self.test_result)
+      atest_utils.generate_print_result_html(self.test_result)
       symlink_latest_result(self.work_dir)
     main_module = sys.modules.get(_MAIN_MODULE_KEY)
     main_exit_code = (
@@ -366,16 +364,6 @@ class AtestExecutionInfo:
         if isinstance(value, SystemExit)
         else (getattr(main_module, _EXIT_CODE_ATTR, ExitCode.ERROR))
     )
-
-    print()
-    log_link = html_path if html_path else log_path
-    if log_link:
-      print(f'Logs: {atest_utils.mark_magenta(f"file://{log_link}")}')
-    bug_report_url = AtestExecutionInfo._create_bug_report_url()
-    if bug_report_url:
-      print(f'Issue report: {bug_report_url}')
-    print()
-
     # Do not send stacktrace with send_exit_event when exit code is not
     # ERROR.
     if main_exit_code != ExitCode.ERROR:
@@ -385,19 +373,13 @@ class AtestExecutionInfo:
       logging.debug('handle_exc_and_send_exit_event:%s', main_exit_code)
       metrics_utils.handle_exc_and_send_exit_event(main_exit_code)
 
+    log_path = pathlib.Path(self.work_dir)
     AtestExecutionInfo._copy_build_trace_to_log_dir(
         self._start_time, time.time(), self._repo_out_dir, log_path
     )
     if log_uploader.is_uploading_logs():
       log_uploader.upload_logs_detached(log_path)
-
-  @staticmethod
-  def _create_bug_report_url() -> str:
-    if not metrics.is_internal_user():
-      return ''
-    if not log_uploader.is_uploading_logs():
-      return 'http://go/new-atest-issue'
-    return f'http://go/from-atest-runid/{metrics.get_run_id()}'
+    feedback.print_feedback_message()
 
   @staticmethod
   def _copy_build_trace_to_log_dir(

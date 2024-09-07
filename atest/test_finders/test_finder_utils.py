@@ -154,10 +154,6 @@ _VTS_APK = 'apk'
 _VTS_BINARY_SRC_DELIM_RE = re.compile(r'.*::(?P<target>.*)$')
 _VTS_OUT_DATA_APP_PATH = 'DATA/app'
 
-# Auxiliary options for multiple test selector
-_ALL_OPTION = 'A'
-_CANCEL_OPTION = 'C'
-
 
 def has_cc_class(test_path):
   """Find out if there is any test case in the cc file.
@@ -317,7 +313,6 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
 
   Return the test to run from tests. If more than one option, prompt the user
   to select multiple ones. Supporting formats:
-  - A string for the auxiliary menu: A for All, C for Cancel
   - An integer. E.g. 0
   - Comma-separated integers. E.g. 1,3,5
   - A range of integers denoted by the starting integer separated from
@@ -335,20 +330,21 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
     return tests if count else None
 
   extracted_tests = set()
-  auxiliary_menu = [
-      f'{_ALL_OPTION}: All',
-      f'{_CANCEL_OPTION}: Cancel'
-  ]
-  numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(tests)]
-  print('Multiple tests found:\n{0}'.format('\n'.join(
-      auxiliary_menu + numbered_list)))
+  # Establish 'All' and 'Quit' options in the numbered test menu.
+  auxiliary_menu = ['All', 'Quit']
+  _tests = tests.copy()
+  _tests.extend(auxiliary_menu)
+  numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(_tests)]
+  all_index = len(numbered_list) - auxiliary_menu[::-1].index('All') - 1
+  quit_index = len(numbered_list) - auxiliary_menu[::-1].index('Quit') - 1
+  print('Multiple tests found:\n{0}'.format('\n'.join(numbered_list)))
 
   start_prompt = time.time()
-  test_indices = get_multiple_selection_answer()
+  test_indices = get_multiple_selection_answer(quit_index)
   selections = get_selected_indices(test_indices, limit=len(numbered_list) - 1)
-  if _ALL_OPTION in test_indices.upper():
+  if all_index in selections:
     extracted_tests = tests
-  elif _CANCEL_OPTION in test_indices.upper():
+  elif quit_index in selections:
     atest_utils.colorful_print('Abort selection.', constants.RED)
     sys.exit(0)
   else:
@@ -361,16 +357,17 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
   return list(extracted_tests)
 
 
-def get_multiple_selection_answer() -> str:
+def get_multiple_selection_answer(quit_index) -> str:
   """Get the answer from the user input."""
   try:
     return input(
-        'Please select an option.'
+        'Please enter numbers of test to use. If none of the above'
+        'options matched, keep searching for other possible tests.'
         '\n(multiple selection is supported, '
         "e.g. '1' or '0,1' or '0-2'): "
     )
   except KeyboardInterrupt:
-    return _CANCEL_OPTION
+    return str(quit_index)
 
 
 def get_selected_indices(string: str, limit: int = None) -> Set[int]:

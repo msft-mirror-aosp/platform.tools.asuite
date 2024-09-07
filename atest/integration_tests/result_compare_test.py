@@ -96,10 +96,13 @@ class ResultCompareTest(unittest.TestCase):
       )
 
     result_file_path = None
-    log_dir_prefix = 'Atest results and logs directory: '
     for line in completed_process.stdout.decode().splitlines():
-      if line.startswith(log_dir_prefix):
-        result_file_path = Path(line[len(log_dir_prefix) :]) / result_file_name
+      if line.startswith('Test Logs have been saved in '):
+        result_file_path = Path(
+            re.sub('Test Logs have been saved in ', '', line).replace(
+                'log', result_file_name
+            )
+        )
         break
 
     if not result_file_path:
