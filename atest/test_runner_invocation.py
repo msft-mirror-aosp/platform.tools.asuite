@@ -124,7 +124,10 @@ class TestRunnerInvocation:
   def log_shows_early_exit(self) -> bool:
     """Grep the log file for TF process crashed message."""
     # Ensure file exists and is readable.
-    if not os.access(self._test_runner.test_log_file.name, os.R_OK):
+
+    if not self._test_runner.test_log_file or not os.access(
+        self._test_runner.test_log_file.name, os.R_OK
+    ):
       return False
 
     with open(self._test_runner.test_log_file.name, 'r') as log_file:

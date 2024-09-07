@@ -86,7 +86,6 @@ rust_defaults {
         "libclap",
         "libhex",
         "libitertools",
-        "liblazy_static",
         "librayon",
         "libregex",
         "libring",

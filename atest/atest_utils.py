@@ -95,8 +95,6 @@ _WILDCARD_CHARS = {'?', '*'}
 
 _WILDCARD_FILTER_RE = re.compile(r'.*[?|*]$')
 _REGULAR_FILTER_RE = re.compile(r'.*\w$')
-# Printed before the html log line. May be used in tests to parse the html path.
-_HTML_LOG_PRINT_PREFIX = 'To access logs, press "ctrl" and click on'
 
 SUGGESTIONS = {
     # (b/177626045) If Atest does not install target application properly.
@@ -596,7 +594,7 @@ def mark_blue(text):
   return colorize(text, constants.BLUE)
 
 
-def colorful_print(text, color, bp_color=None, auto_wrap=True):
+def colorful_print(text, color=None, bp_color=None, auto_wrap=True):
   """Print out the text with color.
 
   Args:
@@ -606,7 +604,7 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
       bp_color: Backgroud color which is an ANSI code shift for colorful print.
       auto_wrap: If True, Text wraps while print.
   """
-  output = colorize(text, color, bp_color)
+  output = colorize(text, color, bp_color) if color else text
   if auto_wrap:
     print(output)
   else:
@@ -614,7 +612,7 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
 
 
 def _print_to_console(
-    prefix: str, color: int, msg: Any, *fmt_args: list[Any]
+    prefix: str, msg: Any, *fmt_args: list[Any], color: int = None
 ) -> None:
   """Print a message to the console.
 
@@ -641,7 +639,7 @@ def print_and_log_error(msg, *fmt_args):
     *fmt_args: Format arguments for the message.
   """
   logging.error(msg, *fmt_args)
-  _print_to_console('Error: ', constants.RED, msg, *fmt_args)
+  _print_to_console('Error: ', msg, *fmt_args, color=constants.RED)
 
 
 def print_and_log_warning(msg, *fmt_args):
@@ -652,7 +650,7 @@ def print_and_log_warning(msg, *fmt_args):
     *fmt_args: Format arguments for the message.
   """
   logging.warning(msg, *fmt_args)
-  _print_to_console('Warning: ', constants.YELLOW, msg, *fmt_args)
+  _print_to_console('Warning: ', msg, *fmt_args, color=constants.MAGENTA)
 
 
 def print_and_log_info(msg, *fmt_args):
@@ -663,7 +661,7 @@ def print_and_log_info(msg, *fmt_args):
     *fmt_args: Format arguments for the message.
   """
   logging.info(msg, *fmt_args)
-  _print_to_console('Info: ', constants.WHITE, msg, *fmt_args)
+  _print_to_console(mark_cyan('Info: '), msg, *fmt_args)
 
 
 def get_terminal_size():
@@ -1921,11 +1919,11 @@ def get_manifest_info(manifest: Path) -> Dict[str, Any]:
 
 
 # pylint: disable=broad-except
-def generate_print_result_html(result_file: Path):
+def generate_result_html(result_file: Path) -> Path:
   """Generate a html that collects all log files."""
   result_file = Path(result_file)
-  search_dir = Path(result_file).parent.joinpath('log')
-  result_html = Path(search_dir, 'test_logs.html')
+  search_dir = Path(result_file).parent
+  result_html = Path(result_file.parent, 'local_log_file_list.html')
   try:
     logs = sorted(find_files(str(search_dir), file_name='*', followlinks=True))
     with open(result_html, 'w', encoding='utf-8') as cache:
@@ -1938,15 +1936,14 @@ def generate_print_result_html(result_file: Path):
       for log in logs:
         cache.write(
             f'<p><a href="{urllib.parse.quote(log)}">'
-            f'{html.escape(Path(log).name)}</a></p>'
+            f'{html.escape(Path(log).relative_to(search_dir).as_posix())}</a></p>'
         )
       cache.write('</body></html>')
-    print(
-        f'\n{_HTML_LOG_PRINT_PREFIX}\n{mark_magenta(f"file://{result_html}")}\n'
-    )
     send_tradeded_elapsed_time_metric(search_dir)
+    return result_html
   except Exception as e:
     logging.debug('Did not generate log html for reason: %s', e)
+    return None
 
 
 def send_tradeded_elapsed_time_metric(search_dir: Path):
