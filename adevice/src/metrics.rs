@@ -160,7 +160,9 @@ impl Metrics {
         if fs::metadata(METRICS_UPLOADER).is_err() {
             return Err(anyhow!("Not internal user: Metrics not sent since uploader not found"));
         }
-
+        if self.user.is_empty() {
+            return Err(anyhow!("USER env not set: Metrics not sent since no user set"));
+        }
         // Serialize
         let body = {
             let mut log_request = LogRequest::default();
