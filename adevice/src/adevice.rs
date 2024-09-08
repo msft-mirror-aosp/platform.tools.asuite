@@ -9,7 +9,6 @@ use crate::tracking::Config;
 use anyhow::{anyhow, bail, Context, Result};
 use fingerprint::{DiffMode, FileMetadata};
 use itertools::Itertools;
-use lazy_static::lazy_static;
 use metrics::MetricSender;
 use rayon::prelude::*;
 use regex::Regex;
@@ -22,7 +21,7 @@ use std::fs;
 use std::fs::File;
 use std::io::{stdin, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
 
 /// Methods that interact with the host, like fingerprinting and calling ninja to get deps.
@@ -522,10 +521,8 @@ fn is_apk_installed(host_path: &Path, installed_packages: &HashSet<String>) -> R
     }
 }
 
-lazy_static! {
-    static ref AAPT_PACKAGE_MATCHER: Regex =
-        Regex::new(r"^package: (.+)$").expect("regex does not compile");
-}
+static AAPT_PACKAGE_MATCHER: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^package: (.+)$").expect("regex does not compile"));
 
 /// Filter aapt2 dump output to parse out the package name for the apk.
 fn package_from_aapt_dump_output(stdout: Vec<u8>) -> Result<String> {
