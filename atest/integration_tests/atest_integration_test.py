@@ -45,8 +45,6 @@ setup_parallel_in_build_env = (
 #       local integration test execution. If value changes in the source code
 #       breaking the integration test becomes a problem in the future, we can
 #       reconsider importing these constants.
-# Printed before the html log line. Defined in atest/atest_utils.py.
-_HTML_LOG_PRINT_PREFIX = 'To access logs, press "ctrl" and click on'
 # Stdout print prefix for results directory. Defined in atest/atest_main.py
 _RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
 
