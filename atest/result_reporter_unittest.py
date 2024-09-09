@@ -482,6 +482,12 @@ class ResultReporterUnittests(unittest.TestCase):
     self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
     self.assertNotEqual(0, self.rr.print_summary())
 
+  def test_collect_tests_only_no_throw(self):
+    rr = result_reporter.ResultReporter(collect_only=True)
+    rr.process_test_result(RESULT_PASSED_TEST)
+
+    self.assertEqual(0, self.rr.print_collect_tests())
+
   def test_update_perf_info(self):
     """Test update_perf_info method."""
     group = result_reporter.RunStat()
