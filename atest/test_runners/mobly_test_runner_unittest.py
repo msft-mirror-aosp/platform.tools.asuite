@@ -22,6 +22,8 @@ import pathlib
 import unittest
 from unittest import mock
 
+from atest import arg_parser
+from atest import atest_configs
 from atest import constants
 from atest import result_reporter
 from atest import unittest_constants
@@ -305,14 +307,16 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     }
     self.assertEqual(yaml_dump.call_args.args[0], expected_config)
 
-  @mock.patch('atest.atest_configs.GLOBAL_ARGS.acloud_create', True)
   @mock.patch('atest.atest_utils.get_adb_devices')
   def test_get_cvd_serials(self, get_adb_devices) -> None:
     """Tests _get_cvd_serials returns correct serials."""
-    devices = ['localhost:1234', '127.0.0.1:5678', 'AD12345']
-    get_adb_devices.return_value = devices
+    global_args = arg_parser.create_atest_arg_parser().parse_args([])
+    global_args.acloud_create = True
+    with mock.patch.object(atest_configs, 'GLOBAL_ARGS', global_args):
+      devices = ['localhost:1234', '127.0.0.1:5678', 'AD12345']
+      get_adb_devices.return_value = devices
 
-    self.assertEqual(self.runner._get_cvd_serials(), devices[:2])
+      self.assertEqual(self.runner._get_cvd_serials(), devices[:2])
 
   @mock.patch('atest.atest_utils.get_adb_devices', return_value=[ADB_DEVICE])
   @mock.patch('subprocess.check_call')

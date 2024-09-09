@@ -20,7 +20,6 @@
 # pylint: disable=too-many-lines
 # pylint: disable=unused-argument
 
-from argparse import Namespace
 from io import StringIO
 import json
 import os
@@ -30,6 +29,8 @@ import sys
 import tempfile
 import unittest
 from unittest import mock
+
+from atest import arg_parser
 from atest import atest_configs
 from atest import atest_utils
 from atest import constants
@@ -287,9 +288,9 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     self.tr = atf_tr.AtestTradefedTestRunner(
         results_dir=uc.TEST_INFO_DIR, extra_args={constants.HOST: False}
     )
-    if not atest_configs.GLOBAL_ARGS:
-      atest_configs.GLOBAL_ARGS = Namespace()
-    atest_configs.GLOBAL_ARGS.device_count_config = None
+    self._global_args = arg_parser.create_atest_arg_parser().parse_args([])
+    self._global_args.device_count_config = 0
+    mock.patch.object(atest_configs, 'GLOBAL_ARGS', self._global_args).start()
 
   def tearDown(self):
     mock.patch.stopall()
@@ -1347,19 +1348,19 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
     self.assertTokensIn(['--disable-target-preparers'], cmd[0])
 
   def test_multidevice_in_config_and_generate_in_run_cmd(self):
-    atest_configs.GLOBAL_ARGS.device_count_config = 2
+    self._global_args.device_count_config = 2
     cmd = self.tr.generate_run_commands([], {})
     self.assertTokensIn(
         ['--replicate-parent-setup', '--multi-device-count', '2'], cmd[0]
     )
 
-    atest_configs.GLOBAL_ARGS.device_count_config = 1
+    self._global_args.device_count_config = 1
     cmd = self.tr.generate_run_commands([], {})
     self.assertTokensNotIn(
         ['--replicate-parent-setup', '--multi-device-count'], cmd[0]
     )
 
-    atest_configs.GLOBAL_ARGS.device_count_config = None
+    self._global_args.device_count_config = None
     cmd = self.tr.generate_run_commands([], {})
     self.assertTokensNotIn(
         ['--replicate-parent-setup', '--multi-device-count'], cmd[0]

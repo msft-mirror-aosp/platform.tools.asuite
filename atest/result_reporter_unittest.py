@@ -21,7 +21,9 @@ from io import StringIO
 import sys
 import unittest
 from unittest import mock
+from unittest.mock import patch
 
+from atest import arg_parser
 from atest import atest_configs
 from atest import result_reporter
 from atest.test_runners import test_runner_base
@@ -452,11 +454,13 @@ class ResultReporterUnittests(unittest.TestCase):
     self.rr._update_stats(RESULT_ASSUMPTION_FAILED_TEST, group)
     self.assertEqual(group.assumption_failed, 2)
 
+  @patch.object(
+      atest_configs,
+      'GLOBAL_ARGS',
+      arg_parser.create_atest_arg_parser().parse_args([]),
+  )
   def test_print_summary_ret_val(self):
     """Test print_summary method's return value."""
-    atest_configs.GLOBAL_ARGS = mock.Mock()
-    atest_configs.GLOBAL_ARGS.aggregate_metric_filter = None
-
     # PASS Case
     self.rr.process_test_result(RESULT_PASSED_TEST)
     self.assertEqual(0, self.rr.print_summary())
@@ -467,11 +471,13 @@ class ResultReporterUnittests(unittest.TestCase):
     self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
     self.assertNotEqual(0, self.rr.print_summary())
 
+  @patch.object(
+      atest_configs,
+      'GLOBAL_ARGS',
+      arg_parser.create_atest_arg_parser().parse_args([]),
+  )
   def test_print_summary_ret_val_err_stat(self):
     """Test print_summary method's return value."""
-    atest_configs.GLOBAL_ARGS = mock.Mock()
-    atest_configs.GLOBAL_ARGS.aggregate_metric_filter = None
-
     # PASS Case
     self.rr.process_test_result(RESULT_PASSED_TEST)
     self.assertEqual(0, self.rr.print_summary())
