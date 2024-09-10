@@ -564,9 +564,6 @@ class ResultReporter:
       for group_name, _ in groups.items():
         name = group_name if group_name else runner_name
         print(name)
-    print()
-    if self.log_path:
-      print(f'{_TEST_LOG_PATH_PRINT_PREFIX}{self.log_path}')
     return ExitCode.SUCCESS
 
   def print_failed_tests(self):
