@@ -335,13 +335,13 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
     return tests if count else None
 
   extracted_tests = set()
-  auxiliary_menu = [
-      f'{_ALL_OPTION}: All',
-      f'{_CANCEL_OPTION}: Cancel'
-  ]
+  auxiliary_menu = [f'{_ALL_OPTION}: All', f'{_CANCEL_OPTION}: Cancel']
   numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(tests)]
-  print('Multiple tests found:\n{0}'.format('\n'.join(
-      auxiliary_menu + numbered_list)))
+  print(
+      'Multiple tests found:\n{0}'.format(
+          '\n'.join(auxiliary_menu + numbered_list)
+      )
+  )
 
   start_prompt = time.time()
   test_indices = get_multiple_selection_answer()
@@ -529,6 +529,8 @@ def find_parent_module_dir(root_dir, start_dir, module_info):
     raise ValueError('%s not in repo %s' % (start_dir, root_dir))
   auto_gen_dir = None
   current_dir = start_dir
+  # Look for AndroidTest.xml config starting in the current dir up to the root
+  # dir.
   while current_dir != root_dir:
     # TODO (b/112904944) - migrate module_finder functions to here and
     # reuse them.
@@ -544,7 +546,7 @@ def find_parent_module_dir(root_dir, start_dir, module_info):
       if module_info.is_legacy_robolectric_class(mod):
         return rel_dir
       for test_config in mod.get(constants.MODULE_TEST_CONFIG, []):
-        # If the test config doesn's exist until it was auto-generated
+        # If the test config doesn't exist until it was auto-generated
         # in the build time(under <android_root>/out), atest still
         # recognizes it testable.
         if test_config:
