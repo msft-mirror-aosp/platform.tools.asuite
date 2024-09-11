@@ -44,7 +44,7 @@ class MetricsUtilsUnittests(unittest.TestCase):
     sys.stdout = capture_output
     metrics_utils.print_data_collection_notice(colorful=False)
     sys.stdout = sys.__stdout__
-    self.assertEqual(capture_output.getvalue(), '')
+    self.assertEqual(capture_output.getvalue(), "")
 
     # get_user_type return 0(internal).
     red = '31m'

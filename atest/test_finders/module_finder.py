@@ -54,30 +54,35 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     self.module_info = module_info
 
   def _determine_modules_to_test(
-      self, path: str, file_path: str = None
-  ) -> List:
+      self, module_path: str, test_file_path: str = None
+  ) -> set[str]:
     """Determine which module the user is trying to test.
 
     Returns the modules to test. If there are multiple possibilities, will
     ask the user. Otherwise will return the only module found.
 
     Args:
-        path: String path of module to look for.
-        file_path: String path of input file.
+        module_path: String path of module to look for.
+        test_file_path: String path of input file where the test is found.
 
     Returns:
-        A list of the module names.
+        A set of the module names.
     """
     modules_to_test = set()
 
-    if file_path:
+    if test_file_path:
       modules_to_test = self.module_info.get_modules_by_path_in_srcs(
-          path=file_path,
+          path=test_file_path,
           testable_modules_only=True,
       )
 
+    # If a single module path matches contains the path of the given test file
+    # in its MODULE_SRCS, do not continue to extract modules.
+    if len(modules_to_test) == 1:
+      return modules_to_test
+
     modules_to_test |= self.module_info.get_modules_by_path(
-        path=path,
+        path=module_path,
         testable_modules_only=True,
     )
 
