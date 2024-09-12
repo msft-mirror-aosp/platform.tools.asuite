@@ -274,9 +274,7 @@ class ModuleFinderFindTestByModuleClassName(
       )
 
   @mock.patch('subprocess.check_output')
-  def test_find_test_by_class_unique_class_name_finds_class(
-      self, mock_run_cmd
-  ):
+  def test_find_test_by_class_unique_class_name_finds_class(self, mock_run_cmd):
     self.create_module_paths(['/project/tests/module1'])
     test_file_src = self.create_class_in_module(
         '/project/tests/module1', 'ClassOneTest.java'
@@ -426,59 +424,59 @@ class ModuleFinderFindTestByModuleClassName(
   @mock.patch.object(test_finder_utils, 'get_multiple_selection_answer')
   @mock.patch('subprocess.check_output')
   def test_find_test_by_class_multiple_configs_one_test_per_config_found(
-          self, mock_run_cmd, mock_test_selection
+      self, mock_run_cmd, mock_test_selection
   ):
-      module_name='multi_config_module'
-      module_path='tests/android/multi_config_module'
-      mock_test_selection.return_value='A'
-      test1_file_src = self.create_class_in_module(
-          '/tests/android/multi_config_module', 'ClassOneTest.java'
-      )
-      test_module = (
-          module_info_unittest_base.device_driven_multi_config_test_module(
-              name=module_name,
-              module_path=module_path,
-              srcs=[test1_file_src],
-          )
-      )
-      mock_run_cmd.return_value = test1_file_src
-      finder = self.create_finder_with_module(test_module)
+    module_name = 'multi_config_module'
+    module_path = 'tests/android/multi_config_module'
+    mock_test_selection.return_value = 'A'
+    test1_file_src = self.create_class_in_module(
+        '/tests/android/multi_config_module', 'ClassOneTest.java'
+    )
+    test_module = (
+        module_info_unittest_base.device_driven_multi_config_test_module(
+            name=module_name,
+            module_path=module_path,
+            srcs=[test1_file_src],
+        )
+    )
+    mock_run_cmd.return_value = test1_file_src
+    finder = self.create_finder_with_module(test_module)
 
-      t_infos = finder.find_test_by_class_name(class_name='ClassOneTest')
+    t_infos = finder.find_test_by_class_name(class_name='ClassOneTest')
 
-      with self.subTest(name='returns_two_test_info'):
-          self.assertEqual(len(t_infos), 2)
-      with self.subTest(name='first_test_name_corresponds_to_module_name'):
-          self.assert_test_info_has_test_name(t_infos[0], module_name)
-      with self.subTest(name='second_test_name_corresponds_to_config_name'):
-          self.assert_test_info_has_test_name(t_infos[1], 'Config2')
-      with self.subTest(name='contains_expected_class_filter'):
-          self.assert_test_info_has_class_filter(
-              t_infos[0], 'tests.android.multi_config_module.ClassOneTest'
-          )
-          self.assert_test_info_has_config(
-              t_infos[0], f'{module_path}/configs/Config1.xml'
-          )
-          self.assert_test_info_has_class_filter(
-              t_infos[1], 'tests.android.multi_config_module.ClassOneTest'
-          )
-          self.assert_test_info_has_config(
-              t_infos[1], f'{module_path}/configs/Config2.xml'
-          )
-      with self.subTest(name='raw_test_name_corresponds_to_module_name'):
-          self.assert_test_info_has_raw_test_name(t_infos[0], module_name)
-          self.assert_test_info_has_raw_test_name(t_infos[1], module_name)
-      with self.subTest(name='contains_expected_build_targets'):
-          self.assert_test_info_contains_build_targets(t_infos[0], module_name)
-          self.assert_test_info_contains_build_targets(
-              t_infos[0],
-              module_name,
-          )
-          self.assert_test_info_contains_build_targets(t_infos[1], module_name)
-          self.assert_test_info_contains_build_targets(
-              t_infos[1],
-              module_name,
-          )
+    with self.subTest(name='returns_two_test_info'):
+      self.assertEqual(len(t_infos), 2)
+    with self.subTest(name='first_test_name_corresponds_to_module_name'):
+      self.assert_test_info_has_test_name(t_infos[0], module_name)
+    with self.subTest(name='second_test_name_corresponds_to_config_name'):
+      self.assert_test_info_has_test_name(t_infos[1], 'Config2')
+    with self.subTest(name='contains_expected_class_filter'):
+      self.assert_test_info_has_class_filter(
+          t_infos[0], 'tests.android.multi_config_module.ClassOneTest'
+      )
+      self.assert_test_info_has_config(
+          t_infos[0], f'{module_path}/configs/Config1.xml'
+      )
+      self.assert_test_info_has_class_filter(
+          t_infos[1], 'tests.android.multi_config_module.ClassOneTest'
+      )
+      self.assert_test_info_has_config(
+          t_infos[1], f'{module_path}/configs/Config2.xml'
+      )
+    with self.subTest(name='raw_test_name_corresponds_to_module_name'):
+      self.assert_test_info_has_raw_test_name(t_infos[0], module_name)
+      self.assert_test_info_has_raw_test_name(t_infos[1], module_name)
+    with self.subTest(name='contains_expected_build_targets'):
+      self.assert_test_info_contains_build_targets(t_infos[0], module_name)
+      self.assert_test_info_contains_build_targets(
+          t_infos[0],
+          module_name,
+      )
+      self.assert_test_info_contains_build_targets(t_infos[1], module_name)
+      self.assert_test_info_contains_build_targets(
+          t_infos[1],
+          module_name,
+      )
 
   def create_class_in_module(self, module_path: str, class_name: str) -> str:
     file_path = module_path + '/src/' + class_name
@@ -492,11 +490,14 @@ class ModuleFinderFindTestByModuleClassName(
       module_path = pathlib.Path(m)
       module_path.mkdir(parents=True, exist_ok=True)
 
-  def create_finder_with_module(self, test_module: dict) -> module_finder.ModuleFinder:
+  def create_finder_with_module(
+      self, test_module: dict
+  ) -> module_finder.ModuleFinder:
     return module_finder.ModuleFinder(self.create_module_info([test_module]))
 
-  def create_finder_with_multiple_modules(self, test_modules: list[dict]) -> (
-          module_finder.ModuleFinder):
+  def create_finder_with_multiple_modules(
+      self, test_modules: list[dict]
+  ) -> module_finder.ModuleFinder:
     return module_finder.ModuleFinder(self.create_module_info(test_modules))
 
   def assert_test_info_has_test_name(
@@ -1361,7 +1362,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     t_infos = self.mod_finder.find_test_by_class_name(
         uc.FULL_CLASS_NAME,
         module_name=uc.MODULE_NAME,
-        rel_config=uc.CONFIG_FILE,
+        rel_config_path=uc.CONFIG_FILE,
     )
     unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.CLASS_INFO)
 
