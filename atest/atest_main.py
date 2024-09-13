@@ -1127,8 +1127,8 @@ def _main(
   device_update_method.update(extra_args.get(constants.SERIAL, []))
 
   tests_exit_code = ExitCode.SUCCESS
-  test_start = time.time()
   if steps.has_test():
+    test_start = time.time()
     # Only send duration to metrics when no --build.
     if not steps.has_build():
       _init_and_find = time.time() - _begin_time
@@ -1149,18 +1149,18 @@ def _main(
           args.code_under_test,
       )
 
-  metrics.RunTestsFinishEvent(
-      duration=metrics_utils.convert_duration(time.time() - test_start)
-  )
-  preparation_time = atest_execution_info.preparation_time(test_start)
-  if preparation_time:
-    # Send the preparation time only if it's set.
-    metrics.RunnerFinishEvent(
-        duration=metrics_utils.convert_duration(preparation_time),
-        success=True,
-        runner_name=constants.TF_PREPARATION,
-        test=[],
+    metrics.RunTestsFinishEvent(
+        duration=metrics_utils.convert_duration(time.time() - test_start)
     )
+    preparation_time = atest_execution_info.preparation_time(test_start)
+    if preparation_time:
+      # Send the preparation time only if it's set.
+      metrics.RunnerFinishEvent(
+          duration=metrics_utils.convert_duration(preparation_time),
+          success=True,
+          runner_name=constants.TF_PREPARATION,
+          test=[],
+      )
   if tests_exit_code != ExitCode.SUCCESS:
     tests_exit_code = ExitCode.TEST_FAILURE
 
