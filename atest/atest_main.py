@@ -992,7 +992,7 @@ def _main(
     )
     args.bazel_mode = False
 
-  proc_idx = atest_utils.start_threading(lambda: print)
+  proc_idx = None
   # Do not index targets while the users intend to dry-run tests.
   if need_run_index_targets(args):
     logging.debug('Starting to index targets in a background thread.')
@@ -1021,7 +1021,11 @@ def _main(
     return ExitCode.SUCCESS
   test_infos = set()
 
-  if proc_idx.is_alive() and not indexing.Indices().has_all_indices():
+  if (
+      proc_idx
+      and proc_idx.is_alive()
+      and not indexing.Indices().has_all_indices()
+  ):
     start_wait_for_indexing = time.time()
     print('Waiting for the module indexing to complete.')
     proc_idx.join()
