@@ -1048,7 +1048,7 @@ def _main(
   if not test_infos:
     return ExitCode.TEST_NOT_FOUND
 
-  test_execution_plan = _create_test_execution_plan(
+  test_execution_plan = _TestExecutionPlan.create(
       test_infos=test_infos,
       results_dir=results_dir,
       mod_info=mod_info,
@@ -1070,7 +1070,7 @@ def _main(
   steps = parse_steps(args)
   device_update_method = _configure_update_method(
       steps=steps,
-      plan=test_execution_plan,
+      requires_device_update=test_execution_plan.requires_device_update(),
       update_modules=set(args.update_modules or []),
       banner_printer=banner_printer,
   )
@@ -1170,13 +1170,10 @@ def _main(
 def _configure_update_method(
     *,
     steps: Steps,
-    plan: TestExecutionPlan,
+    requires_device_update: bool,
     update_modules: set[str],
     banner_printer: banner.BannerPrinter,
 ) -> device_update.DeviceUpdateMethod:
-
-  requires_device_update = plan.requires_device_update()
-
   if not steps.has_device_update():
     if requires_device_update:
       banner_printer.register(
@@ -1196,46 +1193,46 @@ def _configure_update_method(
   return device_update.AdeviceUpdateMethod(targets=update_modules)
 
 
-def _create_test_execution_plan(
-    *,
-    test_infos: List[test_info.TestInfo],
-    results_dir: str,
-    mod_info: module_info.ModuleInfo,
-    args: argparse.Namespace,
-    dry_run: bool,
-) -> TestExecutionPlan:
-  """Creates a plan to execute the tests.
+class _TestExecutionPlan(ABC):
+  """Represents how an Atest invocation's tests will execute."""
 
-  Args:
-      test_infos: A list of instances of TestInfo.
-      results_dir: A directory which stores the ATest execution information.
-      mod_info: An instance of ModuleInfo.
-      args: An argparse.Namespace instance holding parsed args.
-      dry_run: A boolean of whether this invocation is a dry run.
+  @staticmethod
+  def create(
+      *,
+      test_infos: List[test_info.TestInfo],
+      results_dir: str,
+      mod_info: module_info.ModuleInfo,
+      args: argparse.Namespace,
+      dry_run: bool,
+  ) -> _TestExecutionPlan:
+    """Creates a plan to execute the tests.
 
-  Returns:
-      An instance of TestExecutionPlan.
-  """
+    Args:
+        test_infos: A list of instances of TestInfo.
+        results_dir: A directory which stores the ATest execution information.
+        mod_info: An instance of ModuleInfo.
+        args: An argparse.Namespace instance holding parsed args.
+        dry_run: A boolean of whether this invocation is a dry run.
 
-  if is_from_test_mapping(test_infos):
-    return TestMappingExecutionPlan.create(
+    Returns:
+        An instance of _TestExecutionPlan.
+    """
+
+    if is_from_test_mapping(test_infos):
+      return _TestMappingExecutionPlan.create(
+          test_infos=test_infos,
+          results_dir=results_dir,
+          mod_info=mod_info,
+          args=args,
+      )
+
+    return _TestModuleExecutionPlan.create(
         test_infos=test_infos,
         results_dir=results_dir,
         mod_info=mod_info,
         args=args,
+        dry_run=dry_run,
     )
-
-  return TestModuleExecutionPlan.create(
-      test_infos=test_infos,
-      results_dir=results_dir,
-      mod_info=mod_info,
-      args=args,
-      dry_run=dry_run,
-  )
-
-
-class TestExecutionPlan(ABC):
-  """Represents how an Atest invocation's tests will execute."""
 
   def __init__(
       self,
@@ -1260,8 +1257,17 @@ class TestExecutionPlan(ABC):
   def requires_device_update(self) -> bool:
     """Checks whether this plan requires device update."""
 
+  @staticmethod
+  def check_invocations_require_device_update(
+      invocations: List[TestRunnerInvocation],
+  ) -> bool:
+    """Checks if any invocation requires device update."""
+    return any(
+        invocation.requires_device_update() for invocation in invocations
+    )
 
-class TestMappingExecutionPlan(TestExecutionPlan):
+
+class _TestMappingExecutionPlan(_TestExecutionPlan):
   """A plan to execute Test Mapping tests."""
 
   def __init__(
@@ -1280,8 +1286,8 @@ class TestMappingExecutionPlan(TestExecutionPlan):
       results_dir: str,
       mod_info: module_info.ModuleInfo,
       args: argparse.Namespace,
-  ) -> TestMappingExecutionPlan:
-    """Creates an instance of TestMappingExecutionPlan.
+  ) -> _TestMappingExecutionPlan:
+    """Creates an instance of _TestMappingExecutionPlan.
 
     Args:
         test_infos: A list of instances of TestInfo.
@@ -1290,7 +1296,7 @@ class TestMappingExecutionPlan(TestExecutionPlan):
         args: An argparse.Namespace instance holding parsed args.
 
     Returns:
-        An instance of TestMappingExecutionPlan.
+        An instance of _TestMappingExecutionPlan.
     """
 
     device_test_infos, host_test_infos = _split_test_mapping_tests(test_infos)
@@ -1346,13 +1352,13 @@ class TestMappingExecutionPlan(TestExecutionPlan):
           create_invocations(extra_args, device_test_infos)
       )
 
-    return TestMappingExecutionPlan(
+    return _TestMappingExecutionPlan(
         test_type_to_invocations=test_type_to_invocations,
         extra_args=extra_args,
     )
 
   def requires_device_update(self) -> bool:
-    return _requires_device_update(
+    return _TestExecutionPlan.check_invocations_require_device_update(
         [i for invs in self._test_type_to_invocations.values() for i in invs]
     )
 
@@ -1371,7 +1377,7 @@ class TestMappingExecutionPlan(TestExecutionPlan):
     )
 
 
-class TestModuleExecutionPlan(TestExecutionPlan):
+class _TestModuleExecutionPlan(_TestExecutionPlan):
   """A plan to execute the test modules explicitly passed on the command-line."""
 
   def __init__(
@@ -1391,8 +1397,8 @@ class TestModuleExecutionPlan(TestExecutionPlan):
       mod_info: module_info.ModuleInfo,
       args: argparse.Namespace,
       dry_run: bool,
-  ) -> TestModuleExecutionPlan:
-    """Creates an instance of TestModuleExecutionPlan.
+  ) -> _TestModuleExecutionPlan:
+    """Creates an instance of _TestModuleExecutionPlan.
 
     Args:
         test_infos: A list of instances of TestInfo.
@@ -1402,7 +1408,7 @@ class TestModuleExecutionPlan(TestExecutionPlan):
         dry_run: A boolean of whether this invocation is a dry run.
 
     Returns:
-        An instance of TestModuleExecutionPlan.
+        An instance of _TestModuleExecutionPlan.
     """
 
     if not dry_run:
@@ -1420,13 +1426,15 @@ class TestModuleExecutionPlan(TestExecutionPlan):
         minimal_build=args.minimal_build,
     )
 
-    return TestModuleExecutionPlan(
+    return _TestModuleExecutionPlan(
         test_runner_invocations=invocations,
         extra_args=extra_args,
     )
 
   def requires_device_update(self) -> bool:
-    return _requires_device_update(self._test_runner_invocations)
+    return _TestExecutionPlan.check_invocations_require_device_update(
+        self._test_runner_invocations
+    )
 
   def required_build_targets(self) -> Set[str]:
     build_targets = set()
@@ -1449,11 +1457,6 @@ class TestModuleExecutionPlan(TestExecutionPlan):
 
     atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
     return reporter.print_summary() | exit_code
-
-
-def _requires_device_update(invocations: List[TestRunnerInvocation]) -> bool:
-  """Checks if any invocation requires device update."""
-  return any(i.requires_device_update() for i in invocations)
 
 
 if __name__ == '__main__':
