@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import os
 import time
 import traceback
 from typing import Any, Dict, List, Set
@@ -27,18 +26,6 @@ from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.test_finders import test_info
 from atest.test_runners import test_runner_base
-from atest.test_runners.event_handler import EventHandleError
-
-# Look for this in tradefed log messages.
-TRADEFED_EARLY_EXIT_LOG_SIGNAL = (
-    'INSTRUMENTATION_RESULT: shortMsg=Process crashed'
-)
-
-# Print this to user.
-TRADEFED_EARLY_EXIT_ATEST_MSG = (
-    'Test failed because instrumentation process died.'
-    ' Please check your device logs.'
-)
 
 
 class TestRunnerInvocation:
@@ -81,13 +68,6 @@ class TestRunnerInvocation:
       tests_ret_code = self._test_runner.run_tests(
           self._test_infos, self._extra_args, reporter
       )
-    except EventHandleError:
-      is_success = False
-      if self.log_shows_early_exit():
-        err_msg = TRADEFED_EARLY_EXIT_ATEST_MSG
-      else:
-        err_msg = traceback.format_exc()
-
     except Exception:  # pylint: disable=broad-except
       is_success = False
       err_msg = traceback.format_exc()
@@ -120,16 +100,3 @@ class TestRunnerInvocation:
     )
 
     return tests_ret_code
-
-  def log_shows_early_exit(self) -> bool:
-    """Grep the log file for TF process crashed message."""
-    # Ensure file exists and is readable.
-    if not os.access(self._test_runner.test_log_file.name, os.R_OK):
-      return False
-
-    with open(self._test_runner.test_log_file.name, 'r') as log_file:
-      for line in log_file:
-        if TRADEFED_EARLY_EXIT_LOG_SIGNAL in line:
-          return True
-
-    return False
