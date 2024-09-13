@@ -1257,15 +1257,6 @@ class _TestExecutionPlan(ABC):
   def requires_device_update(self) -> bool:
     """Checks whether this plan requires device update."""
 
-  @staticmethod
-  def check_invocations_require_device_update(
-      invocations: List[TestRunnerInvocation],
-  ) -> bool:
-    """Checks if any invocation requires device update."""
-    return any(
-        invocation.requires_device_update() for invocation in invocations
-    )
-
 
 class _TestMappingExecutionPlan(_TestExecutionPlan):
   """A plan to execute Test Mapping tests."""
@@ -1358,8 +1349,11 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
     )
 
   def requires_device_update(self) -> bool:
-    return _TestExecutionPlan.check_invocations_require_device_update(
-        [i for invs in self._test_type_to_invocations.values() for i in invs]
+    return any(
+        inv.requires_device_update()
+        for inv in itertools.chain.from_iterable(
+            self._test_type_to_invocations.values()
+        )
     )
 
   def required_build_targets(self) -> Set[str]:
@@ -1432,8 +1426,8 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
     )
 
   def requires_device_update(self) -> bool:
-    return _TestExecutionPlan.check_invocations_require_device_update(
-        self._test_runner_invocations
+    return any(
+        inv.requires_device_update() for inv in self._test_runner_invocations
     )
 
   def required_build_targets(self) -> Set[str]:
