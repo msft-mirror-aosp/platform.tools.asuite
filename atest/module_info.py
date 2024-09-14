@@ -1104,13 +1104,18 @@ class ModuleInfo:
 
     return modules
 
-  def get_modules_by_path(self, path: str, testable_modules_only: bool = False):
+  def get_modules_by_path(
+      self, path: str, testable_modules_only: bool = False
+  ) -> set[str]:
     """Get the module names that the give path belongs to.
 
     Args:
         path: dir path for searching among `path` in module information.
         testable_modules_only: boolean flag which determines whether search
           testable modules only or not.
+
+    Returns:
+        A set of module names.
     """
     modules = set()
     is_testable_module_fn = (
