@@ -344,15 +344,17 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
   )
 
   start_prompt = time.time()
-  test_indices = get_multiple_selection_answer()
-  selections = get_selected_indices(test_indices, limit=len(numbered_list) - 1)
-  if _ALL_OPTION in test_indices.upper():
+  answer = get_multiple_selection_answer()
+  if _ALL_OPTION in answer.upper():
     extracted_tests = tests
-  elif _CANCEL_OPTION in test_indices.upper():
+  elif _CANCEL_OPTION in answer.upper():
     atest_utils.colorful_print('Abort selection.', constants.RED)
     sys.exit(0)
   else:
-    extracted_tests = {tests[s] for s in selections}
+    extracted_tests = {
+        tests[index]
+        for index in get_selected_indices(answer, limit=len(numbered_list) - 1)
+    }
   metrics.LocalDetectEvent(
       detect_type=DetectType.INTERACTIVE_SELECTION,
       result=int(time.time() - start_prompt),
