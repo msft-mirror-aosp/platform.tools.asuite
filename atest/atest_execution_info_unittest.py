@@ -22,9 +22,9 @@ import pathlib
 import time
 import unittest
 from unittest.mock import patch
-
-from atest import atest_configs
+from atest import arg_parser
 from atest import atest_execution_info as aei
+from atest import constants
 from atest import result_reporter
 from atest.metrics import metrics
 from atest.test_runners import test_runner_base
@@ -50,6 +50,7 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
   def setUp(self):
     super().setUp()
     self.setUpPyfakefs()
+    self.fs.create_dir(constants.ATEST_RESULT_ROOT)
 
   def test_copy_build_trace_to_log_dir_new_trace_copy(self):
     start_time = 10
@@ -64,7 +65,7 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
     with aei.AtestExecutionInfo(
         [],
         log_path,
-        atest_configs.GLOBAL_ARGS,
+        arg_parser.create_atest_arg_parser().parse_args([]),
         start_time=start_time,
         repo_out_dir=out_path,
     ) as result_file:
@@ -87,7 +88,7 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
     with aei.AtestExecutionInfo(
         [],
         log_path,
-        atest_configs.GLOBAL_ARGS,
+        arg_parser.create_atest_arg_parser().parse_args([]),
         start_time=start_time,
         repo_out_dir=out_path,
     ) as result_file:
@@ -113,7 +114,7 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
     with aei.AtestExecutionInfo(
         [],
         log_path,
-        atest_configs.GLOBAL_ARGS,
+        arg_parser.create_atest_arg_parser().parse_args([]),
         start_time=start_time,
         repo_out_dir=out_path,
     ) as result_file:

@@ -501,7 +501,6 @@ def is_test_mapping(args):
   return all((len(args.tests) == 1, args.tests[0][0] == ':'))
 
 
-@atest_decorator.static_var('cached_has_colors', {})
 def _has_colors(stream):
   """Check the output stream is colorful.
 
@@ -511,21 +510,11 @@ def _has_colors(stream):
   Returns:
       True if the file stream can interpreter the ANSI color code.
   """
-  cached_has_colors = _has_colors.cached_has_colors
-  if stream in cached_has_colors:
-    return cached_has_colors[stream]
-  cached_has_colors[stream] = True
   # Following from Python cookbook, #475186
-  if not hasattr(stream, 'isatty'):
-    cached_has_colors[stream] = False
-    return False
-  if not stream.isatty():
-    # Auto color only on TTYs
-    cached_has_colors[stream] = False
-    return False
+  # Auto color only on TTYs
   # curses.tigetnum() cannot be used for telling supported color numbers
   # because it does not come with the prebuilt py3-cmd.
-  return cached_has_colors[stream]
+  return getattr(stream, 'isatty', lambda: False)()
 
 
 def colorize(text, color, bp_color=None):

@@ -111,6 +111,8 @@ class DetectType(IntEnum):
   # An int representing the maximum speed (in Mbits per seconds) of which the
   # device is capable.
   USB_MAX_SPEED = 61
+  # Time spent on waiting indexing to complete.
+  WAIT_FOR_INDEXING_MS = 62
 
 
 @unique

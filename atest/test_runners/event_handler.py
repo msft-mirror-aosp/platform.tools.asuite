@@ -22,6 +22,7 @@ import logging
 import time
 
 from atest import atest_execution_info
+from atest import atest_utils
 from atest import result_reporter
 from atest.test_runners import test_runner_base
 
@@ -53,9 +54,6 @@ EVENT_PAIRS = {
 START_EVENTS = list(EVENT_PAIRS.keys())
 END_EVENTS = list(EVENT_PAIRS.values())
 TEST_NAME_TEMPLATE = '%s#%s'
-EVENTS_NOT_BALANCED = (
-    'Error: Saw %s Start event and %s End event. These should be equal!'
-)
 
 # time in millisecond.
 ONE_SECOND = 1000
@@ -269,7 +267,7 @@ class EventHandler:
     if event_name in START_EVENTS:
       self.event_stack.append(event_name)
     elif event_name in END_EVENTS:
-      self._check_events_are_balanced(event_name, self.reporter)
+      self._check_events_are_balanced(event_name, self.reporter, event_data)
     if event_name in self.switch_handler:
       self.switch_handler[event_name](self, event_data)
     else:
@@ -277,27 +275,51 @@ class EventHandler:
       # TF event.
       logging.debug('Event[%s] is not processable.', event_name)
 
-  def _check_events_are_balanced(self, event_name, reporter):
-    """Check Start events and End events. They should be balanced.
+  def _check_events_are_balanced(
+      self, end_event_name, reporter, end_event_data
+  ):
+    """Check whether the Start events and End events are balanced.
 
-    If they are not balanced, print the error message in
-    state['last_failed'], then raise TradeFedExitError.
+    When imbalance events are detected, and we understand the case of imbalance,
+    the events will handled without throwing error; otherwise EventHandleError
+    will raise.
 
     Args:
-        event_name: A string of the event name.
+        end_event_name: A string of the event name.
         reporter: A ResultReporter instance.
+        end_event_data: A dict of event data.
 
     Raises:
-        TradeFedExitError if we doesn't have a balance of START/END events.
+        EventHandleError if we can't handle the imbalance of START/END events.
     """
     start_event = self.event_stack.pop() if self.event_stack else None
-    if not start_event or EVENT_PAIRS[start_event] != event_name:
+
+    def _handle_crashed_test(message):
+      atest_utils.print_and_log_error(message)
+
+      self.reporter.process_test_result(
+          test_runner_base.TestResult(
+              runner_name=self.runner_name,
+              group_name=self.state['current_group'],
+              test_name=self.state['current_test'],
+              status=test_runner_base.ERROR_STATUS,
+              details=message,
+              test_count=self.state['test_count'],
+              test_time='',
+              runner_total=None,
+              group_total=self.state['current_group_total'],
+              additional_info={},
+              test_run_name=self.state['test_run_name'],
+          )
+      )
+
+    if not start_event or EVENT_PAIRS[start_event] != end_event_name:
       # Here bubble up the failed trace in the situation having
       # TEST_FAILED but never receiving TEST_ENDED.
       if self.state['last_failed'] and (
           start_event == EVENT_NAMES['test_started']
       ):
-        reporter.process_test_result(
+        self.reporter.process_test_result(
             test_runner_base.TestResult(
                 runner_name=self.runner_name,
                 group_name=self.state['current_group'],
@@ -312,7 +334,37 @@ class EventHandler:
                 test_run_name=self.state['test_run_name'],
             )
         )
-      raise EventHandleError(EVENTS_NOT_BALANCED % (start_event, event_name))
+        # Even though we have proceessed the test result here, we still consider
+        # this case unhandled as we don't have a full understanding about the cause.
+        # So we don't return here.
+        raise EventHandleError(
+            'Error: Test failed without receiving a test end event'
+        )
+      elif (
+          end_event_name == EVENT_NAMES['module_ended']
+          and start_event == EVENT_NAMES['run_started']
+      ):
+        _handle_crashed_test(
+            'Test run started but did not end. This often happens when the test'
+            ' binary/app such as android instrumentation app process died.'
+            ' Test count might be inaccurate.'
+        )
+        return
+      elif (
+          end_event_name == EVENT_NAMES['run_ended']
+          and start_event == EVENT_NAMES['test_started']
+      ):
+        _handle_crashed_test(
+            'Test started but did not end. This often happens when the test'
+            ' binary/app such as android instrumentation app process died.'
+            ' Test count might be inaccurate.'
+        )
+        return
+      else:
+        raise EventHandleError(
+            'Error: Saw %s Start event and %s End event. These should be equal!'
+            % (start_event, end_event_name)
+        )
 
   @staticmethod
   def _calc_duration(duration):

@@ -71,11 +71,11 @@ class DeviceAndroidTestTest(atest_integration_test.AtestTestCase):
         + _create_elapsed_time_verifiers(max_sec=20),
     )
 
-  def test_early_tradefed_exit_shows_useful_output(self):
+  def test_instrumentation_early_exit_shows_useful_output(self):
     verifiers = [
         _Verifier(
             lambda test_case, result: test_case.assertIn(
-                'Test failed because instrumentation process died.',
+                'instrumentation app process died',
                 result.get_stdout(),
             ),
             'process_died',
