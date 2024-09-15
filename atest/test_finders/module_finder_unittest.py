@@ -148,18 +148,13 @@ class ModuleFinderFindTestByModuleClassName(
           'example_module-project',
       )
 
-  @mock.patch.object(
-      test_finder_utils, 'find_parent_module_dir', return_value='/main'
-  )
   @mock.patch(
       'subprocess.check_output',
       return_value=(
           'path/to/testmodule/src/com/android/myjavatests/MyJavaTestClass.java'
       ),
   )
-  def test_find_test_by_module_class_name_native_found(
-      self, find_cmd, found_file_path
-  ):
+  def test_find_test_by_module_class_name_native_found(self, find_cmd):
     module_name = 'MyModuleTestCases'
     test_module = module_info_unittest_base.device_driven_test_module(
         name=module_name, class_type=['NATIVE_TESTS']
@@ -184,33 +179,31 @@ class ModuleFinderFindTestByModuleClassName(
           'example_module-project',
       )
 
-  @mock.patch.object(
-      test_finder_utils, 'find_parent_module_dir', return_value='/main'
-  )
   @mock.patch(
       'subprocess.check_output',
-      return_value=(
-          'path/to/testmodule/src/com/android/myjavatests/MyJavaTestClass.java'
-      ),
   )
-  def test_find_test_by_module_class_name_unknown_test_info_is_none(
-      self, find_cmd, found_file_path
+  def test_find_test_by_module_class_module_name_unknown_test_info_is_none(
+      self, find_cmd
   ):
-    test_class_name = 'MyJavaTestClass'
-    test_module = module_info_unittest_base.device_driven_test_module(
-        name='MyModuleTestCases', class_type=['NATIVE_TESTS']
+    self.create_module_paths(['/project/module'])
+    test_file_src = self.create_class_in_module(
+        module_path='/project/module', class_name='MyJavaTestClass.java'
     )
+    test_module = module_info_unittest_base.device_driven_test_module(
+        name='MyModuleTestCases',
+        class_type=['NATIVE_TESTS'],
+        module_path='project/module',
+        srcs=[test_file_src],
+    )
+    find_cmd.return_value = test_file_src
     finder = self.create_finder_with_module(test_module)
 
     t_infos = finder.find_test_by_class_name(
-        class_name=test_class_name, module_name='Unknown'
+        class_name='MyJavaTestClass', module_name='Unknown'
     )
 
     self.assertIsNone(t_infos)
 
-  @mock.patch.object(
-      test_finder_utils, 'find_parent_module_dir', return_value='/main'
-  )
   @mock.patch(
       'subprocess.check_output',
       return_value=[
@@ -218,15 +211,10 @@ class ModuleFinderFindTestByModuleClassName(
       ],
   )
   @mock.patch.object(
-      test_finder_utils,
-      'extract_selected_tests',
-      return_value=[
-          'example_module/project/configs/Config1.xml',
-          'example_module/project/configs/Config2.xml',
-      ],
+      test_finder_utils, 'get_multiple_selection_answer', return_value='A'
   )
   def test_find_test_by_module_class_multiple_configs_tests_found(
-      self, mock_user_selection, mock_run_cmd, mock_parent_dir
+      self, mock_test_selection, mock_run_cmd
   ):
     module_name = 'MyModuleTestCases'
     test_module = (
