@@ -16,7 +16,6 @@
 
 package com.android.atest.example;
 
-import android.util.Log;
 
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -27,16 +26,13 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class DeviceAndroidTestNonStarting {
 
-    private static final String TAG = DeviceAndroidTestNonStarting.class.getSimpleName();
-
     @BeforeClass
     public static void beforeClass() {
         System.exit(1);
     }
 
     @Test
-    public void testPassingTest2of2() {
-        Log.d(TAG, "testPassingTest2of2()");
-        Assert.assertTrue(true);
+    public void testNotReachedDueToCrash() {
+        Assert.assertTrue(false);
     }
 }
