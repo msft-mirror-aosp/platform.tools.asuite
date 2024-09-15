@@ -154,6 +154,10 @@ _VTS_APK = 'apk'
 _VTS_BINARY_SRC_DELIM_RE = re.compile(r'.*::(?P<target>.*)$')
 _VTS_OUT_DATA_APP_PATH = 'DATA/app'
 
+# Auxiliary options for multiple test selector
+_ALL_OPTION = 'A'
+_CANCEL_OPTION = 'C'
+
 
 def has_cc_class(test_path):
   """Find out if there is any test case in the cc file.
@@ -313,6 +317,7 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
 
   Return the test to run from tests. If more than one option, prompt the user
   to select multiple ones. Supporting formats:
+  - A string for the auxiliary menu: A for All, C for Cancel
   - An integer. E.g. 0
   - Comma-separated integers. E.g. 1,3,5
   - A range of integers denoted by the starting integer separated from
@@ -330,21 +335,20 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
     return tests if count else None
 
   extracted_tests = set()
-  # Establish 'All' and 'Quit' options in the numbered test menu.
-  auxiliary_menu = ['All', 'Quit']
-  _tests = tests.copy()
-  _tests.extend(auxiliary_menu)
-  numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(_tests)]
-  all_index = len(numbered_list) - auxiliary_menu[::-1].index('All') - 1
-  quit_index = len(numbered_list) - auxiliary_menu[::-1].index('Quit') - 1
-  print('Multiple tests found:\n{0}'.format('\n'.join(numbered_list)))
+  auxiliary_menu = [f'{_ALL_OPTION}: All', f'{_CANCEL_OPTION}: Cancel']
+  numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(tests)]
+  print(
+      'Multiple tests found:\n{0}'.format(
+          '\n'.join(auxiliary_menu + numbered_list)
+      )
+  )
 
   start_prompt = time.time()
-  test_indices = get_multiple_selection_answer(quit_index)
+  test_indices = get_multiple_selection_answer()
   selections = get_selected_indices(test_indices, limit=len(numbered_list) - 1)
-  if all_index in selections:
+  if _ALL_OPTION in test_indices.upper():
     extracted_tests = tests
-  elif quit_index in selections:
+  elif _CANCEL_OPTION in test_indices.upper():
     atest_utils.colorful_print('Abort selection.', constants.RED)
     sys.exit(0)
   else:
@@ -357,17 +361,16 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
   return list(extracted_tests)
 
 
-def get_multiple_selection_answer(quit_index) -> str:
+def get_multiple_selection_answer() -> str:
   """Get the answer from the user input."""
   try:
     return input(
-        'Please enter numbers of test to use. If none of the above'
-        'options matched, keep searching for other possible tests.'
+        'Please select an option.'
         '\n(multiple selection is supported, '
         "e.g. '1' or '0,1' or '0-2'): "
     )
   except KeyboardInterrupt:
-    return str(quit_index)
+    return _CANCEL_OPTION
 
 
 def get_selected_indices(string: str, limit: int = None) -> Set[int]:
@@ -526,6 +529,8 @@ def find_parent_module_dir(root_dir, start_dir, module_info):
     raise ValueError('%s not in repo %s' % (start_dir, root_dir))
   auto_gen_dir = None
   current_dir = start_dir
+  # Look for AndroidTest.xml config starting in the current dir up to the root
+  # dir.
   while current_dir != root_dir:
     # TODO (b/112904944) - migrate module_finder functions to here and
     # reuse them.
@@ -541,7 +546,7 @@ def find_parent_module_dir(root_dir, start_dir, module_info):
       if module_info.is_legacy_robolectric_class(mod):
         return rel_dir
       for test_config in mod.get(constants.MODULE_TEST_CONFIG, []):
-        # If the test config doesn's exist until it was auto-generated
+        # If the test config doesn't exist until it was auto-generated
         # in the build time(under <android_root>/out), atest still
         # recognizes it testable.
         if test_config:
