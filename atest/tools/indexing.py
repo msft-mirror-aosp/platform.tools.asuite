@@ -135,7 +135,6 @@ def run_updatedb(output_cache: Path, prunepaths: List[str] = None):
     atest_utils.print_and_log_error(
         'Executing %s error.', ' '.join(updatedb_cmd)
     )
-    metrics_utils.handle_exc_and_send_exit_event(constants.PLOCATEDB_LOCKED)
     if err.output:
       atest_utils.print_and_log_error(err.output)
     output_cache.unlink()
