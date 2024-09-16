@@ -992,7 +992,7 @@ def _main(
     )
     args.bazel_mode = False
 
-  proc_idx = atest_utils.start_threading(lambda: print)
+  proc_idx = None
   # Do not index targets while the users intend to dry-run tests.
   if need_run_index_targets(args):
     logging.debug('Starting to index targets in a background thread.')
@@ -1021,7 +1021,11 @@ def _main(
     return ExitCode.SUCCESS
   test_infos = set()
 
-  if proc_idx.is_alive() and not indexing.Indices().has_all_indices():
+  if (
+      proc_idx
+      and proc_idx.is_alive()
+      and not indexing.Indices().has_all_indices()
+  ):
     start_wait_for_indexing = time.time()
     print('Waiting for the module indexing to complete.')
     proc_idx.join()
@@ -1123,8 +1127,8 @@ def _main(
   device_update_method.update(extra_args.get(constants.SERIAL, []))
 
   tests_exit_code = ExitCode.SUCCESS
-  test_start = time.time()
   if steps.has_test():
+    test_start = time.time()
     # Only send duration to metrics when no --build.
     if not steps.has_build():
       _init_and_find = time.time() - _begin_time
@@ -1145,18 +1149,18 @@ def _main(
           args.code_under_test,
       )
 
-  metrics.RunTestsFinishEvent(
-      duration=metrics_utils.convert_duration(time.time() - test_start)
-  )
-  preparation_time = atest_execution_info.preparation_time(test_start)
-  if preparation_time:
-    # Send the preparation time only if it's set.
-    metrics.RunnerFinishEvent(
-        duration=metrics_utils.convert_duration(preparation_time),
-        success=True,
-        runner_name=constants.TF_PREPARATION,
-        test=[],
+    metrics.RunTestsFinishEvent(
+        duration=metrics_utils.convert_duration(time.time() - test_start)
     )
+    preparation_time = atest_execution_info.preparation_time(test_start)
+    if preparation_time:
+      # Send the preparation time only if it's set.
+      metrics.RunnerFinishEvent(
+          duration=metrics_utils.convert_duration(preparation_time),
+          success=True,
+          runner_name=constants.TF_PREPARATION,
+          test=[],
+      )
   if tests_exit_code != ExitCode.SUCCESS:
     tests_exit_code = ExitCode.TEST_FAILURE
 
