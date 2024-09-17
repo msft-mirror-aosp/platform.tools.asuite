@@ -1197,10 +1197,6 @@ class _AtestMain:
       if acloud_status:
         return acloud_status
 
-      # After build step 'adb' command will be available, and stop forward to
-      # Tradefed if the tests require a device.
-      _validate_adb_devices(self._args, test_infos)
-
     if steps.has_device_update():
       if steps.has_test():
         device_update_start = time.time()
@@ -1219,6 +1215,9 @@ class _AtestMain:
 
     tests_exit_code = ExitCode.SUCCESS
     if steps.has_test():
+      # Stop calling Tradefed if the tests require a device.
+      _validate_adb_devices(self._args, test_infos)
+
       test_start = time.time()
       # Only send duration to metrics when no --build.
       if not steps.has_build():
