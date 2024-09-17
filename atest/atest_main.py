@@ -805,6 +805,7 @@ class _AtestMain:
     self._args = args
     self._banner_printer = banner_printer
 
+    self._steps = parse_steps(self._args)
     self._mod_info = None
     self._test_infos = None
     self._test_execution_plan = None
@@ -813,6 +814,7 @@ class _AtestMain:
     self._acloud_report_file = None
     self._test_info_loading_duration = 0
     self._module_info_rebuild_required = False
+    self._is_out_clean_before_module_info_build = False
 
   def _check_no_action_argument(self) -> int:
     """Method for non-action arguments such as --version, --history, --latest_result, etc.
@@ -996,6 +998,9 @@ class _AtestMain:
     )
 
   def _load_module_info(self):
+    self._is_out_clean_before_module_info_build = not os.path.exists(
+        os.environ.get(constants.ANDROID_PRODUCT_OUT, '')
+    )
     self._module_info_rebuild_required = need_rebuild_module_info(self._args)
     logging.debug(
         'need_rebuild_module_info returned %s',
@@ -1015,7 +1020,6 @@ class _AtestMain:
         Exit code if anything went wrong. None otherwise.
     """
     self._start_indexing_if_required()
-
     self._load_module_info()
 
     translator = cli_translator.CLITranslator(
@@ -1109,6 +1113,65 @@ class _AtestMain:
 
     return ExitCode.SUCCESS
 
+  def _run_build_step(self) -> int:
+    """Runs the build step.
+
+    Returns:
+        Exit code if failed. None otherwise.
+    """
+    build_targets = self._test_execution_plan.required_build_targets()
+
+    # Remove MODULE-IN-* from build targets by default.
+    if not self._args.use_modules_in:
+      build_targets = _exclude_modules_in_targets(build_targets)
+
+    if not build_targets:
+      return None
+
+    if self._args.experimental_coverage:
+      build_targets.update(coverage.build_modules())
+
+    # Add module-info.json target to the list of build targets to keep the
+    # file up to date.
+    build_targets.add(module_info.get_module_info_target())
+
+    build_targets |= self._device_update_method.dependencies()
+
+    # Add the -jx as a build target if user specify it.
+    if self._args.build_j:
+      build_targets.add(f'-j{self._args.build_j}')
+
+    build_start = time.time()
+    success = atest_utils.build(build_targets)
+    build_duration = time.time() - build_start
+    metrics.BuildFinishEvent(
+        duration=metrics_utils.convert_duration(build_duration),
+        success=success,
+        targets=build_targets,
+    )
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.BUILD_TIME_PER_TARGET,
+        result=int(round(build_duration / len(build_targets))),
+    )
+    rebuild_module_info = DetectType.NOT_REBUILD_MODULE_INFO
+    if self._is_out_clean_before_module_info_build:
+      rebuild_module_info = DetectType.CLEAN_BUILD
+    elif self._args.rebuild_module_info:
+      rebuild_module_info = DetectType.REBUILD_MODULE_INFO
+    elif self._module_info_rebuild_required:
+      rebuild_module_info = DetectType.SMART_REBUILD_MODULE_INFO
+    metrics.LocalDetectEvent(
+        detect_type=rebuild_module_info, result=int(round(build_duration))
+    )
+    if not success:
+      return ExitCode.BUILD_FAILURE
+
+    acloud_status = self._check_acloud_status(build_duration)
+    if acloud_status:
+      return acloud_status
+
+    return None
+
   def run(self) -> int:
     """Executes the atest script.
 
@@ -1159,76 +1222,27 @@ class _AtestMain:
 
     self._start_acloud_if_requested()
 
-    is_clean = not os.path.exists(
-        os.environ.get(constants.ANDROID_PRODUCT_OUT, '')
-    )
-
     error_code = self._load_test_info_and_execution_plan()
     if error_code is not None:
       return error_code
 
-    extra_args = self._test_execution_plan.extra_args
-
-    build_targets = self._test_execution_plan.required_build_targets()
-
-    # Remove MODULE-IN-* from build targets by default.
-    if not self._args.use_modules_in:
-      build_targets = _exclude_modules_in_targets(build_targets)
-
-    steps = parse_steps(self._args)
     self._configure_update_method(
-        steps=steps,
+        steps=self._steps,
         requires_device_update=self._test_execution_plan.requires_device_update(),
         update_modules=set(self._args.update_modules or []),
     )
 
-    if build_targets and steps.has_build():
-      if self._args.experimental_coverage:
-        build_targets.update(coverage.build_modules())
+    if self._steps.has_build():
+      error_code = self._run_build_step()
+      if error_code is not None:
+        return error_code
 
-      # Add module-info.json target to the list of build targets to keep the
-      # file up to date.
-      build_targets.add(module_info.get_module_info_target())
-
-      build_targets |= self._device_update_method.dependencies()
-
-      # Add the -jx as a build target if user specify it.
-      if self._args.build_j:
-        build_targets.add(f'-j{self._args.build_j}')
-
-      build_start = time.time()
-      success = atest_utils.build(build_targets)
-      build_duration = time.time() - build_start
-      metrics.BuildFinishEvent(
-          duration=metrics_utils.convert_duration(build_duration),
-          success=success,
-          targets=build_targets,
-      )
-      metrics.LocalDetectEvent(
-          detect_type=DetectType.BUILD_TIME_PER_TARGET,
-          result=int(round(build_duration / len(build_targets))),
-      )
-      rebuild_module_info = DetectType.NOT_REBUILD_MODULE_INFO
-      if is_clean:
-        rebuild_module_info = DetectType.CLEAN_BUILD
-      elif self._args.rebuild_module_info:
-        rebuild_module_info = DetectType.REBUILD_MODULE_INFO
-      elif self._module_info_rebuild_required:
-        rebuild_module_info = DetectType.SMART_REBUILD_MODULE_INFO
-      metrics.LocalDetectEvent(
-          detect_type=rebuild_module_info, result=int(round(build_duration))
-      )
-      if not success:
-        return ExitCode.BUILD_FAILURE
-
-      acloud_status = self._check_acloud_status(build_duration)
-      if acloud_status:
-        return acloud_status
-
-    if steps.has_device_update():
-      if steps.has_test():
+    if self._steps.has_device_update():
+      if self._steps.has_test():
         device_update_start = time.time()
-        self._device_update_method.update(extra_args.get(constants.SERIAL, []))
+        self._device_update_method.update(
+            self._test_execution_plan.extra_args.get(constants.SERIAL, [])
+        )
         device_update_duration = time.time() - device_update_start
         logging.debug('Updating device took %ss', device_update_duration)
         metrics.LocalDetectEvent(
@@ -1242,13 +1256,13 @@ class _AtestMain:
         )
 
     tests_exit_code = ExitCode.SUCCESS
-    if steps.has_test():
+    if self._steps.has_test():
       # Stop calling Tradefed if the tests require a device.
       _validate_adb_devices(self._args, self._test_infos)
 
       test_start = time.time()
       # Only send duration to metrics when no --build.
-      if not steps.has_build():
+      if not self._steps.has_build():
         _init_and_find = time.time() - _begin_time
         logging.debug('Initiation and finding tests took %ss', _init_and_find)
         metrics.LocalDetectEvent(
@@ -1263,7 +1277,7 @@ class _AtestMain:
             self._results_dir,
             self._test_infos,
             self._mod_info,
-            extra_args.get(constants.HOST, False),
+            self._test_execution_plan.extra_args.get(constants.HOST, False),
             self._args.code_under_test,
         )
 
