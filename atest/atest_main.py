@@ -809,6 +809,8 @@ class _AtestMain:
     self._test_infos = None
     self._test_execution_plan = None
 
+    self._acloud_proc = None
+    self._acloud_report_file = None
     self._test_info_loading_duration = 0
     self._module_info_rebuild_required = False
 
@@ -888,10 +890,11 @@ class _AtestMain:
 
   def _start_acloud_if_requested(self) -> None:
     if not self._args.acloud_create and not self._args.start_avd:
-      self._acloud_proc = None
-      self._acloud_report_file = None
       return
-    logging.debug('Creating acloud or avd.')
+    if not parse_steps(args).has_test():
+      print('acloud/avd is requested but ignored because no test is requested.')
+      return
+    print('Creating acloud/avd...')
     self._acloud_proc, self._acloud_report_file = avd.acloud_create_validator(
         self._results_dir, self._args
     )
@@ -1140,12 +1143,6 @@ class _AtestMain:
     if self._args.list_modules:
       return self._handle_list_modules()
 
-    self._start_acloud_if_requested()
-
-    is_clean = not os.path.exists(
-        os.environ.get(constants.ANDROID_PRODUCT_OUT, '')
-    )
-
     # Run Test Mapping or coverage by no-bazel-mode.
     if (
         atest_utils.is_test_mapping(self._args)
@@ -1159,6 +1156,12 @@ class _AtestMain:
 
     if self._args.dry_run:
       return self._handle_dry_run()
+
+    self._start_acloud_if_requested()
+
+    is_clean = not os.path.exists(
+        os.environ.get(constants.ANDROID_PRODUCT_OUT, '')
+    )
 
     error_code = self._load_test_info_and_execution_plan()
     if error_code is not None:
