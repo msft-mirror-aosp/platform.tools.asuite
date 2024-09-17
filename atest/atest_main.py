@@ -806,6 +806,11 @@ class _AtestMain:
     self._banner_printer = banner_printer
 
     self._mod_info = None
+    self._test_infos = None
+    self._test_execution_plan = None
+
+    self._test_info_loading_duration = 0
+    self._module_info_rebuild_required = False
 
   def _check_no_action_argument(self) -> int:
     """Method for non-action arguments such as --version, --history, --latest_result, etc.
@@ -891,11 +896,11 @@ class _AtestMain:
         self._results_dir, self._args
     )
 
-  def _check_acloud_status(self, find_build_duration: float) -> int:
+  def _check_acloud_status(self, build_duration: float) -> int:
     """Checks acloud status if acloud is requested.
 
     Args:
-      find_build_duration: The duration of finding and build targets.
+      build_duration: The duration of building targets.
 
     Returns:
         acloud status code. None if no acloud requested.
@@ -903,7 +908,8 @@ class _AtestMain:
     if self._acloud_proc:
       self._acloud_proc.join()
       status = avd.probe_acloud_status(
-          self._acloud_report_file, find_build_duration
+          self._acloud_report_file,
+          self._test_info_loading_duration + build_duration,
       )
       return status
     return None
@@ -986,21 +992,64 @@ class _AtestMain:
         targets=update_modules
     )
 
-  def _load_module_info(self) -> bool:
-    """Loads module info object.
-
-    Returns:
-        True if module info rebuild is triggered. False otherwise.
-    """
-    rebuild_required = need_rebuild_module_info(self._args)
-    logging.debug('need_rebuild_module_info returned %s', rebuild_required)
+  def _load_module_info(self):
+    self._module_info_rebuild_required = need_rebuild_module_info(self._args)
+    logging.debug(
+        'need_rebuild_module_info returned %s',
+        self._module_info_rebuild_required,
+    )
 
     self._mod_info = module_info.load(
-        force_build=rebuild_required,
+        force_build=self._module_info_rebuild_required,
         sqlite_module_cache=self._args.sqlite_module_cache,
     )
     logging.debug('Obtained module info object: %s', self._mod_info)
-    return rebuild_required
+
+  def _load_test_info_and_execution_plan(self) -> int | None:
+    """Loads test info and execution plan.
+
+    Returns:
+        Exit code if anything went wrong. None otherwise.
+    """
+    self._start_indexing_if_required()
+
+    self._load_module_info()
+
+    translator = cli_translator.CLITranslator(
+        mod_info=self._mod_info,
+        print_cache_msg=not self._args.clear_cache,
+        bazel_mode_enabled=self._args.bazel_mode,
+        host=self._args.host,
+        bazel_mode_features=self._args.bazel_mode_features,
+    )
+
+    self._check_indexing_status()
+
+    find_start = time.time()
+    self._test_infos = translator.translate(self._args)
+
+    # Only check for sufficient devices if not dry run.
+    self._args.device_count_config = get_device_count_config(
+        self._test_infos, self._mod_info
+    )
+    if not self._args.dry_run and not has_set_sufficient_devices(
+        self._args.device_count_config, self._args.serial
+    ):
+      return ExitCode.INSUFFICIENT_DEVICES
+
+    self._test_info_loading_duration = time.time() - find_start
+    if not self._test_infos:
+      return ExitCode.TEST_NOT_FOUND
+
+    self._test_execution_plan = _TestExecutionPlan.create(
+        test_infos=self._test_infos,
+        results_dir=self._results_dir,
+        mod_info=self._mod_info,
+        args=self._args,
+        dry_run=self._args.dry_run,
+    )
+
+    return None
 
   def _handle_list_modules(self) -> None:
     """Print the testable modules for a given suite."""
@@ -1097,60 +1146,26 @@ class _AtestMain:
       )
       self._args.bazel_mode = False
 
-    self._start_indexing_if_required()
+    error_code = self._load_test_info_and_execution_plan()
+    if error_code is not None:
+      return error_code
 
-    module_info_rebuild_required = self._load_module_info()
+    extra_args = self._test_execution_plan.extra_args
 
-    translator = cli_translator.CLITranslator(
-        mod_info=self._mod_info,
-        print_cache_msg=not self._args.clear_cache,
-        bazel_mode_enabled=self._args.bazel_mode,
-        host=self._args.host,
-        bazel_mode_features=self._args.bazel_mode_features,
-    )
+    if self._args.dry_run:
+      self._handle_dry_run(extra_args, self._test_infos)
+      return ExitCode.SUCCESS
 
-    self._check_indexing_status()
-
-    find_start = time.time()
-    test_infos = translator.translate(self._args)
-
-    # Only check for sufficient devices if not dry run.
-    self._args.device_count_config = get_device_count_config(
-        test_infos, self._mod_info
-    )
-    if not self._args.dry_run and not has_set_sufficient_devices(
-        self._args.device_count_config, self._args.serial
-    ):
-      return ExitCode.INSUFFICIENT_DEVICES
-
-    find_duration = time.time() - find_start
-    if not test_infos:
-      return ExitCode.TEST_NOT_FOUND
-
-    test_execution_plan = _TestExecutionPlan.create(
-        test_infos=test_infos,
-        results_dir=self._results_dir,
-        mod_info=self._mod_info,
-        args=self._args,
-        dry_run=self._args.dry_run,
-    )
-
-    extra_args = test_execution_plan.extra_args
-
-    build_targets = test_execution_plan.required_build_targets()
+    build_targets = self._test_execution_plan.required_build_targets()
 
     # Remove MODULE-IN-* from build targets by default.
     if not self._args.use_modules_in:
       build_targets = _exclude_modules_in_targets(build_targets)
 
-    if self._args.dry_run:
-      self._handle_dry_run(extra_args, test_infos)
-      return ExitCode.SUCCESS
-
     steps = parse_steps(self._args)
     self._configure_update_method(
         steps=steps,
-        requires_device_update=test_execution_plan.requires_device_update(),
+        requires_device_update=self._test_execution_plan.requires_device_update(),
         update_modules=set(self._args.update_modules or []),
     )
 
@@ -1185,7 +1200,7 @@ class _AtestMain:
         rebuild_module_info = DetectType.CLEAN_BUILD
       elif self._args.rebuild_module_info:
         rebuild_module_info = DetectType.REBUILD_MODULE_INFO
-      elif module_info_rebuild_required:
+      elif self._module_info_rebuild_required:
         rebuild_module_info = DetectType.SMART_REBUILD_MODULE_INFO
       metrics.LocalDetectEvent(
           detect_type=rebuild_module_info, result=int(round(build_duration))
@@ -1193,7 +1208,7 @@ class _AtestMain:
       if not success:
         return ExitCode.BUILD_FAILURE
 
-      acloud_status = self._check_acloud_status(find_duration + build_duration)
+      acloud_status = self._check_acloud_status(build_duration)
       if acloud_status:
         return acloud_status
 
@@ -1216,7 +1231,7 @@ class _AtestMain:
     tests_exit_code = ExitCode.SUCCESS
     if steps.has_test():
       # Stop calling Tradefed if the tests require a device.
-      _validate_adb_devices(self._args, test_infos)
+      _validate_adb_devices(self._args, self._test_infos)
 
       test_start = time.time()
       # Only send duration to metrics when no --build.
@@ -1228,12 +1243,12 @@ class _AtestMain:
             result=int(round(_init_and_find * 1000)),
         )
 
-      tests_exit_code = test_execution_plan.execute()
+      tests_exit_code = self._test_execution_plan.execute()
 
       if self._args.experimental_coverage:
         coverage.generate_coverage_report(
             self._results_dir,
-            test_infos,
+            self._test_infos,
             self._mod_info,
             extra_args.get(constants.HOST, False),
             self._args.code_under_test,
