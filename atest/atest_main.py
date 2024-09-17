@@ -931,14 +931,14 @@ def setup_metrics_tool_name(no_metrics: bool = False):
 class _AtestMain:
   """Entry point of atest script."""
 
-  def run(
+  def __init__(
       self,
       argv: list[str],
       results_dir: str,
       args: argparse.Namespace,
       banner_printer: banner.BannerPrinter,
-  ) -> int:
-    """Entry point of atest script.
+  ):
+    """Initializes the _AtestMain object.
 
     Args:
         argv: A list of arguments.
@@ -946,29 +946,37 @@ class _AtestMain:
         args: An argparse.Namespace class instance holding parsed args.
         banner_printer: A BannerPrinter object used to collect banners and print
           banners at the end of this invocation.
-
-    Returns:
-        Exit code.
     """
-    _begin_time = time.time()
     logging.debug(
-        'Running atest script with argv: %s\n  results_dir: %s\n  args: %s\n '
+        'Creating atest script with argv: %s\n  results_dir: %s\n  args: %s\n '
         ' run id: %s',
         argv,
         results_dir,
         args,
         metrics.get_run_id(),
     )
+    self._argv = argv
+    self._results_dir = results_dir
+    self._args = args
+    self._banner_printer = banner_printer
+
+  def run(self) -> int:
+    """Executes the atest script.
+
+    Returns:
+        Exit code.
+    """
+    _begin_time = time.time()
 
     # Sets coverage environment variables.
-    if args.experimental_coverage:
+    if self._args.experimental_coverage:
       atest_utils.update_build_env(coverage.build_env_vars())
-    set_build_output_mode(args.build_output)
+    set_build_output_mode(self._args.build_output)
 
-    _validate_args(args)
+    _validate_args(self._args)
     metrics_utils.send_start_event(
-        command_line=' '.join(argv),
-        test_references=args.tests,
+        command_line=' '.join(self._argv),
+        test_references=self._args.tests,
         cwd=os.getcwd(),
         operating_system=(
             f'{platform.platform()}:{platform.python_version()}/'
@@ -978,47 +986,52 @@ class _AtestMain:
         source_root=os.environ.get('ANDROID_BUILD_TOP', ''),
         hostname=platform.node(),
     )
-    _non_action_validator(args)
+    _non_action_validator(self._args)
 
-    proc_acloud, report_file = _get_acloud_proc_and_log(args, results_dir)
+    proc_acloud, report_file = _get_acloud_proc_and_log(
+        self._args, self._results_dir
+    )
     is_clean = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, '')
     )
 
     # Run Test Mapping or coverage by no-bazel-mode.
-    if atest_utils.is_test_mapping(args) or args.experimental_coverage:
+    if (
+        atest_utils.is_test_mapping(self._args)
+        or self._args.experimental_coverage
+    ):
       logging.debug('Running test mapping or coverage, disabling bazel mode.')
       atest_utils.colorful_print(
           'Not running using bazel-mode.', constants.YELLOW
       )
-      args.bazel_mode = False
+      self._args.bazel_mode = False
 
     proc_idx = None
     # Do not index targets while the users intend to dry-run tests.
-    if need_run_index_targets(args):
+    if need_run_index_targets(self._args):
       logging.debug('Starting to index targets in a background thread.')
       proc_idx = atest_utils.start_threading(
           indexing.index_targets,
           daemon=True,
       )
-    smart_rebuild = need_rebuild_module_info(args)
+    smart_rebuild = need_rebuild_module_info(self._args)
     logging.debug('need_rebuild_module_info returned %s', smart_rebuild)
 
     mod_info = module_info.load(
         force_build=smart_rebuild,
-        sqlite_module_cache=args.sqlite_module_cache,
+        sqlite_module_cache=self._args.sqlite_module_cache,
     )
     logging.debug('Obtained module info object: %s', mod_info)
 
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
-        print_cache_msg=not args.clear_cache,
-        bazel_mode_enabled=args.bazel_mode,
-        host=args.host,
-        bazel_mode_features=args.bazel_mode_features,
+        print_cache_msg=not self._args.clear_cache,
+        bazel_mode_enabled=self._args.bazel_mode,
+        host=self._args.host,
+        bazel_mode_features=self._args.bazel_mode_features,
     )
-    if args.list_modules:
-      _print_testable_modules(mod_info, args.list_modules)
+    if self._args.list_modules:
+      _print_testable_modules(mod_info, self._args.list_modules)
       return ExitCode.SUCCESS
     test_infos = set()
 
@@ -1036,12 +1049,14 @@ class _AtestMain:
       )
 
     find_start = time.time()
-    test_infos = translator.translate(args)
+    test_infos = translator.translate(self._args)
 
     # Only check for sufficient devices if not dry run.
-    args.device_count_config = get_device_count_config(test_infos, mod_info)
-    if not args.dry_run and not has_set_sufficient_devices(
-        args.device_count_config, args.serial
+    self._args.device_count_config = get_device_count_config(
+        test_infos, mod_info
+    )
+    if not self._args.dry_run and not has_set_sufficient_devices(
+        self._args.device_count_config, self._args.serial
     ):
       return ExitCode.INSUFFICIENT_DEVICES
 
@@ -1051,10 +1066,10 @@ class _AtestMain:
 
     test_execution_plan = _TestExecutionPlan.create(
         test_infos=test_infos,
-        results_dir=results_dir,
+        results_dir=self._results_dir,
         mod_info=mod_info,
-        args=args,
-        dry_run=args.dry_run,
+        args=self._args,
+        dry_run=self._args.dry_run,
     )
 
     extra_args = test_execution_plan.extra_args
@@ -1062,22 +1077,22 @@ class _AtestMain:
     build_targets = test_execution_plan.required_build_targets()
 
     # Remove MODULE-IN-* from build targets by default.
-    if not args.use_modules_in:
+    if not self._args.use_modules_in:
       build_targets = _exclude_modules_in_targets(build_targets)
 
-    if args.dry_run:
-      return _dry_run(results_dir, extra_args, test_infos, mod_info)
+    if self._args.dry_run:
+      return _dry_run(self._results_dir, extra_args, test_infos, mod_info)
 
-    steps = parse_steps(args)
+    steps = parse_steps(self._args)
     device_update_method = _configure_update_method(
         steps=steps,
         requires_device_update=test_execution_plan.requires_device_update(),
-        update_modules=set(args.update_modules or []),
-        banner_printer=banner_printer,
+        update_modules=set(self._args.update_modules or []),
+        banner_printer=self._banner_printer,
     )
 
     if build_targets and steps.has_build():
-      if args.experimental_coverage:
+      if self._args.experimental_coverage:
         build_targets.update(coverage.build_modules())
 
       # Add module-info.json target to the list of build targets to keep the
@@ -1087,8 +1102,8 @@ class _AtestMain:
       build_targets |= device_update_method.dependencies()
 
       # Add the -jx as a build target if user specify it.
-      if args.build_j:
-        build_targets.add(f'-j{args.build_j}')
+      if self._args.build_j:
+        build_targets.add(f'-j{self._args.build_j}')
 
       build_start = time.time()
       success = atest_utils.build(build_targets)
@@ -1105,7 +1120,7 @@ class _AtestMain:
       rebuild_module_info = DetectType.NOT_REBUILD_MODULE_INFO
       if is_clean:
         rebuild_module_info = DetectType.CLEAN_BUILD
-      elif args.rebuild_module_info:
+      elif self._args.rebuild_module_info:
         rebuild_module_info = DetectType.REBUILD_MODULE_INFO
       elif smart_rebuild:
         rebuild_module_info = DetectType.SMART_REBUILD_MODULE_INFO
@@ -1123,7 +1138,7 @@ class _AtestMain:
           return status
       # After build step 'adb' command will be available, and stop forward to
       # Tradefed if the tests require a device.
-      _validate_adb_devices(args, test_infos)
+      _validate_adb_devices(self._args, test_infos)
 
     if steps.has_device_update():
       if steps.has_test():
@@ -1155,13 +1170,13 @@ class _AtestMain:
 
       tests_exit_code = test_execution_plan.execute()
 
-      if args.experimental_coverage:
+      if self._args.experimental_coverage:
         coverage.generate_coverage_report(
-            results_dir,
+            self._results_dir,
             test_infos,
             mod_info,
             extra_args.get(constants.HOST, False),
-            args.code_under_test,
+            self._args.code_under_test,
         )
 
       metrics.RunTestsFinishEvent(
@@ -1527,12 +1542,12 @@ if __name__ == '__main__':
   ) as result_file:
     setup_metrics_tool_name(atest_configs.GLOBAL_ARGS.no_metrics)
 
-    exit_code = _AtestMain().run(
+    exit_code = _AtestMain(
         final_args,
         results_dir,
         atest_configs.GLOBAL_ARGS,
         banner_printer,
-    )
+    ).run()
     detector = bug_detector.BugDetector(final_args, exit_code)
     if exit_code not in EXIT_CODES_BEFORE_TEST:
       metrics.LocalDetectEvent(
