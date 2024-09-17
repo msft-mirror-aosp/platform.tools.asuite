@@ -773,42 +773,6 @@ def need_rebuild_module_info(args: arg_parser.AtestArgParser) -> bool:
   return False
 
 
-def need_run_index_targets(args: argparse.ArgumentParser):
-  """Method that determines whether Atest need to run index_targets or not.
-
-  The decision flow is as follows: If no build is required, returns False.
-  Otherwise, if some index files are missing, returns True. Otherwise, if
-  some arguments that doesn't require indexing is present, returns False.
-  Otherwise, returns True.
-
-  Args:
-      args: An argparse.ArgumentParser object.
-
-  Returns:
-      True when none of the above conditions were found.
-  """
-  has_build_step = parse_steps(args).has_build()
-  if not has_build_step:
-    logging.debug("Skip indexing because there's no build required.")
-    return False
-
-  if not indexing.Indices().has_all_indices():
-    logging.debug(
-        'Indexing targets is required because some index files do not exist.'
-    )
-    return True
-
-  no_indexing_args = (
-      args.dry_run,
-      args.list_modules,
-  )
-  if any(no_indexing_args):
-    logging.debug('Skip indexing for no_indexing_args=%s.', no_indexing_args)
-    return False
-
-  return True
-
-
 def get_device_count_config(test_infos, mod_info):
   """Get the amount of desired devices from the test config.
 
@@ -998,6 +962,56 @@ class _AtestMain:
       return status
     return None
 
+  def _start_indexing_if_required(self) -> None:
+    """Starts indexing if required.
+
+    The decision flow is as follows: If no build is required, returns False.
+    Otherwise, if some index files are missing, returns True. Otherwise, if
+    some arguments that doesn't require indexing is present, returns False.
+    Otherwise, returns True.
+    """
+    self._indexing_proc = None
+    if not parse_steps(self._args).has_build():
+      logging.debug("Skip indexing because there's no build required.")
+      return
+
+    if indexing.Indices().has_all_indices():
+      no_indexing_args = (
+          args.dry_run,
+          args.list_modules,
+      )
+      if any(no_indexing_args):
+        logging.debug(
+            'Skip indexing for no_indexing_args=%s.', no_indexing_args
+        )
+        return
+    else:
+      logging.debug(
+          'Indexing targets is required because some index files do not exist.'
+      )
+
+    logging.debug('Starting to index targets in a background thread.')
+    self._indexing_proc = atest_utils.start_threading(
+        indexing.index_targets,
+        daemon=True,
+    )
+
+  def _check_indexing_status(self) -> None:
+    """Checks indexing status and wait for it to complete if necessary."""
+    if (
+        not self._indexing_proc
+        or not self._indexing_proc.is_alive()
+        or indexing.Indices().has_all_indices()
+    ):
+      return
+    start_wait_for_indexing = time.time()
+    print('Waiting for the module indexing to complete.')
+    self._indexing_proc.join()
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.WAIT_FOR_INDEXING_MS,
+        result=int(round((time.time() - start_wait_for_indexing) * 1000)),
+    )
+
   def run(self) -> int:
     """Executes the atest script.
 
@@ -1046,14 +1060,8 @@ class _AtestMain:
       )
       self._args.bazel_mode = False
 
-    proc_idx = None
-    # Do not index targets while the users intend to dry-run tests.
-    if need_run_index_targets(self._args):
-      logging.debug('Starting to index targets in a background thread.')
-      proc_idx = atest_utils.start_threading(
-          indexing.index_targets,
-          daemon=True,
-      )
+    self._start_indexing_if_required()
+
     smart_rebuild = need_rebuild_module_info(self._args)
     logging.debug('need_rebuild_module_info returned %s', smart_rebuild)
 
@@ -1074,18 +1082,7 @@ class _AtestMain:
       _print_testable_modules(mod_info, self._args.list_modules)
       return ExitCode.SUCCESS
 
-    if (
-        proc_idx
-        and proc_idx.is_alive()
-        and not indexing.Indices().has_all_indices()
-    ):
-      start_wait_for_indexing = time.time()
-      print('Waiting for the module indexing to complete.')
-      proc_idx.join()
-      metrics.LocalDetectEvent(
-          detect_type=DetectType.WAIT_FOR_INDEXING_MS,
-          result=int(round((time.time() - start_wait_for_indexing) * 1000)),
-      )
+    self._check_indexing_status()
 
     find_start = time.time()
     test_infos = translator.translate(self._args)
