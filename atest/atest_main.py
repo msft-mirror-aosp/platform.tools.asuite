@@ -648,35 +648,6 @@ def _run_test_mapping_tests(
   return all_tests_exit_code
 
 
-def _dry_run(results_dir, extra_args, test_infos, mod_info):
-  """Only print the commands of the target tests rather than running them in
-
-  actual.
-
-  Args:
-      results_dir: Path for saving atest logs.
-      extra_args: Dict of extra args for test runners to utilize.
-      test_infos: A list of TestInfos.
-      mod_info: ModuleInfo object.
-
-  Returns:
-      A successful exit code.
-  """
-  all_run_cmds = []
-  for test_runner, tests in test_runner_handler.group_tests_by_test_runners(
-      test_infos
-  ):
-    runner = test_runner(results_dir, mod_info=mod_info, extra_args=extra_args)
-    run_cmds = runner.generate_run_commands(tests, extra_args)
-    for run_cmd in run_cmds:
-      all_run_cmds.append(run_cmd)
-      logging.debug(_DRY_RUN_COMMAND_LOG_PREFIX + run_cmd)
-      print(
-          'Would run test via command: %s' % (atest_utils.mark_green(run_cmd))
-      )
-  return ExitCode.SUCCESS
-
-
 def _exclude_modules_in_targets(build_targets):
   """Method that excludes MODULES-IN-* targets.
 
@@ -1050,6 +1021,30 @@ class _AtestMain:
     for module in sorted(testable_modules):
       print('\t%s' % module)
 
+  def _handle_dry_run(self, extra_args, test_infos) -> None:
+    """Only print the commands of the target tests rather than running them in
+
+    actual.
+
+    Args:
+        extra_args: Dict of extra args for test runners to utilize.
+        test_infos: A list of TestInfos.
+    """
+    all_run_cmds = []
+    for test_runner, tests in test_runner_handler.group_tests_by_test_runners(
+        test_infos
+    ):
+      runner = test_runner(
+          results_dir, mod_info=self._mod_info, extra_args=extra_args
+      )
+      run_cmds = runner.generate_run_commands(tests, extra_args)
+      for run_cmd in run_cmds:
+        all_run_cmds.append(run_cmd)
+        logging.debug(_DRY_RUN_COMMAND_LOG_PREFIX + run_cmd)
+        print(
+            'Would run test via command: %s' % (atest_utils.mark_green(run_cmd))
+        )
+
   def run(self) -> int:
     """Executes the atest script.
 
@@ -1149,7 +1144,8 @@ class _AtestMain:
       build_targets = _exclude_modules_in_targets(build_targets)
 
     if self._args.dry_run:
-      return _dry_run(self._results_dir, extra_args, test_infos, self._mod_info)
+      self._handle_dry_run(extra_args, test_infos)
+      return ExitCode.SUCCESS
 
     steps = parse_steps(self._args)
     self._configure_update_method(
