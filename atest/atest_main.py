@@ -558,69 +558,6 @@ def _split_test_mapping_tests(test_infos):
   return device_test_infos, host_test_infos
 
 
-# pylint: disable=too-many-locals
-def _run_test_mapping_tests(
-    test_type_to_invocations: Dict[str, List[TestRunnerInvocation]],
-    extra_args: Dict[str, Any],
-) -> ExitCode:
-  """Run all tests in TEST_MAPPING files.
-
-  Args:
-      test_type_to_invocations: A dict mapping test runner invocations to test
-        types.
-      extra_args: A dict of extra args for others to utilize.
-
-  Returns:
-      Exit code.
-  """
-
-  test_results = []
-  for test_type, invocations in test_type_to_invocations.items():
-    tests = list(
-        itertools.chain.from_iterable(i.test_infos for i in invocations)
-    )
-    if not tests:
-      continue
-    header = RUN_HEADER_FMT % {TEST_COUNT: len(tests), TEST_TYPE: test_type}
-    atest_utils.colorful_print(header, constants.MAGENTA)
-    logging.debug('\n'.join([str(info) for info in tests]))
-
-    reporter = result_reporter.ResultReporter(
-        collect_only=extra_args.get(constants.COLLECT_TESTS_ONLY),
-        wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
-    )
-    reporter.print_starting_text()
-
-    tests_exit_code = ExitCode.SUCCESS
-    for invocation in invocations:
-      tests_exit_code |= invocation.run_all_tests(reporter)
-
-    atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
-    test_results.append((tests_exit_code, reporter, test_type))
-
-  all_tests_exit_code = ExitCode.SUCCESS
-  failed_tests = []
-  for tests_exit_code, reporter, test_type in test_results:
-    atest_utils.colorful_print(
-        RESULT_HEADER_FMT % {TEST_TYPE: test_type}, constants.MAGENTA
-    )
-    result = tests_exit_code | reporter.print_summary()
-    if result:
-      failed_tests.append(test_type)
-    all_tests_exit_code |= result
-
-  # List failed tests at the end as a reminder.
-  if failed_tests:
-    atest_utils.colorful_print(
-        atest_utils.delimiter('=', 30, prenl=1), constants.YELLOW
-    )
-    atest_utils.colorful_print('\nFollowing tests failed:', constants.MAGENTA)
-    for failure in failed_tests:
-      atest_utils.colorful_print(failure, constants.RED)
-
-  return all_tests_exit_code
-
-
 def _exclude_modules_in_targets(build_targets):
   """Method that excludes MODULES-IN-* targets.
 
@@ -1468,9 +1405,57 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
     return build_targets
 
   def execute(self) -> ExitCode:
-    return _run_test_mapping_tests(
-        self._test_type_to_invocations, self.extra_args
-    )
+    """Run all tests in TEST_MAPPING files.
+
+    Returns:
+        Exit code.
+    """
+
+    test_results = []
+    for test_type, invocations in self._test_type_to_invocations.items():
+      tests = list(
+          itertools.chain.from_iterable(i.test_infos for i in invocations)
+      )
+      if not tests:
+        continue
+      header = RUN_HEADER_FMT % {TEST_COUNT: len(tests), TEST_TYPE: test_type}
+      atest_utils.colorful_print(header, constants.MAGENTA)
+      logging.debug('\n'.join([str(info) for info in tests]))
+
+      reporter = result_reporter.ResultReporter(
+          collect_only=self._extra_args.get(constants.COLLECT_TESTS_ONLY),
+          wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
+      )
+      reporter.print_starting_text()
+
+      tests_exit_code = ExitCode.SUCCESS
+      for invocation in invocations:
+        tests_exit_code |= invocation.run_all_tests(reporter)
+
+      atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
+      test_results.append((tests_exit_code, reporter, test_type))
+
+    all_tests_exit_code = ExitCode.SUCCESS
+    failed_tests = []
+    for tests_exit_code, reporter, test_type in test_results:
+      atest_utils.colorful_print(
+          RESULT_HEADER_FMT % {TEST_TYPE: test_type}, constants.MAGENTA
+      )
+      result = tests_exit_code | reporter.print_summary()
+      if result:
+        failed_tests.append(test_type)
+      all_tests_exit_code |= result
+
+    # List failed tests at the end as a reminder.
+    if failed_tests:
+      atest_utils.colorful_print(
+          atest_utils.delimiter('=', 30, prenl=1), constants.YELLOW
+      )
+      atest_utils.colorful_print('\nFollowing tests failed:', constants.MAGENTA)
+      for failure in failed_tests:
+        atest_utils.colorful_print(failure, constants.RED)
+
+    return all_tests_exit_code
 
 
 class _TestModuleExecutionPlan(_TestExecutionPlan):
