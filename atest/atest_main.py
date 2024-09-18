@@ -953,7 +953,6 @@ class _AtestMain:
         results_dir=self._results_dir,
         mod_info=self._mod_info,
         args=self._args,
-        dry_run=self._args.dry_run,
     )
 
     return None
@@ -1242,7 +1241,6 @@ class _TestExecutionPlan(ABC):
       results_dir: str,
       mod_info: module_info.ModuleInfo,
       args: argparse.Namespace,
-      dry_run: bool,
   ) -> _TestExecutionPlan:
     """Creates a plan to execute the tests.
 
@@ -1251,7 +1249,6 @@ class _TestExecutionPlan(ABC):
         results_dir: A directory which stores the ATest execution information.
         mod_info: An instance of ModuleInfo.
         args: An argparse.Namespace instance holding parsed args.
-        dry_run: A boolean of whether this invocation is a dry run.
 
     Returns:
         An instance of _TestExecutionPlan.
@@ -1270,7 +1267,6 @@ class _TestExecutionPlan(ABC):
         results_dir=results_dir,
         mod_info=mod_info,
         args=args,
-        dry_run=dry_run,
     )
 
   def __init__(
@@ -1477,7 +1473,6 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
       results_dir: str,
       mod_info: module_info.ModuleInfo,
       args: argparse.Namespace,
-      dry_run: bool,
   ) -> _TestModuleExecutionPlan:
     """Creates an instance of _TestModuleExecutionPlan.
 
@@ -1492,7 +1487,7 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
         An instance of _TestModuleExecutionPlan.
     """
 
-    if not dry_run:
+    if not args.dry_run:
       _validate_exec_mode(args, test_infos)
 
     # _validate_exec_mode appends --host automatically when pure
