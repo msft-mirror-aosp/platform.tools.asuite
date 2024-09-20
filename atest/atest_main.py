@@ -893,7 +893,12 @@ class _AtestMain:
         result=int(round((time.time() - start_wait_for_indexing) * 1000)),
     )
 
-  def _configure_update_method(self) -> None:
+  def _configure_device_update_method(self) -> set[str]:
+    """Configures the update method to use for device update.
+
+    Returns:
+        A set of dependencies for the update method.
+    """
     self._device_update_method = device_update.NoopUpdateMethod()
     if not self._args.update_device:
       if self._test_execution_plan.requires_device_update():
@@ -901,7 +906,7 @@ class _AtestMain:
             'Tips: If your test requires device update, consider '
             'http://go/atest-single-command to simplify your workflow!'
         )
-      return
+      return set()
 
     if not self._test_execution_plan.requires_device_update():
       atest_utils.colorful_print(
@@ -909,11 +914,12 @@ class _AtestMain:
           'tests in this invocation.',
           constants.YELLOW,
       )
-      return
+      return set()
 
     self._device_update_method = device_update.AdeviceUpdateMethod(
         targets=set(self._args.update_modules or [])
     )
+    return self._device_update_method.dependencies()
 
   def _need_rebuild_module_info(self) -> bool:
     """Method that tells whether we need to rebuild module-info.json or not.
@@ -1094,8 +1100,11 @@ class _AtestMain:
         result=int(round(device_update_duration * 1000)),
     )
 
-  def _run_build_step(self) -> int:
+  def _run_build_step(self, extra_build_targets: set[str]) -> int:
     """Runs the build step.
+
+    Args:
+        extra_build_targets: Extra build targets to build.
 
     Returns:
         Exit code if failed. None otherwise.
@@ -1116,7 +1125,7 @@ class _AtestMain:
     # file up to date.
     build_targets.add(module_info.get_module_info_target())
 
-    build_targets |= self._device_update_method.dependencies()
+    build_targets |= extra_build_targets
 
     # Add the -jx as a build target if user specify it.
     if self._args.build_j:
@@ -1251,10 +1260,10 @@ class _AtestMain:
     if error_code is not None:
       return error_code
 
-    self._configure_update_method()
+    extra_build_targets = self._configure_device_update_method()
 
     if self._steps.build:
-      error_code = self._run_build_step()
+      error_code = self._run_build_step(extra_build_targets)
       if error_code is not None:
         return error_code
 
