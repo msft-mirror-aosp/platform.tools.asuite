@@ -217,14 +217,14 @@ def _get_args_from_config():
   return args
 
 
-def _parse_args(argv: List[Any]) -> Tuple[argparse.ArgumentParser, List[str]]:
+def _parse_args(argv: List[str]) -> argparse.Namespace:
   """Parse command line arguments.
 
   Args:
       argv: A list of arguments.
 
   Returns:
-      A tuple of an argparse.ArgumentParser class instance holding parsed args
+      A Namespace holding parsed args
   """
   # Store everything after '--' in custom_args.
   pruned_argv = argv
