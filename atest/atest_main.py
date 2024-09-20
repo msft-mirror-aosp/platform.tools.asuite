@@ -1055,6 +1055,11 @@ class _AtestMain:
     if error_code is not None:
       return error_code
 
+    print(
+        'Would build the following targets: %s'
+        % (atest_utils.mark_green('%s' % self._get_build_targets()))
+    )
+
     all_run_cmds = []
     for test_runner, tests in test_runner_handler.group_tests_by_test_runners(
         self._test_infos
@@ -1111,12 +1116,8 @@ class _AtestMain:
         result=int(round(device_update_duration * 1000)),
     )
 
-  def _run_build_step(self) -> int:
-    """Runs the build step.
-
-    Returns:
-        Exit code if failed. None otherwise.
-    """
+  def _get_build_targets(self) -> set[str]:
+    """Gets the build targets."""
     build_targets = self._test_execution_plan.required_build_targets()
 
     # Remove MODULE-IN-* from build targets by default.
@@ -1134,6 +1135,15 @@ class _AtestMain:
     build_targets.add(module_info.get_module_info_target())
 
     build_targets |= self._get_device_update_dependencies()
+    return build_targets
+
+  def _run_build_step(self) -> int:
+    """Runs the build step.
+
+    Returns:
+        Exit code if failed. None otherwise.
+    """
+    build_targets = self._get_build_targets()
 
     # Add the -jx as a build target if user specify it.
     if self._args.build_j:
