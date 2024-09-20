@@ -1051,10 +1051,13 @@ class _AtestMain:
 
     return None
 
-  def _handle_list_modules(self) -> None:
-    """Print the testable modules for a given suite."""
-    if not self._mod_info:
-      self._load_module_info()
+  def _handle_list_modules(self) -> int:
+    """Print the testable modules for a given suite.
+
+    Returns:
+        Exit code.
+    """
+    self._load_module_info()
 
     testable_modules = self._mod_info.get_testable_modules(
         self._args.list_modules
@@ -1070,29 +1073,38 @@ class _AtestMain:
     for module in sorted(testable_modules):
       print('\t%s' % module)
 
-  def _handle_dry_run(self, extra_args, test_infos) -> None:
-    """Only print the commands of the target tests rather than running them in
+    return ExitCode.SUCCESS
 
-    actual.
+  def _handle_dry_run(self) -> int:
+    """Only print the commands of the target tests rather than running them.
 
-    Args:
-        extra_args: Dict of extra args for test runners to utilize.
-        test_infos: A list of TestInfos.
+    Returns:
+        Exit code.
     """
+    error_code = self._load_test_info_and_execution_plan()
+    if error_code is not None:
+      return error_code
+
     all_run_cmds = []
     for test_runner, tests in test_runner_handler.group_tests_by_test_runners(
-        test_infos
+        self._test_infos
     ):
       runner = test_runner(
-          results_dir, mod_info=self._mod_info, extra_args=extra_args
+          results_dir,
+          mod_info=self._mod_info,
+          extra_args=self._test_execution_plan.extra_args,
       )
-      run_cmds = runner.generate_run_commands(tests, extra_args)
+      run_cmds = runner.generate_run_commands(
+          tests, self._test_execution_plan.extra_args
+      )
       for run_cmd in run_cmds:
         all_run_cmds.append(run_cmd)
         logging.debug(_DRY_RUN_COMMAND_LOG_PREFIX + run_cmd)
         print(
             'Would run test via command: %s' % (atest_utils.mark_green(run_cmd))
         )
+
+    return ExitCode.SUCCESS
 
   def run(self) -> int:
     """Executes the atest script.
@@ -1126,8 +1138,7 @@ class _AtestMain:
       sys.exit(no_action_exit_code)
 
     if self._args.list_modules:
-      self._handle_list_modules()
-      return ExitCode.SUCCESS
+      return self._handle_list_modules()
 
     self._start_acloud_if_requested()
 
@@ -1146,15 +1157,14 @@ class _AtestMain:
       )
       self._args.bazel_mode = False
 
+    if self._args.dry_run:
+      return self._handle_dry_run()
+
     error_code = self._load_test_info_and_execution_plan()
     if error_code is not None:
       return error_code
 
     extra_args = self._test_execution_plan.extra_args
-
-    if self._args.dry_run:
-      self._handle_dry_run(extra_args, self._test_infos)
-      return ExitCode.SUCCESS
 
     build_targets = self._test_execution_plan.required_build_targets()
 
