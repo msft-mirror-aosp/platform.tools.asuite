@@ -813,6 +813,7 @@ class _AtestMain:
     self._acloud_proc = None
     self._acloud_report_file = None
     self._test_info_loading_duration = 0
+    self._build_duration = 0
     self._module_info_rebuild_required = False
     self._is_out_clean_before_module_info_build = False
 
@@ -901,11 +902,8 @@ class _AtestMain:
         self._results_dir, self._args
     )
 
-  def _check_acloud_status(self, build_duration: float) -> int:
+  def _check_acloud_status(self) -> int:
     """Checks acloud status if acloud is requested.
-
-    Args:
-      build_duration: The duration of building targets.
 
     Returns:
         acloud status code. None if no acloud requested.
@@ -914,7 +912,7 @@ class _AtestMain:
       self._acloud_proc.join()
       status = avd.probe_acloud_status(
           self._acloud_report_file,
-          self._test_info_loading_duration + build_duration,
+          self._test_info_loading_duration + self._build_duration,
       )
       return status
     return None
@@ -1143,15 +1141,15 @@ class _AtestMain:
 
     build_start = time.time()
     success = atest_utils.build(build_targets)
-    build_duration = time.time() - build_start
+    self._build_duration = time.time() - build_start
     metrics.BuildFinishEvent(
-        duration=metrics_utils.convert_duration(build_duration),
+        duration=metrics_utils.convert_duration(self._build_duration),
         success=success,
         targets=build_targets,
     )
     metrics.LocalDetectEvent(
         detect_type=DetectType.BUILD_TIME_PER_TARGET,
-        result=int(round(build_duration / len(build_targets))),
+        result=int(round(self._build_duration / len(build_targets))),
     )
     rebuild_module_info = DetectType.NOT_REBUILD_MODULE_INFO
     if self._is_out_clean_before_module_info_build:
@@ -1161,16 +1159,10 @@ class _AtestMain:
     elif self._module_info_rebuild_required:
       rebuild_module_info = DetectType.SMART_REBUILD_MODULE_INFO
     metrics.LocalDetectEvent(
-        detect_type=rebuild_module_info, result=int(round(build_duration))
+        detect_type=rebuild_module_info, result=int(round(self._build_duration))
     )
     if not success:
       return ExitCode.BUILD_FAILURE
-
-    acloud_status = self._check_acloud_status(build_duration)
-    if acloud_status:
-      return acloud_status
-
-    return None
 
   def run(self) -> int:
     """Executes the atest script.
@@ -1236,6 +1228,10 @@ class _AtestMain:
       error_code = self._run_build_step()
       if error_code is not None:
         return error_code
+
+    acloud_status = self._check_acloud_status()
+    if acloud_status:
+      return acloud_status
 
     if self._steps.has_device_update():
       if self._steps.has_test():
