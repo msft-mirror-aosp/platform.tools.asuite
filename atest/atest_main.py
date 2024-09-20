@@ -863,6 +863,8 @@ class _AtestMain:
     self._args = args
     self._banner_printer = banner_printer
 
+    self._mod_info = None
+
   def _check_no_action_argument(self) -> int:
     """Method for non-action arguments such as --version, --history, --latest_result, etc.
 
@@ -1040,6 +1042,22 @@ class _AtestMain:
         targets=update_modules
     )
 
+  def _load_module_info(self) -> bool:
+    """Loads module info object.
+
+    Returns:
+        True if module info rebuild is triggered. False otherwise.
+    """
+    rebuild_required = need_rebuild_module_info(self._args)
+    logging.debug('need_rebuild_module_info returned %s', rebuild_required)
+
+    self._mod_info = module_info.load(
+        force_build=rebuild_required,
+        sqlite_module_cache=self._args.sqlite_module_cache,
+    )
+    logging.debug('Obtained module info object: %s', self._mod_info)
+    return rebuild_required
+
   def run(self) -> int:
     """Executes the atest script.
 
@@ -1090,24 +1108,17 @@ class _AtestMain:
 
     self._start_indexing_if_required()
 
-    smart_rebuild = need_rebuild_module_info(self._args)
-    logging.debug('need_rebuild_module_info returned %s', smart_rebuild)
-
-    mod_info = module_info.load(
-        force_build=smart_rebuild,
-        sqlite_module_cache=self._args.sqlite_module_cache,
-    )
-    logging.debug('Obtained module info object: %s', mod_info)
+    module_info_rebuild_required = self._load_module_info()
 
     translator = cli_translator.CLITranslator(
-        mod_info=mod_info,
+        mod_info=self._mod_info,
         print_cache_msg=not self._args.clear_cache,
         bazel_mode_enabled=self._args.bazel_mode,
         host=self._args.host,
         bazel_mode_features=self._args.bazel_mode_features,
     )
     if self._args.list_modules:
-      _print_testable_modules(mod_info, self._args.list_modules)
+      _print_testable_modules(self._mod_info, self._args.list_modules)
       return ExitCode.SUCCESS
 
     self._check_indexing_status()
@@ -1117,7 +1128,7 @@ class _AtestMain:
 
     # Only check for sufficient devices if not dry run.
     self._args.device_count_config = get_device_count_config(
-        test_infos, mod_info
+        test_infos, self._mod_info
     )
     if not self._args.dry_run and not has_set_sufficient_devices(
         self._args.device_count_config, self._args.serial
@@ -1131,7 +1142,7 @@ class _AtestMain:
     test_execution_plan = _TestExecutionPlan.create(
         test_infos=test_infos,
         results_dir=self._results_dir,
-        mod_info=mod_info,
+        mod_info=self._mod_info,
         args=self._args,
         dry_run=self._args.dry_run,
     )
@@ -1145,7 +1156,7 @@ class _AtestMain:
       build_targets = _exclude_modules_in_targets(build_targets)
 
     if self._args.dry_run:
-      return _dry_run(self._results_dir, extra_args, test_infos, mod_info)
+      return _dry_run(self._results_dir, extra_args, test_infos, self._mod_info)
 
     steps = parse_steps(self._args)
     self._configure_update_method(
@@ -1185,7 +1196,7 @@ class _AtestMain:
         rebuild_module_info = DetectType.CLEAN_BUILD
       elif self._args.rebuild_module_info:
         rebuild_module_info = DetectType.REBUILD_MODULE_INFO
-      elif smart_rebuild:
+      elif module_info_rebuild_required:
         rebuild_module_info = DetectType.SMART_REBUILD_MODULE_INFO
       metrics.LocalDetectEvent(
           detect_type=rebuild_module_info, result=int(round(build_duration))
@@ -1234,7 +1245,7 @@ class _AtestMain:
         coverage.generate_coverage_report(
             self._results_dir,
             test_infos,
-            mod_info,
+            self._mod_info,
             extra_args.get(constants.HOST, False),
             self._args.code_under_test,
         )
