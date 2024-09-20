@@ -809,14 +809,6 @@ def need_run_index_targets(args: argparse.ArgumentParser):
   return True
 
 
-def set_build_output_mode(mode: atest_utils.BuildOutputMode):
-  """Update environment variable dict accordingly to args.build_output."""
-  # Changing this variable does not retrigger builds.
-  atest_utils.update_build_env(
-      {'ANDROID_QUIET_BUILD': 'true', 'BUILD_OUTPUT_MODE': mode.value}
-  )
-
-
 def get_device_count_config(test_infos, mod_info):
   """Get the amount of desired devices from the test config.
 
@@ -977,6 +969,18 @@ class _AtestMain:
 
     return None
 
+  def _update_build_env(self):
+    """Updates build environment variables."""
+    # Sets coverage environment variables.
+    if self._args.experimental_coverage:
+      atest_utils.update_build_env(coverage.build_env_vars())
+
+    # Update environment variable dict accordingly to args.build_output
+    atest_utils.update_build_env({
+        'ANDROID_QUIET_BUILD': 'true',
+        'BUILD_OUTPUT_MODE': self._args.build_output.value,
+    })
+
   def run(self) -> int:
     """Executes the atest script.
 
@@ -985,14 +989,12 @@ class _AtestMain:
     """
     _begin_time = time.time()
 
-    # Sets coverage environment variables.
-    if self._args.experimental_coverage:
-      atest_utils.update_build_env(coverage.build_env_vars())
-    set_build_output_mode(self._args.build_output)
+    self._update_build_env()
 
     invalid_arg_exit_code = self._check_envs_and_args()
     if invalid_arg_exit_code is not None:
       sys.exit(invalid_arg_exit_code)
+
     metrics_utils.send_start_event(
         command_line=' '.join(self._argv),
         test_references=self._args.tests,
@@ -1005,6 +1007,7 @@ class _AtestMain:
         source_root=os.environ.get('ANDROID_BUILD_TOP', ''),
         hostname=platform.node(),
     )
+
     no_action_exit_code = self._check_no_action_argument()
     if no_action_exit_code is not None:
       sys.exit(no_action_exit_code)
