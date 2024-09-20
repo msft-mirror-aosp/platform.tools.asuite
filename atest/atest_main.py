@@ -532,20 +532,6 @@ def _has_valid_test_mapping_args(args):
   return True
 
 
-def _validate_args(args):
-  """Validate setups and args.
-
-  Exit the program with error code if any setup or arg is invalid.
-
-  Args:
-      args: parsed args object.
-  """
-  if _missing_environment_variables():
-    sys.exit(ExitCode.ENV_NOT_SETUP)
-  if not _has_valid_test_mapping_args(args):
-    sys.exit(ExitCode.INVALID_TM_ARGS)
-
-
 def _print_deprecation_warning(arg_to_deprecate: str):
   """For features that are up for deprecation in the near future, print a message
 
@@ -718,35 +704,6 @@ def _is_inside_android_root():
   """
   build_top = os.getenv(constants.ANDROID_BUILD_TOP, ' ')
   return build_top in os.getcwd()
-
-
-def _non_action_validator(args: argparse.ArgumentParser):
-  """Method for non-action arguments such as --version, --history,
-
-  --latest_result, etc.
-
-  Args:
-      args: An argparse.ArgumentParser object.
-  """
-  if not _is_inside_android_root():
-    atest_utils.colorful_print(
-        '\nAtest must always work under ${}!'.format(
-            constants.ANDROID_BUILD_TOP
-        ),
-        constants.RED,
-    )
-    sys.exit(ExitCode.OUTSIDE_ROOT)
-  if args.version:
-    print(atest_utils.get_atest_version())
-    sys.exit(ExitCode.SUCCESS)
-  if args.history:
-    atest_execution_info.print_test_result(
-        constants.ATEST_RESULT_ROOT, args.history
-    )
-    sys.exit(ExitCode.SUCCESS)
-  if args.latest_result:
-    atest_execution_info.print_test_result_by_path(constants.LATEST_RESULT_FILE)
-    sys.exit(ExitCode.SUCCESS)
 
 
 def _exclude_modules_in_targets(build_targets):
@@ -960,6 +917,66 @@ class _AtestMain:
     self._args = args
     self._banner_printer = banner_printer
 
+  def _check_no_action_argument(self) -> int:
+    """Method for non-action arguments such as --version, --history, --latest_result, etc.
+
+    Returns:
+        Exit code if no action. None otherwise.
+    """
+    if not _is_inside_android_root():
+      atest_utils.colorful_print(
+          '\nAtest must always work under ${}!'.format(
+              constants.ANDROID_BUILD_TOP
+          ),
+          constants.RED,
+      )
+      return ExitCode.OUTSIDE_ROOT
+    if self._args.version:
+      print(atest_utils.get_atest_version())
+      return ExitCode.SUCCESS
+    if self._args.history:
+      atest_execution_info.print_test_result(
+          constants.ATEST_RESULT_ROOT, self._args.history
+      )
+      return ExitCode.SUCCESS
+    if self._args.latest_result:
+      atest_execution_info.print_test_result_by_path(
+          constants.LATEST_RESULT_FILE
+      )
+      return ExitCode.SUCCESS
+    return None
+
+  def _check_envs_and_args(self) -> int:
+    """Validate environment variables and args.
+
+    Returns:
+        Exit code if any setup or arg is invalid. None otherwise.
+    """
+    if _missing_environment_variables():
+      return ExitCode.ENV_NOT_SETUP
+    if not _has_valid_test_mapping_args(self._args):
+      return ExitCode.INVALID_TM_ARGS
+
+    # Checks whether ANDROID_SERIAL environment variable is set to an empty string.
+    if 'ANDROID_SERIAL' in os.environ and not os.environ['ANDROID_SERIAL']:
+      atest_utils.print_and_log_warning(
+          'Empty device serial detected in the ANDROID_SERIAL environment'
+          ' variable. This may causes unexpected behavior in TradeFed. If not'
+          ' targeting a specific device, consider unset the ANDROID_SERIAL'
+          ' environment variable. See b/330365573 for details.'
+      )
+
+    # Checks whether any empty serial strings exist in the argument array.
+    if self._args.serial and not all(self._args.serial):
+      atest_utils.print_and_log_warning(
+          'Empty device serial specified via command-line argument. This may'
+          ' cause unexpected behavior in TradeFed. If not targeting a specific'
+          ' device, consider remove the serial argument. See b/330365573 for'
+          ' details.'
+      )
+
+    return None
+
   def run(self) -> int:
     """Executes the atest script.
 
@@ -973,7 +990,9 @@ class _AtestMain:
       atest_utils.update_build_env(coverage.build_env_vars())
     set_build_output_mode(self._args.build_output)
 
-    _validate_args(self._args)
+    invalid_arg_exit_code = self._check_envs_and_args()
+    if invalid_arg_exit_code is not None:
+      sys.exit(invalid_arg_exit_code)
     metrics_utils.send_start_event(
         command_line=' '.join(self._argv),
         test_references=self._args.tests,
@@ -986,7 +1005,9 @@ class _AtestMain:
         source_root=os.environ.get('ANDROID_BUILD_TOP', ''),
         hostname=platform.node(),
     )
-    _non_action_validator(self._args)
+    no_action_exit_code = self._check_no_action_argument()
+    if no_action_exit_code is not None:
+      sys.exit(no_action_exit_code)
 
     proc_acloud, report_file = _get_acloud_proc_and_log(
         self._args, self._results_dir
@@ -1509,23 +1530,6 @@ if __name__ == '__main__':
     metrics.LocalDetectEvent(detect_type=DetectType.ATEST_CONFIG, result=0)
 
   args = _parse_args(final_args)
-
-  # Checks whether any empty serial strings exist in the argument array.
-  if args.serial and not all(args.serial):
-    atest_utils.print_and_log_warning(
-        'Empty device serial specified via command-line argument. This may'
-        ' cause unexpected behavior in TradeFed. If not targeting a specific'
-        ' device, consider remove the serial argument. See b/330365573 for'
-        ' details.'
-    )
-  # Checks whether ANDROID_SERIAL environment variable is set to an empty string.
-  if 'ANDROID_SERIAL' in os.environ and not os.environ['ANDROID_SERIAL']:
-    atest_utils.print_and_log_warning(
-        'Empty device serial detected in the ANDROID_SERIAL environment'
-        ' variable. This may causes unexpected behavior in TradeFed. If not'
-        ' targeting a specific device, consider unset the ANDROID_SERIAL'
-        ' environment variable. See b/330365573 for details.'
-    )
 
   atest_configs.GLOBAL_ARGS = args
   _configure_logging(args.verbose, results_dir)
