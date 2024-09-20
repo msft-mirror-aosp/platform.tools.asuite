@@ -30,12 +30,13 @@ from __future__ import print_function
 import abc
 import argparse
 import collections
-from dataclasses import dataclass
+import dataclasses
 import functools
 import itertools
 import logging
 import os
 import platform
+import subprocess
 import sys
 import tempfile
 import time
@@ -101,7 +102,7 @@ _RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
 _DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
 
 
-@dataclass
+@dataclasses.dataclass
 class Steps:
   """A dataclass that stores enabled steps."""
 
@@ -282,7 +283,7 @@ def _missing_environment_variables():
   return missing
 
 
-def make_test_run_dir():
+def make_test_run_dir() -> str:
   """Make the test run dir in ATEST_RESULT_ROOT.
 
   Returns:
@@ -648,22 +649,22 @@ class _AtestMain:
     Args:
         argv: A list of command line arguments.
     """
-    self._argv = argv
+    self._argv: list[str] = argv
 
-    self._banner_printer = None
-    self._steps = None
-    self._results_dir = None
-    self._mod_info = None
-    self._test_infos = None
-    self._test_execution_plan = None
+    self._banner_printer: banner.BannerPrinter = None
+    self._steps: Steps = None
+    self._results_dir: str = None
+    self._mod_info: module_info.ModuleInfo = None
+    self._test_infos: list[test_info.TestInfo] = None
+    self._test_execution_plan: _TestExecutionPlan = None
 
-    self._acloud_proc = None
-    self._acloud_report_file = None
-    self._test_info_loading_duration = 0
-    self._build_duration = 0
-    self._module_info_rebuild_required = False
-    self._is_out_clean_before_module_info_build = False
-    self._invocation_begin_time = None
+    self._acloud_proc: subprocess.Popen = None
+    self._acloud_report_file: str = None
+    self._test_info_loading_duration: float = 0
+    self._build_duration: float = 0
+    self._module_info_rebuild_required: bool = False
+    self._is_out_clean_before_module_info_build: bool = False
+    self._invocation_begin_time: float = None
 
   def run(self):
     self._results_dir = make_test_run_dir()
