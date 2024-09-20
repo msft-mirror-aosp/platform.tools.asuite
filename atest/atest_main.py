@@ -53,7 +53,8 @@ from atest import device_update
 from atest import module_info
 from atest import result_reporter
 from atest import test_runner_handler
-from atest.atest_enum import DetectType, ExitCode
+from atest.atest_enum import DetectType
+from atest.atest_enum import ExitCode
 from atest.coverage import coverage
 from atest.metrics import metrics
 from atest.metrics import metrics_base
@@ -816,6 +817,7 @@ class _AtestMain:
     self._build_duration = 0
     self._module_info_rebuild_required = False
     self._is_out_clean_before_module_info_build = False
+    self._invocation_begin_time = None
 
   def _check_no_action_argument(self) -> int:
     """Method for non-action arguments such as --version, --history, --latest_result, etc.
@@ -1164,13 +1166,77 @@ class _AtestMain:
     if not success:
       return ExitCode.BUILD_FAILURE
 
+  def _run_device_update_step(self) -> None:
+    """Runs the device update step."""
+    if not self._steps.has_test():
+      print(
+          'Device update requested but skipped due to running in build only'
+          ' mode.'
+      )
+      return
+    device_update_start = time.time()
+    self._device_update_method.update(
+        self._test_execution_plan.extra_args.get(constants.SERIAL, [])
+    )
+    device_update_duration = time.time() - device_update_start
+    logging.debug('Updating device took %ss', device_update_duration)
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.DEVICE_UPDATE_MS,
+        result=int(round(device_update_duration * 1000)),
+    )
+
+  def _run_test_step(self) -> int:
+    """Runs the test step.
+
+    Returns:
+        Exit code.
+    """
+    # Stop calling Tradefed if the tests require a device.
+    _validate_adb_devices(self._args, self._test_infos)
+
+    test_start = time.time()
+    # Only send duration to metrics when no --build.
+    if not self._steps.has_build():
+      _init_and_find = time.time() - self._invocation_begin_time
+      logging.debug('Initiation and finding tests took %ss', _init_and_find)
+      metrics.LocalDetectEvent(
+          detect_type=DetectType.INIT_AND_FIND_MS,
+          result=int(round(_init_and_find * 1000)),
+      )
+
+    tests_exit_code = self._test_execution_plan.execute()
+
+    if self._args.experimental_coverage:
+      coverage.generate_coverage_report(
+          self._results_dir,
+          self._test_infos,
+          self._mod_info,
+          self._test_execution_plan.extra_args.get(constants.HOST, False),
+          self._args.code_under_test,
+      )
+
+    metrics.RunTestsFinishEvent(
+        duration=metrics_utils.convert_duration(time.time() - test_start)
+    )
+    preparation_time = atest_execution_info.preparation_time(test_start)
+    if preparation_time:
+      # Send the preparation time only if it's set.
+      metrics.RunnerFinishEvent(
+          duration=metrics_utils.convert_duration(preparation_time),
+          success=True,
+          runner_name=constants.TF_PREPARATION,
+          test=[],
+      )
+
+    return tests_exit_code
+
   def run(self) -> int:
     """Executes the atest script.
 
     Returns:
         Exit code.
     """
-    _begin_time = time.time()
+    self._invocation_begin_time = time.time()
 
     self._update_build_env()
 
@@ -1234,65 +1300,12 @@ class _AtestMain:
       return acloud_status
 
     if self._steps.has_device_update():
-      if self._steps.has_test():
-        device_update_start = time.time()
-        self._device_update_method.update(
-            self._test_execution_plan.extra_args.get(constants.SERIAL, [])
-        )
-        device_update_duration = time.time() - device_update_start
-        logging.debug('Updating device took %ss', device_update_duration)
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.DEVICE_UPDATE_MS,
-            result=int(round(device_update_duration * 1000)),
-        )
-      else:
-        print(
-            'Device update requested but skipped due to running in build only'
-            ' mode.'
-        )
+      self._run_device_update_step()
 
-    tests_exit_code = ExitCode.SUCCESS
-    if self._steps.has_test():
-      # Stop calling Tradefed if the tests require a device.
-      _validate_adb_devices(self._args, self._test_infos)
+    if self._steps.has_test() and self._run_test_step() != ExitCode.SUCCESS:
+      return ExitCode.TEST_FAILURE
 
-      test_start = time.time()
-      # Only send duration to metrics when no --build.
-      if not self._steps.has_build():
-        _init_and_find = time.time() - _begin_time
-        logging.debug('Initiation and finding tests took %ss', _init_and_find)
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.INIT_AND_FIND_MS,
-            result=int(round(_init_and_find * 1000)),
-        )
-
-      tests_exit_code = self._test_execution_plan.execute()
-
-      if self._args.experimental_coverage:
-        coverage.generate_coverage_report(
-            self._results_dir,
-            self._test_infos,
-            self._mod_info,
-            self._test_execution_plan.extra_args.get(constants.HOST, False),
-            self._args.code_under_test,
-        )
-
-      metrics.RunTestsFinishEvent(
-          duration=metrics_utils.convert_duration(time.time() - test_start)
-      )
-      preparation_time = atest_execution_info.preparation_time(test_start)
-      if preparation_time:
-        # Send the preparation time only if it's set.
-        metrics.RunnerFinishEvent(
-            duration=metrics_utils.convert_duration(preparation_time),
-            success=True,
-            runner_name=constants.TF_PREPARATION,
-            test=[],
-        )
-    if tests_exit_code != ExitCode.SUCCESS:
-      tests_exit_code = ExitCode.TEST_FAILURE
-
-    return tests_exit_code
+    return ExitCode.SUCCESS
 
 
 class _TestExecutionPlan(ABC):
