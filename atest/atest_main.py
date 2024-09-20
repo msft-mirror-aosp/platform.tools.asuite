@@ -928,254 +928,258 @@ def setup_metrics_tool_name(no_metrics: bool = False):
     )
 
 
-# pylint: disable=too-many-statements
-# pylint: disable=too-many-branches
-# pylint: disable=too-many-return-statements
-def _main(
-    argv: List[Any],
-    results_dir: str,
-    args: argparse.Namespace,
-    banner_printer: banner.BannerPrinter,
-):
-  """Entry point of atest script.
+class _AtestMain:
+  """Entry point of atest script."""
 
-  Args:
-      argv: A list of arguments.
-      results_dir: A directory which stores the ATest execution information.
-      args: An argparse.Namespace class instance holding parsed args.
-      banner_printer: A BannerPrinter object used to collect banners and print
-        banners at the end of this invocation.
+  def run(
+      self,
+      argv: list[str],
+      results_dir: str,
+      args: argparse.Namespace,
+      banner_printer: banner.BannerPrinter,
+  ) -> int:
+    """Entry point of atest script.
 
-  Returns:
-      Exit code.
-  """
-  _begin_time = time.time()
-  logging.debug(
-      'Running atest script with argv: %s\n  results_dir: %s\n  args: %s\n  run'
-      ' id: %s',
-      argv,
-      results_dir,
-      args,
-      metrics.get_run_id(),
-  )
+    Args:
+        argv: A list of arguments.
+        results_dir: A directory which stores the ATest execution information.
+        args: An argparse.Namespace class instance holding parsed args.
+        banner_printer: A BannerPrinter object used to collect banners and print
+          banners at the end of this invocation.
 
-  # Sets coverage environment variables.
-  if args.experimental_coverage:
-    atest_utils.update_build_env(coverage.build_env_vars())
-  set_build_output_mode(args.build_output)
-
-  _validate_args(args)
-  metrics_utils.send_start_event(
-      command_line=' '.join(argv),
-      test_references=args.tests,
-      cwd=os.getcwd(),
-      operating_system=(
-          f'{platform.platform()}:{platform.python_version()}/'
-          f'{atest_utils.get_manifest_branch(True)}:'
-          f'{atest_utils.get_atest_version()}'
-      ),
-      source_root=os.environ.get('ANDROID_BUILD_TOP', ''),
-      hostname=platform.node(),
-  )
-  _non_action_validator(args)
-
-  proc_acloud, report_file = _get_acloud_proc_and_log(args, results_dir)
-  is_clean = not os.path.exists(
-      os.environ.get(constants.ANDROID_PRODUCT_OUT, '')
-  )
-
-  # Run Test Mapping or coverage by no-bazel-mode.
-  if atest_utils.is_test_mapping(args) or args.experimental_coverage:
-    logging.debug('Running test mapping or coverage, disabling bazel mode.')
-    atest_utils.colorful_print(
-        'Not running using bazel-mode.', constants.YELLOW
-    )
-    args.bazel_mode = False
-
-  proc_idx = None
-  # Do not index targets while the users intend to dry-run tests.
-  if need_run_index_targets(args):
-    logging.debug('Starting to index targets in a background thread.')
-    proc_idx = atest_utils.start_threading(
-        indexing.index_targets,
-        daemon=True,
-    )
-  smart_rebuild = need_rebuild_module_info(args)
-  logging.debug('need_rebuild_module_info returned %s', smart_rebuild)
-
-  mod_info = module_info.load(
-      force_build=smart_rebuild,
-      sqlite_module_cache=args.sqlite_module_cache,
-  )
-  logging.debug('Obtained module info object: %s', mod_info)
-
-  translator = cli_translator.CLITranslator(
-      mod_info=mod_info,
-      print_cache_msg=not args.clear_cache,
-      bazel_mode_enabled=args.bazel_mode,
-      host=args.host,
-      bazel_mode_features=args.bazel_mode_features,
-  )
-  if args.list_modules:
-    _print_testable_modules(mod_info, args.list_modules)
-    return ExitCode.SUCCESS
-  test_infos = set()
-
-  if (
-      proc_idx
-      and proc_idx.is_alive()
-      and not indexing.Indices().has_all_indices()
-  ):
-    start_wait_for_indexing = time.time()
-    print('Waiting for the module indexing to complete.')
-    proc_idx.join()
-    metrics.LocalDetectEvent(
-        detect_type=DetectType.WAIT_FOR_INDEXING_MS,
-        result=int(round((time.time() - start_wait_for_indexing) * 1000)),
+    Returns:
+        Exit code.
+    """
+    _begin_time = time.time()
+    logging.debug(
+        'Running atest script with argv: %s\n  results_dir: %s\n  args: %s\n '
+        ' run id: %s',
+        argv,
+        results_dir,
+        args,
+        metrics.get_run_id(),
     )
 
-  find_start = time.time()
-  test_infos = translator.translate(args)
-
-  # Only check for sufficient devices if not dry run.
-  args.device_count_config = get_device_count_config(test_infos, mod_info)
-  if not args.dry_run and not has_set_sufficient_devices(
-      args.device_count_config, args.serial
-  ):
-    return ExitCode.INSUFFICIENT_DEVICES
-
-  find_duration = time.time() - find_start
-  if not test_infos:
-    return ExitCode.TEST_NOT_FOUND
-
-  test_execution_plan = _TestExecutionPlan.create(
-      test_infos=test_infos,
-      results_dir=results_dir,
-      mod_info=mod_info,
-      args=args,
-      dry_run=args.dry_run,
-  )
-
-  extra_args = test_execution_plan.extra_args
-
-  build_targets = test_execution_plan.required_build_targets()
-
-  # Remove MODULE-IN-* from build targets by default.
-  if not args.use_modules_in:
-    build_targets = _exclude_modules_in_targets(build_targets)
-
-  if args.dry_run:
-    return _dry_run(results_dir, extra_args, test_infos, mod_info)
-
-  steps = parse_steps(args)
-  device_update_method = _configure_update_method(
-      steps=steps,
-      requires_device_update=test_execution_plan.requires_device_update(),
-      update_modules=set(args.update_modules or []),
-      banner_printer=banner_printer,
-  )
-
-  if build_targets and steps.has_build():
+    # Sets coverage environment variables.
     if args.experimental_coverage:
-      build_targets.update(coverage.build_modules())
+      atest_utils.update_build_env(coverage.build_env_vars())
+    set_build_output_mode(args.build_output)
 
-    # Add module-info.json target to the list of build targets to keep the
-    # file up to date.
-    build_targets.add(module_info.get_module_info_target())
-
-    build_targets |= device_update_method.dependencies()
-
-    # Add the -jx as a build target if user specify it.
-    if args.build_j:
-      build_targets.add(f'-j{args.build_j}')
-
-    build_start = time.time()
-    success = atest_utils.build(build_targets)
-    build_duration = time.time() - build_start
-    metrics.BuildFinishEvent(
-        duration=metrics_utils.convert_duration(build_duration),
-        success=success,
-        targets=build_targets,
+    _validate_args(args)
+    metrics_utils.send_start_event(
+        command_line=' '.join(argv),
+        test_references=args.tests,
+        cwd=os.getcwd(),
+        operating_system=(
+            f'{platform.platform()}:{platform.python_version()}/'
+            f'{atest_utils.get_manifest_branch(True)}:'
+            f'{atest_utils.get_atest_version()}'
+        ),
+        source_root=os.environ.get('ANDROID_BUILD_TOP', ''),
+        hostname=platform.node(),
     )
-    metrics.LocalDetectEvent(
-        detect_type=DetectType.BUILD_TIME_PER_TARGET,
-        result=int(round(build_duration / len(build_targets))),
+    _non_action_validator(args)
+
+    proc_acloud, report_file = _get_acloud_proc_and_log(args, results_dir)
+    is_clean = not os.path.exists(
+        os.environ.get(constants.ANDROID_PRODUCT_OUT, '')
     )
-    rebuild_module_info = DetectType.NOT_REBUILD_MODULE_INFO
-    if is_clean:
-      rebuild_module_info = DetectType.CLEAN_BUILD
-    elif args.rebuild_module_info:
-      rebuild_module_info = DetectType.REBUILD_MODULE_INFO
-    elif smart_rebuild:
-      rebuild_module_info = DetectType.SMART_REBUILD_MODULE_INFO
-    metrics.LocalDetectEvent(
-        detect_type=rebuild_module_info, result=int(round(build_duration))
-    )
-    if not success:
-      return ExitCode.BUILD_FAILURE
-    if proc_acloud:
-      proc_acloud.join()
-      status = avd.probe_acloud_status(
-          report_file, find_duration + build_duration
+
+    # Run Test Mapping or coverage by no-bazel-mode.
+    if atest_utils.is_test_mapping(args) or args.experimental_coverage:
+      logging.debug('Running test mapping or coverage, disabling bazel mode.')
+      atest_utils.colorful_print(
+          'Not running using bazel-mode.', constants.YELLOW
       )
-      if status != 0:
-        return status
-    # After build step 'adb' command will be available, and stop forward to
-    # Tradefed if the tests require a device.
-    _validate_adb_devices(args, test_infos)
+      args.bazel_mode = False
 
-  if steps.has_device_update():
+    proc_idx = None
+    # Do not index targets while the users intend to dry-run tests.
+    if need_run_index_targets(args):
+      logging.debug('Starting to index targets in a background thread.')
+      proc_idx = atest_utils.start_threading(
+          indexing.index_targets,
+          daemon=True,
+      )
+    smart_rebuild = need_rebuild_module_info(args)
+    logging.debug('need_rebuild_module_info returned %s', smart_rebuild)
+
+    mod_info = module_info.load(
+        force_build=smart_rebuild,
+        sqlite_module_cache=args.sqlite_module_cache,
+    )
+    logging.debug('Obtained module info object: %s', mod_info)
+
+    translator = cli_translator.CLITranslator(
+        mod_info=mod_info,
+        print_cache_msg=not args.clear_cache,
+        bazel_mode_enabled=args.bazel_mode,
+        host=args.host,
+        bazel_mode_features=args.bazel_mode_features,
+    )
+    if args.list_modules:
+      _print_testable_modules(mod_info, args.list_modules)
+      return ExitCode.SUCCESS
+    test_infos = set()
+
+    if (
+        proc_idx
+        and proc_idx.is_alive()
+        and not indexing.Indices().has_all_indices()
+    ):
+      start_wait_for_indexing = time.time()
+      print('Waiting for the module indexing to complete.')
+      proc_idx.join()
+      metrics.LocalDetectEvent(
+          detect_type=DetectType.WAIT_FOR_INDEXING_MS,
+          result=int(round((time.time() - start_wait_for_indexing) * 1000)),
+      )
+
+    find_start = time.time()
+    test_infos = translator.translate(args)
+
+    # Only check for sufficient devices if not dry run.
+    args.device_count_config = get_device_count_config(test_infos, mod_info)
+    if not args.dry_run and not has_set_sufficient_devices(
+        args.device_count_config, args.serial
+    ):
+      return ExitCode.INSUFFICIENT_DEVICES
+
+    find_duration = time.time() - find_start
+    if not test_infos:
+      return ExitCode.TEST_NOT_FOUND
+
+    test_execution_plan = _TestExecutionPlan.create(
+        test_infos=test_infos,
+        results_dir=results_dir,
+        mod_info=mod_info,
+        args=args,
+        dry_run=args.dry_run,
+    )
+
+    extra_args = test_execution_plan.extra_args
+
+    build_targets = test_execution_plan.required_build_targets()
+
+    # Remove MODULE-IN-* from build targets by default.
+    if not args.use_modules_in:
+      build_targets = _exclude_modules_in_targets(build_targets)
+
+    if args.dry_run:
+      return _dry_run(results_dir, extra_args, test_infos, mod_info)
+
+    steps = parse_steps(args)
+    device_update_method = _configure_update_method(
+        steps=steps,
+        requires_device_update=test_execution_plan.requires_device_update(),
+        update_modules=set(args.update_modules or []),
+        banner_printer=banner_printer,
+    )
+
+    if build_targets and steps.has_build():
+      if args.experimental_coverage:
+        build_targets.update(coverage.build_modules())
+
+      # Add module-info.json target to the list of build targets to keep the
+      # file up to date.
+      build_targets.add(module_info.get_module_info_target())
+
+      build_targets |= device_update_method.dependencies()
+
+      # Add the -jx as a build target if user specify it.
+      if args.build_j:
+        build_targets.add(f'-j{args.build_j}')
+
+      build_start = time.time()
+      success = atest_utils.build(build_targets)
+      build_duration = time.time() - build_start
+      metrics.BuildFinishEvent(
+          duration=metrics_utils.convert_duration(build_duration),
+          success=success,
+          targets=build_targets,
+      )
+      metrics.LocalDetectEvent(
+          detect_type=DetectType.BUILD_TIME_PER_TARGET,
+          result=int(round(build_duration / len(build_targets))),
+      )
+      rebuild_module_info = DetectType.NOT_REBUILD_MODULE_INFO
+      if is_clean:
+        rebuild_module_info = DetectType.CLEAN_BUILD
+      elif args.rebuild_module_info:
+        rebuild_module_info = DetectType.REBUILD_MODULE_INFO
+      elif smart_rebuild:
+        rebuild_module_info = DetectType.SMART_REBUILD_MODULE_INFO
+      metrics.LocalDetectEvent(
+          detect_type=rebuild_module_info, result=int(round(build_duration))
+      )
+      if not success:
+        return ExitCode.BUILD_FAILURE
+      if proc_acloud:
+        proc_acloud.join()
+        status = avd.probe_acloud_status(
+            report_file, find_duration + build_duration
+        )
+        if status != 0:
+          return status
+      # After build step 'adb' command will be available, and stop forward to
+      # Tradefed if the tests require a device.
+      _validate_adb_devices(args, test_infos)
+
+    if steps.has_device_update():
       if steps.has_test():
         device_update_start = time.time()
         device_update_method.update(extra_args.get(constants.SERIAL, []))
-        device_update_duration = time.time()-device_update_start
+        device_update_duration = time.time() - device_update_start
         logging.debug('Updating device took %ss', device_update_duration)
         metrics.LocalDetectEvent(
-          detect_type=DetectType.DEVICE_UPDATE_MS,
-          result=int(round(device_update_duration * 1000)),
+            detect_type=DetectType.DEVICE_UPDATE_MS,
+            result=int(round(device_update_duration * 1000)),
         )
       else:
-        print("Device update requested but skipped due to running in build only mode.")
+        print(
+            'Device update requested but skipped due to running in build only'
+            ' mode.'
+        )
 
-  tests_exit_code = ExitCode.SUCCESS
-  if steps.has_test():
-    test_start = time.time()
-    # Only send duration to metrics when no --build.
-    if not steps.has_build():
-      _init_and_find = time.time() - _begin_time
-      logging.debug('Initiation and finding tests took %ss', _init_and_find)
-      metrics.LocalDetectEvent(
-          detect_type=DetectType.INIT_AND_FIND_MS,
-          result=int(round(_init_and_find * 1000)),
+    tests_exit_code = ExitCode.SUCCESS
+    if steps.has_test():
+      test_start = time.time()
+      # Only send duration to metrics when no --build.
+      if not steps.has_build():
+        _init_and_find = time.time() - _begin_time
+        logging.debug('Initiation and finding tests took %ss', _init_and_find)
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.INIT_AND_FIND_MS,
+            result=int(round(_init_and_find * 1000)),
+        )
+
+      tests_exit_code = test_execution_plan.execute()
+
+      if args.experimental_coverage:
+        coverage.generate_coverage_report(
+            results_dir,
+            test_infos,
+            mod_info,
+            extra_args.get(constants.HOST, False),
+            args.code_under_test,
+        )
+
+      metrics.RunTestsFinishEvent(
+          duration=metrics_utils.convert_duration(time.time() - test_start)
       )
+      preparation_time = atest_execution_info.preparation_time(test_start)
+      if preparation_time:
+        # Send the preparation time only if it's set.
+        metrics.RunnerFinishEvent(
+            duration=metrics_utils.convert_duration(preparation_time),
+            success=True,
+            runner_name=constants.TF_PREPARATION,
+            test=[],
+        )
+    if tests_exit_code != ExitCode.SUCCESS:
+      tests_exit_code = ExitCode.TEST_FAILURE
 
-    tests_exit_code = test_execution_plan.execute()
-
-    if args.experimental_coverage:
-      coverage.generate_coverage_report(
-          results_dir,
-          test_infos,
-          mod_info,
-          extra_args.get(constants.HOST, False),
-          args.code_under_test,
-      )
-
-    metrics.RunTestsFinishEvent(
-        duration=metrics_utils.convert_duration(time.time() - test_start)
-    )
-    preparation_time = atest_execution_info.preparation_time(test_start)
-    if preparation_time:
-      # Send the preparation time only if it's set.
-      metrics.RunnerFinishEvent(
-          duration=metrics_utils.convert_duration(preparation_time),
-          success=True,
-          runner_name=constants.TF_PREPARATION,
-          test=[],
-      )
-  if tests_exit_code != ExitCode.SUCCESS:
-    tests_exit_code = ExitCode.TEST_FAILURE
-
-  return tests_exit_code
+    return tests_exit_code
 
 
 def _configure_update_method(
@@ -1523,7 +1527,7 @@ if __name__ == '__main__':
   ) as result_file:
     setup_metrics_tool_name(atest_configs.GLOBAL_ARGS.no_metrics)
 
-    exit_code = _main(
+    exit_code = _AtestMain().run(
         final_args,
         results_dir,
         atest_configs.GLOBAL_ARGS,
