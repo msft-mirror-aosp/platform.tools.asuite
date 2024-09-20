@@ -102,31 +102,11 @@ _DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
 
 @dataclass
 class Steps:
-  """A Dataclass that stores steps and shows step assignments."""
+  """A dataclass that stores enabled steps."""
 
-  _build: bool
-  _install: bool
-  _test: bool
-
-  def has_build(self):
-    """Return whether build is in steps."""
-    return self._build
-
-  def is_build_only(self):
-    """Return whether build is the only one in steps."""
-    return self._build and not any((self._test, self._install))
-
-  def has_install(self):
-    """Return whether install is in steps."""
-    return self._install
-
-  def has_test(self):
-    """Return whether install is the only one in steps."""
-    return self._test
-
-  def is_test_only(self):
-    """Return whether build is not in steps but test."""
-    return self._test and not any((self._build, self._install))
+  build: bool
+  install: bool
+  test: bool
 
 
 def parse_steps(args: arg_parser.AtestArgParser) -> Steps:
@@ -329,7 +309,7 @@ def get_extra_args(args):
   extra_args = {}
   if args.wait_for_debugger:
     extra_args[constants.WAIT_FOR_DEBUGGER] = None
-  if not parse_steps(args).has_install():
+  if not parse_steps(args).install:
     extra_args[constants.DISABLE_INSTALL] = None
   # The key and its value of the dict can be called via:
   # if args.aaaa:
@@ -437,7 +417,7 @@ def _validate_adb_devices(args, test_infos):
       test_infos: TestInfo object.
   """
   # No need to check device availability if the user does not acquire to test.
-  if not parse_steps(args).has_test():
+  if not parse_steps(args).test:
     return
   if args.no_checking_device:
     return
@@ -840,7 +820,7 @@ class _AtestMain:
   def _start_acloud_if_requested(self) -> None:
     if not self._args.acloud_create and not self._args.start_avd:
       return
-    if not parse_steps(args).has_test():
+    if not parse_steps(args).test:
       print('acloud/avd is requested but ignored because no test is requested.')
       return
     print('Creating acloud/avd...')
@@ -872,7 +852,7 @@ class _AtestMain:
     Otherwise, returns True.
     """
     self._indexing_proc = None
-    if not self._steps.has_build():
+    if not self._steps.build:
       logging.debug("Skip indexing because there's no build required.")
       return
 
@@ -960,7 +940,7 @@ class _AtestMain:
     #          | yes
     #          V
     #        False (won't rebuild)
-    if not self._steps.has_build():
+    if not self._steps.build:
       logging.debug('"--test" mode detected, will not rebuild module-info.')
       return False
     if self._args.rebuild_module_info:
@@ -1097,7 +1077,7 @@ class _AtestMain:
     """Runs the device update step."""
     if not self._args.update_device:
       return
-    if not self._steps.has_test():
+    if not self._steps.test:
       print(
           'Device update requested but skipped due to running in build only'
           ' mode.'
@@ -1178,7 +1158,7 @@ class _AtestMain:
 
     test_start = time.time()
     # Only send duration to metrics when no --build.
-    if not self._steps.has_build():
+    if not self._steps.build:
       _init_and_find = time.time() - self._invocation_begin_time
       logging.debug('Initiation and finding tests took %ss', _init_and_find)
       metrics.LocalDetectEvent(
@@ -1273,7 +1253,7 @@ class _AtestMain:
 
     self._configure_update_method()
 
-    if self._steps.has_build():
+    if self._steps.build:
       error_code = self._run_build_step()
       if error_code is not None:
         return error_code
@@ -1284,7 +1264,7 @@ class _AtestMain:
 
     self._update_device_if_requested()
 
-    if self._steps.has_test() and self._run_test_step() != ExitCode.SUCCESS:
+    if self._steps.test and self._run_test_step() != ExitCode.SUCCESS:
       return ExitCode.TEST_FAILURE
 
     return ExitCode.SUCCESS
