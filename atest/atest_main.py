@@ -829,16 +829,6 @@ def get_device_count_config(test_infos, mod_info):
   return max_count
 
 
-def _get_acloud_proc_and_log(
-    args: argparse.ArgumentParser, results_dir: str
-) -> Tuple[Any, Any]:
-  """Return tuple of acloud process ID and report file."""
-  if any((args.acloud_create, args.start_avd)):
-    logging.debug('Creating acloud or avd.')
-    return avd.acloud_create_validator(results_dir, args)
-  return None, None
-
-
 def has_set_sufficient_devices(
     required_amount: int, serial: List[str] = None
 ) -> bool:
@@ -981,6 +971,33 @@ class _AtestMain:
         'BUILD_OUTPUT_MODE': self._args.build_output.value,
     })
 
+  def _start_acloud_if_requested(self) -> None:
+    if not self._args.acloud_create and not self._args.start_avd:
+      self._acloud_proc = None
+      self._acloud_report_file = None
+      return
+    logging.debug('Creating acloud or avd.')
+    self._acloud_proc, self._acloud_report_file = avd.acloud_create_validator(
+        self._results_dir, self._args
+    )
+
+  def _check_acloud_status(self, find_build_duration: float) -> int:
+    """Checks acloud status if acloud is requested.
+
+    Args:
+      find_build_duration: The duration of finding and build targets.
+
+    Returns:
+        acloud status code. None if no acloud requested.
+    """
+    if self._acloud_proc:
+      self._acloud_proc.join()
+      status = avd.probe_acloud_status(
+          self._acloud_report_file, find_build_duration
+      )
+      return status
+    return None
+
   def run(self) -> int:
     """Executes the atest script.
 
@@ -1012,9 +1029,8 @@ class _AtestMain:
     if no_action_exit_code is not None:
       sys.exit(no_action_exit_code)
 
-    proc_acloud, report_file = _get_acloud_proc_and_log(
-        self._args, self._results_dir
-    )
+    self._start_acloud_if_requested()
+
     is_clean = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, '')
     )
@@ -1152,13 +1168,11 @@ class _AtestMain:
       )
       if not success:
         return ExitCode.BUILD_FAILURE
-      if proc_acloud:
-        proc_acloud.join()
-        status = avd.probe_acloud_status(
-            report_file, find_duration + build_duration
-        )
-        if status != 0:
-          return status
+
+      acloud_status = self._check_acloud_status(find_duration + build_duration)
+      if acloud_status:
+        return acloud_status
+
       # After build step 'adb' command will be available, and stop forward to
       # Tradefed if the tests require a device.
       _validate_adb_devices(self._args, test_infos)
