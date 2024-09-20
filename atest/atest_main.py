@@ -105,7 +105,6 @@ class Steps:
   """A Dataclass that stores steps and shows step assignments."""
 
   _build: bool
-  _device_update: bool
   _install: bool
   _test: bool
 
@@ -115,13 +114,7 @@ class Steps:
 
   def is_build_only(self):
     """Return whether build is the only one in steps."""
-    return self._build and not any(
-        (self._test, self._install, self._device_update)
-    )
-
-  def has_device_update(self):
-    """Return whether device update is in steps."""
-    return self._device_update
+    return self._build and not any((self._test, self._install))
 
   def has_install(self):
     """Return whether install is in steps."""
@@ -133,9 +126,7 @@ class Steps:
 
   def is_test_only(self):
     """Return whether build is not in steps but test."""
-    return self._test and not any(
-        (self._build, self._install, self._device_update)
-    )
+    return self._test and not any((self._build, self._install))
 
 
 def parse_steps(args: arg_parser.AtestArgParser) -> Steps:
@@ -149,7 +140,7 @@ def parse_steps(args: arg_parser.AtestArgParser) -> Steps:
   """
   # Implicitly running 'build', 'install' and 'test' when args.steps is None.
   if not args.steps:
-    return Steps(True, args.update_device, True, True)
+    return Steps(True, True, True)
   build = constants.BUILD_STEP in args.steps
   test = constants.TEST_STEP in args.steps
   install = constants.INSTALL_STEP in args.steps
@@ -159,7 +150,7 @@ def parse_steps(args: arg_parser.AtestArgParser) -> Steps:
         'supported; Atest will proceed testing!'
     )
     test = True
-  return Steps(build, args.update_device, install, test)
+  return Steps(build, install, test)
 
 
 def _get_args_from_config():
@@ -924,7 +915,7 @@ class _AtestMain:
 
   def _configure_update_method(self) -> None:
     self._device_update_method = device_update.NoopUpdateMethod()
-    if not self._steps.has_device_update():
+    if not self._args.update_device:
       if self._test_execution_plan.requires_device_update():
         self._banner_printer.register(
             'Tips: If your test requires device update, consider '
@@ -1102,6 +1093,27 @@ class _AtestMain:
 
     return ExitCode.SUCCESS
 
+  def _update_device_if_requested(self) -> None:
+    """Runs the device update step."""
+    if not self._args.update_device:
+      return
+    if not self._steps.has_test():
+      print(
+          'Device update requested but skipped due to running in build only'
+          ' mode.'
+      )
+      return
+    device_update_start = time.time()
+    self._device_update_method.update(
+        self._test_execution_plan.extra_args.get(constants.SERIAL, [])
+    )
+    device_update_duration = time.time() - device_update_start
+    logging.debug('Updating device took %ss', device_update_duration)
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.DEVICE_UPDATE_MS,
+        result=int(round(device_update_duration * 1000)),
+    )
+
   def _run_build_step(self) -> int:
     """Runs the build step.
 
@@ -1154,25 +1166,6 @@ class _AtestMain:
     )
     if not success:
       return ExitCode.BUILD_FAILURE
-
-  def _run_device_update_step(self) -> None:
-    """Runs the device update step."""
-    if not self._steps.has_test():
-      print(
-          'Device update requested but skipped due to running in build only'
-          ' mode.'
-      )
-      return
-    device_update_start = time.time()
-    self._device_update_method.update(
-        self._test_execution_plan.extra_args.get(constants.SERIAL, [])
-    )
-    device_update_duration = time.time() - device_update_start
-    logging.debug('Updating device took %ss', device_update_duration)
-    metrics.LocalDetectEvent(
-        detect_type=DetectType.DEVICE_UPDATE_MS,
-        result=int(round(device_update_duration * 1000)),
-    )
 
   def _run_test_step(self) -> int:
     """Runs the test step.
@@ -1289,8 +1282,7 @@ class _AtestMain:
     if acloud_status:
       return acloud_status
 
-    if self._steps.has_device_update():
-      self._run_device_update_step()
+    self._update_device_if_requested()
 
     if self._steps.has_test() and self._run_test_step() != ExitCode.SUCCESS:
       return ExitCode.TEST_FAILURE
