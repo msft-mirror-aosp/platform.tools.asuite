@@ -1124,7 +1124,18 @@ def _main(
     # Tradefed if the tests require a device.
     _validate_adb_devices(args, test_infos)
 
-  device_update_method.update(extra_args.get(constants.SERIAL, []))
+  if steps.has_device_update():
+      if steps.has_test():
+        device_update_start = time.time()
+        device_update_method.update(extra_args.get(constants.SERIAL, []))
+        device_update_duration = time.time()-device_update_start
+        logging.debug('Updating device took %ss', device_update_duration)
+        metrics.LocalDetectEvent(
+          detect_type=DetectType.DEVICE_UPDATE_MS,
+          result=int(round(device_update_duration * 1000)),
+        )
+      else:
+        print("Device update requested but skipped due to running in build only mode.")
 
   tests_exit_code = ExitCode.SUCCESS
   if steps.has_test():
