@@ -696,16 +696,6 @@ def _print_testable_modules(mod_info, suite):
     print('\t%s' % module)
 
 
-def _is_inside_android_root():
-  """Identify whether the cwd is inside of Android source tree.
-
-  Returns:
-      False if the cwd is outside of the source tree, True otherwise.
-  """
-  build_top = os.getenv(constants.ANDROID_BUILD_TOP, ' ')
-  return build_top in os.getcwd()
-
-
 def _exclude_modules_in_targets(build_targets):
   """Method that excludes MODULES-IN-* targets.
 
@@ -871,14 +861,6 @@ class _AtestMain:
     Returns:
         Exit code if no action. None otherwise.
     """
-    if not _is_inside_android_root():
-      atest_utils.colorful_print(
-          '\nAtest must always work under ${}!'.format(
-              constants.ANDROID_BUILD_TOP
-          ),
-          constants.RED,
-      )
-      return ExitCode.OUTSIDE_ROOT
     if self._args.version:
       print(atest_utils.get_atest_version())
       return ExitCode.SUCCESS
@@ -900,6 +882,16 @@ class _AtestMain:
     Returns:
         Exit code if any setup or arg is invalid. None otherwise.
     """
+    if (
+        not os.getenv(constants.ANDROID_BUILD_TOP, ' ') in os.getcwd()
+    ):  # Not under android root.
+      atest_utils.colorful_print(
+          '\nAtest must always work under ${}!'.format(
+              constants.ANDROID_BUILD_TOP
+          ),
+          constants.RED,
+      )
+      return ExitCode.OUTSIDE_ROOT
     if _missing_environment_variables():
       return ExitCode.ENV_NOT_SETUP
     if not _has_valid_test_mapping_args(self._args):
