@@ -669,53 +669,6 @@ def _exclude_modules_in_targets(build_targets):
   return shrank_build_targets
 
 
-# pylint: disable=protected-access
-def need_rebuild_module_info(args: arg_parser.AtestArgParser) -> bool:
-  """Method that tells whether we need to rebuild module-info.json or not.
-
-  Args:
-      args: an AtestArgParser object.
-
-  Returns:
-      True for forcely/smartly rebuild, otherwise False without rebuilding.
-  """
-  # +-----------------+
-  # | Explicitly pass |  yes
-  # |    '--test'     +-------> False (won't rebuild)
-  # +--------+--------+
-  #          | no
-  #          V
-  # +-------------------------+
-  # | Explicitly pass         |  yes
-  # | '--rebuild-module-info' +-------> True (forcely rebuild)
-  # +--------+----------------+
-  #          | no
-  #          V
-  # +-------------------+
-  # |    Build files    |  no
-  # | integrity is good +-------> True (smartly rebuild)
-  # +--------+----------+
-  #          | yes
-  #          V
-  #        False (won't rebuild)
-  if not parse_steps(args).has_build():
-    logging.debug('"--test" mode detected, will not rebuild module-info.')
-    return False
-  if args.rebuild_module_info:
-    msg = (
-        f'`{constants.REBUILD_MODULE_INFO_FLAG}` is no longer needed '
-        f'since Atest can smartly rebuild {module_info._MODULE_INFO} '
-        r'only when needed.'
-    )
-    atest_utils.colorful_print(msg, constants.YELLOW)
-    return True
-  logging.debug('Examinating the consistency of build files...')
-  if not atest_utils.build_files_integrity_is_ok():
-    logging.debug('Found build files were changed.')
-    return True
-  return False
-
-
 def get_device_count_config(test_infos, mod_info):
   """Get the amount of desired devices from the test config.
 
@@ -928,7 +881,7 @@ class _AtestMain:
     Otherwise, returns True.
     """
     self._indexing_proc = None
-    if not parse_steps(self._args).has_build():
+    if not self._steps.has_build():
       logging.debug("Skip indexing because there's no build required.")
       return
 
@@ -969,23 +922,17 @@ class _AtestMain:
         result=int(round((time.time() - start_wait_for_indexing) * 1000)),
     )
 
-  def _configure_update_method(
-      self,
-      *,
-      steps: Steps,
-      requires_device_update: bool,
-      update_modules: set[str],
-  ) -> None:
+  def _configure_update_method(self) -> None:
     self._device_update_method = device_update.NoopUpdateMethod()
-    if not steps.has_device_update():
-      if requires_device_update:
+    if not self._steps.has_device_update():
+      if self._test_execution_plan.requires_device_update():
         self._banner_printer.register(
             'Tips: If your test requires device update, consider '
             'http://go/atest-single-command to simplify your workflow!'
         )
       return
 
-    if not requires_device_update:
+    if not self._test_execution_plan.requires_device_update():
       atest_utils.colorful_print(
           '\nWarning: Device update ignored because it is not required by '
           'tests in this invocation.',
@@ -994,14 +941,56 @@ class _AtestMain:
       return
 
     self._device_update_method = device_update.AdeviceUpdateMethod(
-        targets=update_modules
+        targets=set(self._args.update_modules or [])
     )
+
+  def _need_rebuild_module_info(self) -> bool:
+    """Method that tells whether we need to rebuild module-info.json or not.
+
+    Returns:
+        True for forcely/smartly rebuild, otherwise False without rebuilding.
+    """
+    # +-----------------+
+    # | Explicitly pass |  yes
+    # |    '--test'     +-------> False (won't rebuild)
+    # +--------+--------+
+    #          | no
+    #          V
+    # +-------------------------+
+    # | Explicitly pass         |  yes
+    # | '--rebuild-module-info' +-------> True (forcely rebuild)
+    # +--------+----------------+
+    #          | no
+    #          V
+    # +-------------------+
+    # |    Build files    |  no
+    # | integrity is good +-------> True (smartly rebuild)
+    # +--------+----------+
+    #          | yes
+    #          V
+    #        False (won't rebuild)
+    if not self._steps.has_build():
+      logging.debug('"--test" mode detected, will not rebuild module-info.')
+      return False
+    if self._args.rebuild_module_info:
+      msg = (
+          f'`{constants.REBUILD_MODULE_INFO_FLAG}` is no longer needed '
+          f'since Atest can smartly rebuild {module_info._MODULE_INFO} '
+          r'only when needed.'
+      )
+      atest_utils.colorful_print(msg, constants.YELLOW)
+      return True
+    logging.debug('Examinating the consistency of build files...')
+    if not atest_utils.build_files_integrity_is_ok():
+      logging.debug('Found build files were changed.')
+      return True
+    return False
 
   def _load_module_info(self):
     self._is_out_clean_before_module_info_build = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, '')
     )
-    self._module_info_rebuild_required = need_rebuild_module_info(self._args)
+    self._module_info_rebuild_required = self._need_rebuild_module_info()
     logging.debug(
         'need_rebuild_module_info returned %s',
         self._module_info_rebuild_required,
@@ -1230,6 +1219,31 @@ class _AtestMain:
 
     return tests_exit_code
 
+  def _send_start_event(self) -> None:
+    metrics_utils.send_start_event(
+        command_line=' '.join(self._argv),
+        test_references=self._args.tests,
+        cwd=os.getcwd(),
+        operating_system=(
+            f'{platform.platform()}:{platform.python_version()}/'
+            f'{atest_utils.get_manifest_branch(True)}:'
+            f'{atest_utils.get_atest_version()}'
+        ),
+        source_root=os.environ.get('ANDROID_BUILD_TOP', ''),
+        hostname=platform.node(),
+    )
+
+  def _disable_bazel_mode_if_unsupported(self) -> None:
+    if (
+        atest_utils.is_test_mapping(self._args)
+        or self._args.experimental_coverage
+    ):
+      logging.debug('Running test mapping or coverage, disabling bazel mode.')
+      atest_utils.colorful_print(
+          'Not running using bazel-mode.', constants.YELLOW
+      )
+      self._args.bazel_mode = False
+
   def run(self) -> int:
     """Executes the atest script.
 
@@ -1244,18 +1258,7 @@ class _AtestMain:
     if invalid_arg_exit_code is not None:
       sys.exit(invalid_arg_exit_code)
 
-    metrics_utils.send_start_event(
-        command_line=' '.join(self._argv),
-        test_references=self._args.tests,
-        cwd=os.getcwd(),
-        operating_system=(
-            f'{platform.platform()}:{platform.python_version()}/'
-            f'{atest_utils.get_manifest_branch(True)}:'
-            f'{atest_utils.get_atest_version()}'
-        ),
-        source_root=os.environ.get('ANDROID_BUILD_TOP', ''),
-        hostname=platform.node(),
-    )
+    self._send_start_event()
 
     no_action_exit_code = self._check_no_action_argument()
     if no_action_exit_code is not None:
@@ -1264,16 +1267,7 @@ class _AtestMain:
     if self._args.list_modules:
       return self._handle_list_modules()
 
-    # Run Test Mapping or coverage by no-bazel-mode.
-    if (
-        atest_utils.is_test_mapping(self._args)
-        or self._args.experimental_coverage
-    ):
-      logging.debug('Running test mapping or coverage, disabling bazel mode.')
-      atest_utils.colorful_print(
-          'Not running using bazel-mode.', constants.YELLOW
-      )
-      self._args.bazel_mode = False
+    self._disable_bazel_mode_if_unsupported()
 
     if self._args.dry_run:
       return self._handle_dry_run()
@@ -1284,11 +1278,7 @@ class _AtestMain:
     if error_code is not None:
       return error_code
 
-    self._configure_update_method(
-        steps=self._steps,
-        requires_device_update=self._test_execution_plan.requires_device_update(),
-        update_modules=set(self._args.update_modules or []),
-    )
+    self._configure_update_method()
 
     if self._steps.has_build():
       error_code = self._run_build_step()
