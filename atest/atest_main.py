@@ -677,25 +677,6 @@ def _dry_run(results_dir, extra_args, test_infos, mod_info):
   return ExitCode.SUCCESS
 
 
-def _print_testable_modules(mod_info, suite):
-  """Print the testable modules for a given suite.
-
-  Args:
-      mod_info: ModuleInfo object.
-      suite: A string of suite name.
-  """
-  testable_modules = mod_info.get_testable_modules(suite)
-  print(
-      '\n%s'
-      % atest_utils.mark_cyan(
-          '%s Testable %s modules' % (len(testable_modules), suite)
-      )
-  )
-  print(atest_utils.delimiter('-'))
-  for module in sorted(testable_modules):
-    print('\t%s' % module)
-
-
 def _exclude_modules_in_targets(build_targets):
   """Method that excludes MODULES-IN-* targets.
 
@@ -1050,6 +1031,25 @@ class _AtestMain:
     logging.debug('Obtained module info object: %s', self._mod_info)
     return rebuild_required
 
+  def _handle_list_modules(self) -> None:
+    """Print the testable modules for a given suite."""
+    if not self._mod_info:
+      self._load_module_info()
+
+    testable_modules = self._mod_info.get_testable_modules(
+        self._args.list_modules
+    )
+    print(
+        '\n%s'
+        % atest_utils.mark_cyan(
+            '%s Testable %s modules'
+            % (len(testable_modules), self._args.list_modules)
+        )
+    )
+    print(atest_utils.delimiter('-'))
+    for module in sorted(testable_modules):
+      print('\t%s' % module)
+
   def run(self) -> int:
     """Executes the atest script.
 
@@ -1081,6 +1081,10 @@ class _AtestMain:
     if no_action_exit_code is not None:
       sys.exit(no_action_exit_code)
 
+    if self._args.list_modules:
+      self._handle_list_modules()
+      return ExitCode.SUCCESS
+
     self._start_acloud_if_requested()
 
     is_clean = not os.path.exists(
@@ -1109,9 +1113,6 @@ class _AtestMain:
         host=self._args.host,
         bazel_mode_features=self._args.bazel_mode_features,
     )
-    if self._args.list_modules:
-      _print_testable_modules(self._mod_info, self._args.list_modules)
-      return ExitCode.SUCCESS
 
     self._check_indexing_status()
 
