@@ -1012,6 +1012,34 @@ class _AtestMain:
         result=int(round((time.time() - start_wait_for_indexing) * 1000)),
     )
 
+  def _configure_update_method(
+      self,
+      *,
+      steps: Steps,
+      requires_device_update: bool,
+      update_modules: set[str],
+  ) -> None:
+    self._device_update_method = device_update.NoopUpdateMethod()
+    if not steps.has_device_update():
+      if requires_device_update:
+        self._banner_printer.register(
+            'Tips: If your test requires device update, consider '
+            'http://go/atest-single-command to simplify your workflow!'
+        )
+      return
+
+    if not requires_device_update:
+      atest_utils.colorful_print(
+          '\nWarning: Device update ignored because it is not required by '
+          'tests in this invocation.',
+          constants.YELLOW,
+      )
+      return
+
+    self._device_update_method = device_update.AdeviceUpdateMethod(
+        targets=update_modules
+    )
+
   def run(self) -> int:
     """Executes the atest script.
 
@@ -1120,11 +1148,10 @@ class _AtestMain:
       return _dry_run(self._results_dir, extra_args, test_infos, mod_info)
 
     steps = parse_steps(self._args)
-    device_update_method = _configure_update_method(
+    self._configure_update_method(
         steps=steps,
         requires_device_update=test_execution_plan.requires_device_update(),
         update_modules=set(self._args.update_modules or []),
-        banner_printer=self._banner_printer,
     )
 
     if build_targets and steps.has_build():
@@ -1135,7 +1162,7 @@ class _AtestMain:
       # file up to date.
       build_targets.add(module_info.get_module_info_target())
 
-      build_targets |= device_update_method.dependencies()
+      build_targets |= self._device_update_method.dependencies()
 
       # Add the -jx as a build target if user specify it.
       if self._args.build_j:
@@ -1177,7 +1204,7 @@ class _AtestMain:
     if steps.has_device_update():
       if steps.has_test():
         device_update_start = time.time()
-        device_update_method.update(extra_args.get(constants.SERIAL, []))
+        self._device_update_method.update(extra_args.get(constants.SERIAL, []))
         device_update_duration = time.time() - device_update_start
         logging.debug('Updating device took %ss', device_update_duration)
         metrics.LocalDetectEvent(
@@ -1229,32 +1256,6 @@ class _AtestMain:
       tests_exit_code = ExitCode.TEST_FAILURE
 
     return tests_exit_code
-
-
-def _configure_update_method(
-    *,
-    steps: Steps,
-    requires_device_update: bool,
-    update_modules: set[str],
-    banner_printer: banner.BannerPrinter,
-) -> device_update.DeviceUpdateMethod:
-  if not steps.has_device_update():
-    if requires_device_update:
-      banner_printer.register(
-          'Tips: If your test requires device update, consider '
-          'http://go/atest-single-command to simplify your workflow!'
-      )
-    return device_update.NoopUpdateMethod()
-
-  if not requires_device_update:
-    atest_utils.colorful_print(
-        '\nWarning: Device update ignored because it is not required by '
-        'tests in this invocation.',
-        constants.YELLOW,
-    )
-    return device_update.NoopUpdateMethod()
-
-  return device_update.AdeviceUpdateMethod(targets=update_modules)
 
 
 class _TestExecutionPlan(ABC):
