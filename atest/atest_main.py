@@ -1033,7 +1033,6 @@ class _AtestMain:
     if self._args.list_modules:
       _print_testable_modules(mod_info, self._args.list_modules)
       return ExitCode.SUCCESS
-    test_infos = set()
 
     if (
         proc_idx
