@@ -27,7 +27,7 @@ atest is designed to support any test types that can be ran by TradeFederation.
 from __future__ import annotations
 from __future__ import print_function
 
-from abc import ABC, abstractmethod
+import abc
 import argparse
 import collections
 from dataclasses import dataclass
@@ -642,33 +642,17 @@ class _AtestMain:
   def __init__(
       self,
       argv: list[str],
-      results_dir: str,
-      args: argparse.Namespace,
-      banner_printer: banner.BannerPrinter,
   ):
     """Initializes the _AtestMain object.
 
     Args:
-        argv: A list of arguments.
-        results_dir: A directory which stores the ATest execution information.
-        args: An argparse.Namespace class instance holding parsed args.
-        banner_printer: A BannerPrinter object used to collect banners and print
-          banners at the end of this invocation.
+        argv: A list of command line arguments.
     """
-    logging.debug(
-        'Creating atest script with argv: %s\n  results_dir: %s\n  args: %s\n '
-        ' run id: %s',
-        argv,
-        results_dir,
-        args,
-        metrics.get_run_id(),
-    )
     self._argv = argv
-    self._results_dir = results_dir
-    self._args = args
-    self._banner_printer = banner_printer
 
-    self._steps = parse_steps(self._args)
+    self._banner_printer = None
+    self._steps = None
+    self._results_dir = None
     self._mod_info = None
     self._test_infos = None
     self._test_execution_plan = None
@@ -680,6 +664,71 @@ class _AtestMain:
     self._module_info_rebuild_required = False
     self._is_out_clean_before_module_info_build = False
     self._invocation_begin_time = None
+
+  def run(self):
+    self._results_dir = make_test_run_dir()
+
+    if END_OF_OPTION in self._argv:
+      end_position = self._argv.index(END_OF_OPTION)
+      final_args = [
+          *self._argv[1:end_position],
+          *_get_args_from_config(),
+          *self._argv[end_position:],
+      ]
+    else:
+      final_args = [*self._argv[1:], *_get_args_from_config()]
+    if final_args != self._argv[1:]:
+      print(
+          'The actual cmd will be: \n\t{}\n'.format(
+              atest_utils.mark_cyan('atest ' + ' '.join(final_args))
+          )
+      )
+      metrics.LocalDetectEvent(detect_type=DetectType.ATEST_CONFIG, result=1)
+      if HAS_IGNORED_ARGS:
+        atest_utils.colorful_print(
+            'Please correct the config and try again.', constants.YELLOW
+        )
+        sys.exit(ExitCode.EXIT_BEFORE_MAIN)
+    else:
+      metrics.LocalDetectEvent(detect_type=DetectType.ATEST_CONFIG, result=0)
+
+    self._args = _parse_args(final_args)
+    atest_configs.GLOBAL_ARGS = self._args
+    _configure_logging(self._args.verbose, self._results_dir)
+
+    logging.debug(
+        'Start of atest run. sys.argv: %s, final_args: %s',
+        self._argv,
+        final_args,
+    )
+
+    self._steps = parse_steps(self._args)
+
+    self._banner_printer = banner.BannerPrinter.create()
+
+    with atest_execution_info.AtestExecutionInfo(
+        final_args, self._results_dir, atest_configs.GLOBAL_ARGS
+    ):
+      setup_metrics_tool_name(atest_configs.GLOBAL_ARGS.no_metrics)
+
+      logging.debug(
+          'Creating atest script with argv: %s\n  results_dir: %s\n  args: %s\n'
+          '  run id: %s',
+          self._argv,
+          self._results_dir,
+          self._args,
+          metrics.get_run_id(),
+      )
+      exit_code = self._run_all_steps()
+      detector = bug_detector.BugDetector(final_args, exit_code)
+      if exit_code not in EXIT_CODES_BEFORE_TEST:
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.BUG_DETECTED, result=detector.caught_result
+        )
+
+    self._banner_printer.print()
+
+    sys.exit(exit_code)
 
   def _check_no_action_argument(self) -> int:
     """Method for non-action arguments such as --version, --history, --latest_result, etc.
@@ -758,7 +807,7 @@ class _AtestMain:
   def _start_acloud_if_requested(self) -> None:
     if not self._args.acloud_create and not self._args.start_avd:
       return
-    if not parse_steps(args).test:
+    if not parse_steps(self._args).test:
       print('acloud/avd is requested but ignored because no test is requested.')
       return
     print('Creating acloud/avd...')
@@ -796,8 +845,8 @@ class _AtestMain:
 
     if indexing.Indices().has_all_indices():
       no_indexing_args = (
-          args.dry_run,
-          args.list_modules,
+          self._args.dry_run,
+          self._args.list_modules,
       )
       if any(no_indexing_args):
         logging.debug(
@@ -1001,7 +1050,7 @@ class _AtestMain:
         self._test_infos
     ):
       runner = test_runner(
-          results_dir,
+          self._results_dir,
           mod_info=self._mod_info,
           extra_args=self._test_execution_plan.extra_args,
       )
@@ -1180,7 +1229,7 @@ class _AtestMain:
       )
       self._args.bazel_mode = False
 
-  def run(self) -> int:
+  def _run_all_steps(self) -> int:
     """Executes the atest script.
 
     Returns:
@@ -1231,7 +1280,7 @@ class _AtestMain:
     return ExitCode.SUCCESS
 
 
-class _TestExecutionPlan(ABC):
+class _TestExecutionPlan(abc.ABC):
   """Represents how an Atest invocation's tests will execute."""
 
   @staticmethod
@@ -1280,15 +1329,15 @@ class _TestExecutionPlan(ABC):
   def extra_args(self) -> Dict[str, Any]:
     return self._extra_args
 
-  @abstractmethod
+  @abc.abstractmethod
   def execute(self) -> ExitCode:
     """Executes all test runner invocations in this plan."""
 
-  @abstractmethod
+  @abc.abstractmethod
   def required_build_targets(self) -> Set[str]:
     """Returns the list of build targets required by this plan."""
 
-  @abstractmethod
+  @abc.abstractmethod
   def requires_device_update(self) -> bool:
     """Checks whether this plan requires device update."""
 
@@ -1536,59 +1585,4 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
 
 
 if __name__ == '__main__':
-  results_dir = make_test_run_dir()
-  if END_OF_OPTION in sys.argv:
-    end_position = sys.argv.index(END_OF_OPTION)
-    final_args = [
-        *sys.argv[1:end_position],
-        *_get_args_from_config(),
-        *sys.argv[end_position:],
-    ]
-  else:
-    final_args = [*sys.argv[1:], *_get_args_from_config()]
-  if final_args != sys.argv[1:]:
-    print(
-        'The actual cmd will be: \n\t{}\n'.format(
-            atest_utils.mark_cyan('atest ' + ' '.join(final_args))
-        )
-    )
-    metrics.LocalDetectEvent(detect_type=DetectType.ATEST_CONFIG, result=1)
-    if HAS_IGNORED_ARGS:
-      atest_utils.colorful_print(
-          'Please correct the config and try again.', constants.YELLOW
-      )
-      sys.exit(ExitCode.EXIT_BEFORE_MAIN)
-  else:
-    metrics.LocalDetectEvent(detect_type=DetectType.ATEST_CONFIG, result=0)
-
-  args = _parse_args(final_args)
-
-  atest_configs.GLOBAL_ARGS = args
-  _configure_logging(args.verbose, results_dir)
-
-  logging.debug(
-      'Start of atest run. sys.argv: %s, final_args: %s', sys.argv, final_args
-  )
-
-  banner_printer = banner.BannerPrinter.create()
-
-  with atest_execution_info.AtestExecutionInfo(
-      final_args, results_dir, atest_configs.GLOBAL_ARGS
-  ) as result_file:
-    setup_metrics_tool_name(atest_configs.GLOBAL_ARGS.no_metrics)
-
-    exit_code = _AtestMain(
-        final_args,
-        results_dir,
-        atest_configs.GLOBAL_ARGS,
-        banner_printer,
-    ).run()
-    detector = bug_detector.BugDetector(final_args, exit_code)
-    if exit_code not in EXIT_CODES_BEFORE_TEST:
-      metrics.LocalDetectEvent(
-          detect_type=DetectType.BUG_DETECTED, result=detector.caught_result
-      )
-
-  banner_printer.print()
-
-  sys.exit(exit_code)
+  _AtestMain(sys.argv).run()
