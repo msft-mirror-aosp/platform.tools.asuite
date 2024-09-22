@@ -100,12 +100,15 @@ def debug_log(func):
   return wrapper
 
 
-def run_updatedb(output_cache: Path, prunepaths: List[str] = None):
+def run_updatedb(output_cache: Path, prunepaths: List[str] = None) -> bool:
   """Run updatedb and generate cache in $ANDROID_HOST_OUT/indices/plocate.db
 
   Args:
-      output_cache: The file path of the updatedb cache.
-      prunepaths: a list of paths that are relative to the build top.
+    output_cache: The file path of the updatedb cache.
+    prunepaths: a list of paths that are relative to the build top.
+
+  Returns:
+    True for success; false otherwise.
   """
   search_root = str(au.get_build_top())
   prunepaths = prunepaths if prunepaths else PRUNEPATHS
@@ -126,21 +129,27 @@ def run_updatedb(output_cache: Path, prunepaths: List[str] = None):
   try:
     full_env_vars = os.environ.copy()
     logging.debug('Executing: %s', updatedb_cmd)
-    result = subprocess.run(updatedb_cmd, env=full_env_vars, check=True)
+    result = subprocess.run(
+        updatedb_cmd, env=full_env_vars, capture_output=True, check=True
+    )
+    logging.debug('Completed executing updatedb: %s', result.stdout)
+    return True
   except (KeyboardInterrupt, SystemExit):
     atest_utils.print_and_log_error('Process interrupted or failure.')
   # Delete indices when plocate.db is locked() or other CalledProcessError.
   # (b/141588997)
   except subprocess.CalledProcessError as err:
     atest_utils.print_and_log_error(
-        'Executing %s error.', ' '.join(updatedb_cmd)
+        '%s\nStdout: %s\nstderr: %s', err, err.stdout, err.stderr
     )
-    metrics_utils.handle_exc_and_send_exit_event(constants.PLOCATEDB_LOCKED)
-    if err.output:
-      atest_utils.print_and_log_error(err.output)
-    output_cache.unlink()
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.IS_PLOCATEDB_LOCKED, result=1
+    )
+    output_cache.unlink(missing_ok=True)
+  except FileNotFoundError:
+    atest_utils.print_and_log_error('updatedb is not available on this host.')
 
-  return result.returncode == 0
+  return False
 
 
 def _dump_index(dump_file, output, output_re, key, value):
