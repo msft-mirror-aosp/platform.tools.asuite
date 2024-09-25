@@ -44,17 +44,16 @@ def run():
       action='store_true',
       help='Do not display progress updates',
   )
-  subparsers = parser.add_subparsers(dest='name')
-  for name in tools_map:
-    tools_map[name].add_parser(subparsers)
+  subparsers = parser.add_subparsers(dest='tool', required=True)
+  for _, tool_class in tools_map.items():
+    tool_class.add_parser(subparsers)
 
   args = parser.parse_args()
-  name = args.name.lower()
 
-  # Tools
-  if name in tools_map:
-    tool = tools_map[name]()
-    return tool.main(args)
+  # Tool
+  tool_name = args.tool.lower()
+  tool = tools_map[tool_name]()
+  return tool.main(args)
 
 
 if __name__ == '__main__':
