@@ -42,7 +42,7 @@ class UpdateTest(unittest.TestCase):
 
   def test_gather_tasks_alias(self):
     update = Update()
-    tasks, fall_back_tasks = update.gather_tasks('core')
+    tasks, fall_back_tasks = update.gather_tasks(['core'])
     self.assertEqual(
         tasks, ['m framework framework-minus-apex', 'adevice update']
     )
