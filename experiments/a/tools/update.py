@@ -17,6 +17,7 @@
 
 """Update Tool."""
 
+import argparse
 import inspect
 import os
 import sys
@@ -30,29 +31,41 @@ class Update:
 
   @classmethod
   def add_parser(cls, subparsers):
-    """Parse update alias/arguments."""
-    parser = subparsers.add_parser('update', help='Updates a device')
-    parser.add_argument(
-        'alias', nargs='?', default='default', type=str, help='alias'
+    """Parse command line update arguments."""
+
+    epilog = 'Aliases:\n'
+    for alias in get_aliases().keys():
+      epilog += f'  {alias}\n'
+
+    parser = subparsers.add_parser(
+        'update', epilog=epilog, formatter_class=argparse.RawTextHelpFormatter
     )
+
+    parser.add_argument('alias', nargs='*', default=[], type=str)
 
   def main(self, args):
     """Main entrypoint for Update."""
-    alias = args.alias
-    tasks, fall_back_tasks = self.gather_tasks(alias)
+    tasks, fall_back_tasks = self.gather_tasks(args.alias)
     self.run_tasks(tasks, fall_back_tasks)
 
-  def gather_tasks(self, alias):
+  def gather_tasks(self, requested_aliases):
     """Gathers tasks to run based on alias."""
     tasks = []
     fall_back_tasks = []
 
     aliases = get_aliases()
-    if alias in aliases:
-      config = aliases[alias]()
+    if len(requested_aliases) >= 1:
+      for a in requested_aliases:
+        if a not in aliases:
+          raise WorkflowError(f'Unknown Alias {a}')
+
+    if len(requested_aliases) == 1:
+      a = requested_aliases[0]
+      config = aliases[a]()
       tasks += config.build()
       tasks += config.update()
-    else:
+
+    if not tasks:
       # default
       tasks = [
           'm sync',
@@ -62,6 +75,7 @@ class Update:
           'm droid',
           'flashall',
       ]
+
     return (tasks, fall_back_tasks)
 
   def run_tasks(self, tasks, fall_back_tasks):
@@ -124,7 +138,7 @@ class SysUI(Alias):
     target = 'com.android.systemui'
     return [
         'adevice update --restart=none',
-        f'adb shell am force-stop {target}',
+        f'adb shell "am force-stop {target}"',
     ]
 
 
