@@ -1624,7 +1624,7 @@ def save_build_files_timestamp():
         json.dump(timestamp, _file)
 
 
-def run_multi_proc(func, *args, **kwargs):
+def run_multi_proc(func, *args, **kwargs) -> Process:
   """Start a process with multiprocessing and return Process object.
 
   Args:

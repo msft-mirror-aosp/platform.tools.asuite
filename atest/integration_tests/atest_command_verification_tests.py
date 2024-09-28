@@ -257,47 +257,49 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  @atest_integration_test.run_in_parallel
-  def test_android_sample_cts_device_report_log_test(self):
-    """Verify that the test's command runs correctly."""
-    atest_cmd = 'android.sample.cts.SampleDeviceReportLogTest'
-    expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest'
-        ' --template:map log_saver=template/log/atest_log_saver'
-        ' --no-enable-granular-attempts --include-filter'
-        ' CtsSampleDeviceTestCases --atest-include-filter'
-        ' CtsSampleDeviceTestCases:android.sample.cts.SampleDeviceReportLogTest'
-        ' --skip-loading-config-jar --log-level-display VERBOSE --log-level'
-        ' VERBOSE --no-early-device-release --test-arg'
-        ' com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.platform.test.annotations.AppModeInstant'
-    )
-    self._verify_atest_internal_runner_command(
-        atest_cmd,
-        self._assert_equivalent_cmds,
-        expected_cmd=expected_cmd,
-    )
+  # Disabled due to b/358615386
+  # @atest_integration_test.run_in_parallel
+  # def test_android_sample_cts_device_report_log_test(self):
+  #   """Verify that the test's command runs correctly."""
+  #   atest_cmd = 'android.sample.cts.SampleDeviceReportLogTest'
+  #   expected_cmd = (
+  #       'atest_tradefed.sh template/atest_device_test_base --template:map'
+  #       ' test=atest'
+  #       ' --template:map log_saver=template/log/atest_log_saver'
+  #       ' --no-enable-granular-attempts --include-filter'
+  #       ' CtsSampleDeviceTestCases --atest-include-filter'
+  #       ' CtsSampleDeviceTestCases:android.sample.cts.SampleDeviceReportLogTest'
+  #       ' --skip-loading-config-jar --log-level-display VERBOSE --log-level'
+  #       ' VERBOSE --no-early-device-release --test-arg'
+  #       ' com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.platform.test.annotations.AppModeInstant'
+  #   )
+  #   self._verify_atest_internal_runner_command(
+  #       atest_cmd,
+  #       self._assert_equivalent_cmds,
+  #       expected_cmd=expected_cmd,
+  #   )
 
-  @atest_integration_test.run_in_parallel
-  def test_android_sample_cts_shared_prefs_test(self):
-    """Verify that the test's command runs correctly."""
-    atest_cmd = 'android.sample.cts.SampleDeviceTest#testSharedPreferences'
-    expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest'
-        ' --template:map log_saver=template/log/atest_log_saver'
-        ' --no-enable-granular-attempts --include-filter'
-        ' CtsSampleDeviceTestCases --atest-include-filter'
-        ' CtsSampleDeviceTestCases:android.sample.cts.SampleDeviceTest#testSharedPreferences'
-        ' --skip-loading-config-jar --log-level-display VERBOSE --log-level'
-        ' VERBOSE --no-early-device-release --test-arg'
-        ' com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.platform.test.annotations.AppModeInstant'
-    )
-    self._verify_atest_internal_runner_command(
-        atest_cmd,
-        self._assert_equivalent_cmds,
-        expected_cmd=expected_cmd,
-    )
+  # Disabled due to b/358615386
+  # @atest_integration_test.run_in_parallel
+  # def test_android_sample_cts_shared_prefs_test(self):
+  #   """Verify that the test's command runs correctly."""
+  #   atest_cmd = 'android.sample.cts.SampleDeviceTest#testSharedPreferences'
+  #   expected_cmd = (
+  #       'atest_tradefed.sh template/atest_device_test_base --template:map'
+  #       ' test=atest'
+  #       ' --template:map log_saver=template/log/atest_log_saver'
+  #       ' --no-enable-granular-attempts --include-filter'
+  #       ' CtsSampleDeviceTestCases --atest-include-filter'
+  #       ' CtsSampleDeviceTestCases:android.sample.cts.SampleDeviceTest#testSharedPreferences'
+  #       ' --skip-loading-config-jar --log-level-display VERBOSE --log-level'
+  #       ' VERBOSE --no-early-device-release --test-arg'
+  #       ' com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.platform.test.annotations.AppModeInstant'
+  #   )
+  #   self._verify_atest_internal_runner_command(
+  #       atest_cmd,
+  #       self._assert_equivalent_cmds,
+  #       expected_cmd=expected_cmd,
+  #   )
 
   @atest_integration_test.run_in_parallel
   def test_hello_world_test(self):

@@ -186,7 +186,7 @@ if __name__ == '__main__':
   preupload_files = get_preupload_files()
 
   gpylint_project_files, other_files = _filter_files_for_projects(
-      preupload_files, ['atest'], root_files=True
+      preupload_files, ['atest', 'experiments/a'], root_files=True
   )
   _run_pylint(other_files)
   _run_pyformat(gpylint_project_files)
