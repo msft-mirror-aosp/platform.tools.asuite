@@ -61,15 +61,11 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
     self.fs.create_file(build_trace_path)
     # Set the trace file's mtime greater than start time
     os.utime(build_trace_path, (20, 20))
+    end_time = 30
 
-    with aei.AtestExecutionInfo(
-        [],
-        log_path,
-        arg_parser.create_atest_arg_parser().parse_args([]),
-        start_time=start_time,
-        repo_out_dir=out_path,
-    ) as result_file:
-      pass
+    aei.AtestExecutionInfo._copy_build_trace_to_log_dir(
+        start_time, end_time, out_path, log_path
+    )
 
     self.assertTrue(
         self._is_dir_contains_files_with_prefix(log_path, 'build.trace')
@@ -84,15 +80,11 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
     self.fs.create_file(build_trace_path)
     # Set the trace file's mtime smaller than start time
     os.utime(build_trace_path, (5, 5))
+    end_time = 30
 
-    with aei.AtestExecutionInfo(
-        [],
-        log_path,
-        arg_parser.create_atest_arg_parser().parse_args([]),
-        start_time=start_time,
-        repo_out_dir=out_path,
-    ) as result_file:
-      pass
+    aei.AtestExecutionInfo._copy_build_trace_to_log_dir(
+        start_time, end_time, out_path, log_path
+    )
 
     self.assertFalse(
         self._is_dir_contains_files_with_prefix(log_path, 'build.trace')
@@ -110,15 +102,11 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
     # Set the trace file's mtime greater than start time
     os.utime(build_trace_path1, (20, 20))
     os.utime(build_trace_path2, (20, 20))
+    end_time = 30
 
-    with aei.AtestExecutionInfo(
-        [],
-        log_path,
-        arg_parser.create_atest_arg_parser().parse_args([]),
-        start_time=start_time,
-        repo_out_dir=out_path,
-    ) as result_file:
-      pass
+    aei.AtestExecutionInfo._copy_build_trace_to_log_dir(
+        start_time, end_time, out_path, log_path
+    )
 
     self.assertTrue(
         self._is_dir_contains_files_with_prefix(log_path, 'build.trace.1')
