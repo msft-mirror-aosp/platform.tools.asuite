@@ -472,24 +472,20 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
 
 def main():
   """Main method to run the integration tests."""
-
-  def argparser_update_func(parser):
-    parser.add_argument(
-        '--use-prebuilt-atest-binary',
-        action='store_true',
-        default=False,
-        help=(
-            'Set the default atest binary to the prebuilt `atest` instead'
-            ' of `atest-dev`.'
-        ),
-    )
-
-  def config_update_function(config, args):
-    config.use_prebuilt_atest_binary = args.use_prebuilt_atest_binary
-
+  additional_args = [
+      split_build_test_script.AddArgument(
+          'use_prebuilt_atest_binary',
+          '--use-prebuilt-atest-binary',
+          action='store_true',
+          default=False,
+          help=(
+              'Set the default atest binary to the prebuilt `atest` instead'
+              ' of `atest-dev`.'
+          ),
+      )
+  ]
   split_build_test_script.main(
       argv=sys.argv,
       make_before_build=['atest'],
-      argparser_update_func=argparser_update_func,
-      config_update_function=config_update_function,
+      additional_args=additional_args,
   )
