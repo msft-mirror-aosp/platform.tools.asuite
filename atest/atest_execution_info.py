@@ -311,6 +311,7 @@ class AtestExecutionInfo:
     self.result_file_obj = None
     self.args_ns = args_ns
     self.test_result = os.path.join(self.work_dir, _TEST_RESULT_NAME)
+    self._proc_usb_speed = None
     logging.debug(
         'A %s object is created with args %s, work_dir %s',
         __class__,
@@ -330,24 +331,22 @@ class AtestExecutionInfo:
       self.result_file_obj = open(self.test_result, 'w')
     except IOError:
       atest_utils.print_and_log_error('Cannot open file %s', self.test_result)
+
+    self._proc_usb_speed = atest_utils.run_multi_proc(
+        func=self._send_usb_metrics_and_warning
+    )
+
     return self.result_file_obj
 
   def __exit__(self, exit_type, value, traceback):
     """Write execution information and close information file."""
 
-    # Read the USB speed and send usb metrics.
-    device_proto = usb.get_device_proto_binary()
-    usb.verify_and_print_usb_speed_warning(device_proto)
-    metrics.LocalDetectEvent(
-        detect_type=atest_enum.DetectType.USB_NEGOTIATED_SPEED,
-        result=device_proto.negotiated_speed
-        if device_proto.negotiated_speed
-        else 0,
-    )
-    metrics.LocalDetectEvent(
-        detect_type=atest_enum.DetectType.USB_MAX_SPEED,
-        result=device_proto.max_speed if device_proto.max_speed else 0,
-    )
+    if self._proc_usb_speed:
+      # Usb speed detection is not an obligatory function of atest,
+      # so it can be skipped if the process hasn't finished by the time atest
+      # is ready to exit.
+      if self._proc_usb_speed.is_alive():
+        self._proc_usb_speed.terminate()
 
     log_path = pathlib.Path(self.work_dir)
     html_path = None
@@ -390,6 +389,35 @@ class AtestExecutionInfo:
     )
     if log_uploader.is_uploading_logs():
       log_uploader.upload_logs_detached(log_path)
+
+  def _send_usb_metrics_and_warning(self):
+    # Read the USB speed and send usb metrics.
+    device_ids = usb.get_adb_device_identifiers()
+    if not device_ids:
+      return
+
+    usb_speed_dir_name = usb.get_udc_driver_usb_device_dir_name()
+    if not usb_speed_dir_name:
+      return
+
+    usb_negotiated_speed = usb.get_udc_driver_usb_device_attribute_speed_value(
+        usb_speed_dir_name, usb.UsbAttributeName.NEGOTIATED_SPEED
+    )
+    usb_max_speed = usb.get_udc_driver_usb_device_attribute_speed_value(
+        usb_speed_dir_name, usb.UsbAttributeName.MAXIMUM_SPEED
+    )
+    usb.verify_and_print_usb_speed_warning(
+        device_ids, usb_negotiated_speed, usb_max_speed
+    )
+
+    metrics.LocalDetectEvent(
+        detect_type=atest_enum.DetectType.USB_NEGOTIATED_SPEED,
+        result=usb_negotiated_speed,
+    )
+    metrics.LocalDetectEvent(
+        detect_type=atest_enum.DetectType.USB_MAX_SPEED,
+        result=usb_max_speed,
+    )
 
   @staticmethod
   def _create_bug_report_url() -> str:
