@@ -967,6 +967,10 @@ class _AtestMain:
     find_start = time.time()
     self._test_infos = translator.translate(self._args)
 
+    _AtestMain._inject_default_arguments_based_on_test_infos(
+        self._test_infos, self._args
+    )
+
     # Only check for sufficient devices if not dry run.
     self._args.device_count_config = get_device_count_config(
         self._test_infos, self._mod_info
@@ -988,6 +992,20 @@ class _AtestMain:
     )
 
     return None
+
+  @staticmethod
+  def _inject_default_arguments_based_on_test_infos(
+      test_infos: list[test_info.TestInfo], args: argparse.Namespace
+  ) -> None:
+    is_perf_tests = False
+    for info in test_infos:
+      if 'performance-tests' in info.compatibility_suites:
+        is_perf_tests = True
+        break
+    if is_perf_tests:
+      if not args.disable_upload_result:
+        args.request_upload_result = True
+      args.custom_args.append('--enable-module-dynamic-download')
 
   def _handle_list_modules(self) -> int:
     """Print the testable modules for a given suite.
