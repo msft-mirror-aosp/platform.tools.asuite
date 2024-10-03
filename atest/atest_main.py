@@ -39,8 +39,9 @@ import platform
 import subprocess
 import sys
 import tempfile
+import threading
 import time
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Set
 
 from atest import arg_parser
 from atest import atest_configs
@@ -831,18 +832,15 @@ class _AtestMain:
       return status
     return None
 
-  def _start_indexing_if_required(self) -> None:
+  def _start_indexing_if_required(self) -> threading.Thread:
     """Starts indexing if required.
 
-    The decision flow is as follows: If no build is required, returns False.
-    Otherwise, if some index files are missing, returns True. Otherwise, if
-    some arguments that doesn't require indexing is present, returns False.
-    Otherwise, returns True.
+    Returns:
+        A thread that runs indexing. None if no indexing is required.
     """
-    self._indexing_proc = None
     if not self._steps.build:
       logging.debug("Skip indexing because there's no build required.")
-      return
+      return None
 
     if indexing.Indices().has_all_indices():
       no_indexing_args = (
@@ -853,32 +851,16 @@ class _AtestMain:
         logging.debug(
             'Skip indexing for no_indexing_args=%s.', no_indexing_args
         )
-        return
+        return None
     else:
       logging.debug(
           'Indexing targets is required because some index files do not exist.'
       )
 
     logging.debug('Starting to index targets in a background thread.')
-    self._indexing_proc = atest_utils.start_threading(
+    return atest_utils.start_threading(
         indexing.index_targets,
         daemon=True,
-    )
-
-  def _check_indexing_status(self) -> None:
-    """Checks indexing status and wait for it to complete if necessary."""
-    if (
-        not self._indexing_proc
-        or not self._indexing_proc.is_alive()
-        or indexing.Indices().has_all_indices()
-    ):
-      return
-    start_wait_for_indexing = time.time()
-    print('Waiting for the module indexing to complete.')
-    self._indexing_proc.join()
-    metrics.LocalDetectEvent(
-        detect_type=DetectType.WAIT_FOR_INDEXING_MS,
-        result=int(round((time.time() - start_wait_for_indexing) * 1000)),
     )
 
   @functools.cache
@@ -969,7 +951,8 @@ class _AtestMain:
     Returns:
         Exit code if anything went wrong. None otherwise.
     """
-    self._start_indexing_if_required()
+    indexing_thread = self._start_indexing_if_required()
+
     self._load_module_info()
 
     translator = cli_translator.CLITranslator(
@@ -978,9 +961,8 @@ class _AtestMain:
         bazel_mode_enabled=self._args.bazel_mode,
         host=self._args.host,
         bazel_mode_features=self._args.bazel_mode_features,
+        indexing_thread=indexing_thread,
     )
-
-    self._check_indexing_status()
 
     find_start = time.time()
     self._test_infos = translator.translate(self._args)
