@@ -997,15 +997,11 @@ class _AtestMain:
   def _inject_default_arguments_based_on_test_infos(
       test_infos: list[test_info.TestInfo], args: argparse.Namespace
   ) -> None:
-    is_perf_tests = False
-    for info in test_infos:
-      if 'performance-tests' in info.compatibility_suites:
-        is_perf_tests = True
-        break
-    if is_perf_tests:
+    if any(
+        'performance-tests' in info.compatibility_suites for info in test_infos
+    ):
       if not args.disable_upload_result:
         args.request_upload_result = True
-      args.custom_args.append('--enable-module-dynamic-download')
 
   def _handle_list_modules(self) -> int:
     """Print the testable modules for a given suite.
