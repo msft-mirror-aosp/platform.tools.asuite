@@ -851,7 +851,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         A list that contains the string of atest tradefed run command.
         Only one command is returned.
     """
-    if extra_args.get(constants.USE_TF_MIN_BASE_TEMPLATE):
+    if any(
+        'performance-tests' in info.compatibility_suites for info in test_infos
+    ):
+      self.run_cmd_dict['template'] = 'template/performance-tests-base'
+    elif extra_args.get(constants.USE_TF_MIN_BASE_TEMPLATE):
       self.run_cmd_dict['template'] = self._TF_LOCAL_MIN
     else:
       self.run_cmd_dict['template'] = (
