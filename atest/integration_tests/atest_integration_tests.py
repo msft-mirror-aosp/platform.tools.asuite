@@ -19,7 +19,6 @@
 # pylint: disable=wildcard-import
 from atest_command_success_tests import *
 from atest_command_verification_tests import *
-from atest_dry_run_diff_tests import *
 import atest_integration_test
 from atest_test_archetype_integration_tests import *
 
