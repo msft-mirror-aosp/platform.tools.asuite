@@ -26,6 +26,7 @@ from unittest.mock import patch
 from atest import arg_parser
 from atest import atest_configs
 from atest import result_reporter
+from atest.test_finders import test_info
 from atest.test_runners import test_runner_base
 
 
@@ -623,6 +624,36 @@ class ResultReporterUnittests(unittest.TestCase):
     }
     self.assertEqual(max_len, correct_max_len)
     self.assertEqual(classify_perf_info, correct_classify_perf_info)
+
+  def test_print_perf_test_metrics_perf_tests_print_attempted(self):
+    test_infos = [
+        test_info.TestInfo(
+            'some_module',
+            'TestRunner',
+            set(),
+            compatibility_suites=['performance-tests'],
+        )
+    ]
+    sut = result_reporter.ResultReporter(test_infos=test_infos)
+
+    is_print_attempted = sut._print_perf_test_metrics()
+
+    self.assertTrue(is_print_attempted)
+
+  def test_print_perf_test_metrics_not_perf_tests_print__not_attempted(self):
+    test_infos = [
+        test_info.TestInfo(
+            'some_module',
+            'TestRunner',
+            set(),
+            compatibility_suites=['not-perf-test'],
+        )
+    ]
+    sut = result_reporter.ResultReporter(test_infos=test_infos)
+
+    is_print_attempted = sut._print_perf_test_metrics()
+
+    self.assertFalse(is_print_attempted)
 
 
 if __name__ == '__main__':
