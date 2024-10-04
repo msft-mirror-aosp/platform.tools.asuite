@@ -504,12 +504,10 @@ class ResultReporter:
     Returns:
         True if metric printing is attempted; False if not perf tests.
     """
-    has_perf_tests = False
-    for info in self._test_infos:
-      if 'performance-tests' in info.compatibility_suites:
-        has_perf_tests = True
-        break
-    if not has_perf_tests:
+    if not any(
+        'performance-tests' in info.compatibility_suites
+        for info in self._test_infos
+    ):
       return False
 
     if not self.log_path:
