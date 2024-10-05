@@ -1640,13 +1640,13 @@ def run_multi_proc(func, *args, **kwargs) -> Process:
   return proc
 
 
-def start_threading(target, *args, **kwargs):
+def start_threading(target, *args, **kwargs) -> Thread:
   """Start a Thread-based parallelism.
 
   Args:
-      func: A string of function name which will be the target name.
+      target: A string of function name which will be the target name.
         args/kwargs: check doc page:
-      https://docs.python.org/3/library/threading.html#threading.Thread
+        https://docs.python.org/3/library/threading.html#threading.Thread
 
   Returns:
       threading.Thread object.

@@ -46,7 +46,8 @@ setup_parallel_in_build_env = (
 #       breaking the integration test becomes a problem in the future, we can
 #       reconsider importing these constants.
 # Stdout print prefix for results directory. Defined in atest/atest_main.py
-_RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
+RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
+DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
 
 
 class LogEntry:
@@ -156,8 +157,8 @@ class AtestRunResult:
     """
     results_dir = None
     for line in self.get_stdout().splitlines(keepends=False):
-      if line.startswith(_RESULTS_DIR_PRINT_PREFIX):
-        results_dir = pathlib.Path(line[len(_RESULTS_DIR_PRINT_PREFIX) :])
+      if line.startswith(RESULTS_DIR_PRINT_PREFIX):
+        results_dir = pathlib.Path(line[len(RESULTS_DIR_PRINT_PREFIX) :])
     if not results_dir:
       raise RuntimeError('Failed to parse the result directory from stdout.')
 
@@ -470,26 +471,61 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     return [absolute_path.relative_to(repo_root).as_posix()]
 
 
+def sanitize_runner_command(cmd: str) -> str:
+  """Sanitize an atest runner command by removing non-essential args."""
+  remove_args_starting_with = [
+      '--skip-all-system-status-check',
+      '--atest-log-file-path',
+      'LD_LIBRARY_PATH=',
+      '--proto-output-file=',
+      '--log-root-path',
+  ]
+  remove_args_with_values = ['-s', '--serial']
+  build_command = 'build/soong/soong_ui.bash'
+  original_args = cmd.split()
+  result_args = []
+  for arg in original_args:
+    if arg == build_command:
+      result_args.append(f'./{build_command}')
+      continue
+    if not any(
+        (arg.startswith(prefix) for prefix in remove_args_starting_with)
+    ):
+      result_args.append(arg)
+  for arg in remove_args_with_values:
+    while arg in result_args:
+      idx = result_args.index(arg)
+      # Delete value index first.
+      del result_args[idx + 1]
+      del result_args[idx]
+
+  return ' '.join(result_args)
+
+
 def main():
   """Main method to run the integration tests."""
-
-  def argparser_update_func(parser):
-    parser.add_argument(
-        '--use-prebuilt-atest-binary',
-        action='store_true',
-        default=False,
-        help=(
-            'Set the default atest binary to the prebuilt `atest` instead'
-            ' of `atest-dev`.'
-        ),
-    )
-
-  def config_update_function(config, args):
-    config.use_prebuilt_atest_binary = args.use_prebuilt_atest_binary
-
+  additional_args = [
+      split_build_test_script.AddArgument(
+          'use_prebuilt_atest_binary',
+          '--use-prebuilt-atest-binary',
+          action='store_true',
+          default=False,
+          help=(
+              'Set the default atest binary to the prebuilt `atest` instead'
+              ' of `atest-dev`.'
+          ),
+      ),
+      split_build_test_script.AddArgument(
+          'dry_run_diff_test_cmd_input_file',
+          '--dry-run-diff-test-cmd-input-file',
+          help=(
+              'The path of file containing the list of atest commands to test'
+              ' in the dry run diff tests relative to the repo root.'
+          ),
+      ),
+  ]
   split_build_test_script.main(
       argv=sys.argv,
       make_before_build=['atest'],
-      argparser_update_func=argparser_update_func,
-      config_update_function=config_update_function,
+      additional_args=additional_args,
   )

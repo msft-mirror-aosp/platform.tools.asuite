@@ -20,16 +20,6 @@ import os
 from typing import Any, Callable
 import atest_integration_test
 
-# Note: The following constants should ideally be imported from their
-#       corresponding prod source code, but this makes local execution of the
-#       integration test harder due to some special dependencies in the prod
-#       code. Therefore we copy the definition here for now in favor of easier
-#       local integration test execution. If value changes in the source code
-#       breaking the integration test becomes a problem in the future, we can
-#       reconsider importing these constants.
-# Log prefix for dry-run run command. Defined in atest/atest_main.py
-_DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
-
 
 class CommandVerificationTests(atest_integration_test.AtestTestCase):
   """Checks atest tradefed commands."""
@@ -640,36 +630,6 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         print_output=False,
     ).check_returncode()
 
-  def _sanitize_runner_command(self, cmd: str) -> str:
-    """Sanitize an atest runner command by removing non-essential args."""
-    remove_args_starting_with = [
-        '--skip-all-system-status-check',
-        '--atest-log-file-path',
-        'LD_LIBRARY_PATH=',
-        '--proto-output-file=',
-        '--log-root-path',
-    ]
-    remove_args_with_values = ['-s', '--serial']
-    build_command = 'build/soong/soong_ui.bash'
-    original_args = cmd.split()
-    result_args = []
-    for arg in original_args:
-      if arg == build_command:
-        result_args.append(f'./{build_command}')
-        continue
-      if not any(
-          (arg.startswith(prefix) for prefix in remove_args_starting_with)
-      ):
-        result_args.append(arg)
-    for arg in remove_args_with_values:
-      while arg in result_args:
-        idx = result_args.index(arg)
-        # Delete value index first.
-        del result_args[idx + 1]
-        del result_args[idx]
-
-    return ' '.join(result_args)
-
   def _assert_equivalent_cmds(
       self,
       atest_cmd: str,
@@ -687,8 +647,8 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
 
     Returns:
     """
-    actual_cmd = self._sanitize_runner_command(actual_cmd)
-    expected_cmd = self._sanitize_runner_command(expected_cmd)
+    actual_cmd = atest_integration_test.sanitize_runner_command(actual_cmd)
+    expected_cmd = atest_integration_test.sanitize_runner_command(expected_cmd)
 
     self.assertEqual(
         set(actual_cmd.split()),
@@ -723,7 +683,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
       )
       result.check_returncode()
       runner_cmd = result.get_atest_log_values_from_prefix(
-          _DRY_RUN_COMMAND_LOG_PREFIX
+          atest_integration_test.DRY_RUN_COMMAND_LOG_PREFIX
       )[0]
 
       step_out = self.create_step_output()

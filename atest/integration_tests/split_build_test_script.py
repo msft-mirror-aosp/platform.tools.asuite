@@ -25,6 +25,7 @@ import argparse
 import atexit
 import concurrent.futures
 import copy
+import dataclasses
 import datetime
 import functools
 import itertools
@@ -675,9 +676,32 @@ def _configure_logging(verbose: bool, log_file_dir_path: pathlib.Path):
   logging.getLogger('').addHandler(console)
 
 
+@dataclasses.dataclass
+class AddArgument:
+  """A class to add an argument to the argparse parser and copy to test config."""
+
+  dest: str
+  args: tuple[Any, ...]
+  kwargs: dict[str, Any]
+
+  def __init__(self, dest: str, *args: Any, **kwargs: Any) -> None:
+    """Initializes the AddArgument class.
+
+    Params:
+        dest: Specify the attribute name used in the result namespace. This is
+          required here for adding the parsed value to test config object.
+        *args: Any arguments used to call argparse.add_argument.
+        **kwargs: Any keyword arguments used to call argparse.add_argument.
+    """
+    self.dest = dest
+    self.args = args
+    self.kwargs = kwargs
+    self.kwargs['dest'] = dest
+
+
 def _parse_known_args(
     argv: list[str],
-    argparser_update_func: Callable[argparse.ArgumentParser, None] = None,
+    additional_args: list[AddArgument],
 ) -> tuple[argparse.Namespace, list[str]]:
   """Parse command line args and check required args being provided."""
 
@@ -750,8 +774,8 @@ Usage examples:
       ),
   )
 
-  if argparser_update_func:
-    argparser_update_func(parser)
+  for additional_arg in additional_args:
+    parser.add_argument(*additional_arg.args, **additional_arg.kwargs)
 
   return parser.parse_known_args(argv)
 
@@ -864,21 +888,15 @@ def _run_test(
 def main(
     argv: list[str] = None,
     make_before_build: list[str] = None,
-    argparser_update_func: Callable[argparse.ArgumentParser, None] = None,
-    config_update_function: Callable[
-        [IntegrationTestConfiguration, argparse.Namespace], None
-    ] = None,
+    additional_args: list[AddArgument] = None,
 ) -> None:
   """Main method to start the integration tests.
 
   Args:
       argv: A list of arguments to parse.
       make_before_build: A list of targets to make before running build steps.
-      argparser_update_func: A function that takes an ArgumentParser object and
-        updates it.
-      config_update_function: A function that takes a
-        IntegrationTestConfiguration config and the parsed args to updates the
-        config.
+      additional_args: A list of additional arguments to be injected to the
+        argparser and test config.
 
   Raises:
       EnvironmentError: When some environment variables are missing.
@@ -887,8 +905,10 @@ def main(
     argv = sys.argv
   if make_before_build is None:
     make_before_build = []
+  if additional_args is None:
+    additional_args = []
 
-  args, unittest_argv = _parse_known_args(argv, argparser_update_func)
+  args, unittest_argv = _parse_known_args(argv, additional_args)
 
   snapshot_storage_dir_name = 'snapshot_storage'
   snapshot_storage_tar_name = 'snapshot.tar'
@@ -926,9 +946,8 @@ def main(
   config.snapshot_storage_tar_path = snapshot_storage_tar_path
   config.workspace_path = integration_test_out_path.joinpath('workspace')
   config.is_tar_snapshot = args.tar_snapshot
-
-  if config_update_function:
-    config_update_function(config, args)
+  for additional_arg in additional_args:
+    setattr(config, additional_arg.dest, getattr(args, additional_arg.dest))
 
   if config.is_build_env:
     if ANDROID_BUILD_TOP_KEY not in os.environ:

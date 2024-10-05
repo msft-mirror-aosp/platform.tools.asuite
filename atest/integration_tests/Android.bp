@@ -92,6 +92,7 @@ python_test_host {
         "atest_command_success_tests.py",
         "atest_command_verification_tests.py",
         "atest_test_archetype_integration_tests.py",
+        "atest_dry_run_diff_tests.py",
     ],
     test_config_template: ":atest_integration_test_config_template",
     test_options: {
@@ -163,6 +164,21 @@ python_test_host {
     name: "atest_test_archetype_integration_tests",
     srcs: [
         "atest_test_archetype_integration_tests.py",
+    ],
+    test_config_template: ":atest_integration_test_config_template",
+    test_options: {
+        unit_test: false,
+    },
+    defaults: [
+        "atest_integration_test_defaults",
+    ],
+}
+
+python_test_host {
+    name: "atest_dry_run_diff_tests",
+    srcs: [
+        "atest_dry_run_diff_tests.py",
+        "atest_command_verification_tests.py",
     ],
     test_config_template: ":atest_integration_test_config_template",
     test_options: {
