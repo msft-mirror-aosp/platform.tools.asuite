@@ -306,8 +306,19 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     self._try_set_gts_authentication_key()
     result = 0
     upload_start = time.time()
+    invocation_properties = {'atest_run_id': metrics.get_run_id()}
+
+    # Set crystalball_ingest property if there are performance tests.
+    is_perf_tests = False
+    for info in test_infos:
+      if 'performance-tests' in info.compatibility_suites:
+        is_perf_tests = True
+        break
+    if is_perf_tests:
+      invocation_properties['crystalball_ingest'] = 'yes'
+
     creds, inv = (
-        logstorage_utils.do_upload_flow(extra_args)
+        logstorage_utils.do_upload_flow(extra_args, invocation_properties)
         if logstorage_utils.is_upload_enabled(extra_args)
         else (None, None)
     )
@@ -840,7 +851,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         A list that contains the string of atest tradefed run command.
         Only one command is returned.
     """
-    if extra_args.get(constants.USE_TF_MIN_BASE_TEMPLATE):
+    if any(
+        'performance-tests' in info.compatibility_suites for info in test_infos
+    ):
+      self.run_cmd_dict['template'] = 'template/performance-tests-base'
+    elif extra_args.get(constants.USE_TF_MIN_BASE_TEMPLATE):
       self.run_cmd_dict['template'] = self._TF_LOCAL_MIN
     else:
       self.run_cmd_dict['template'] = (

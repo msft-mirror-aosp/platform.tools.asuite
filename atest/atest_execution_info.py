@@ -367,9 +367,11 @@ class AtestExecutionInfo:
     )
 
     print()
+    if log_path:
+      print(f'Test logs: {log_path / "log"}')
     log_link = html_path if html_path else log_path
     if log_link:
-      print(f'Logs: {atest_utils.mark_magenta(f"file://{log_link}")}')
+      print(f'Log file list: {atest_utils.mark_magenta(f"file://{log_link}")}')
     bug_report_url = AtestExecutionInfo._create_bug_report_url()
     if bug_report_url:
       print(f'Issue report: {bug_report_url}')
