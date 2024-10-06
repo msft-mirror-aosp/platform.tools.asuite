@@ -51,7 +51,7 @@ class _SimpleUploadingClient:
     """Initialize internal build clients and get invocation ID from AnTS."""
     configuration = {}
     creds, self._invocation_data = logstorage_utils.do_upload_flow(
-        configuration, self._atest_run_id
+        configuration, {'atest_run_id': self._atest_run_id}
     )
 
     self._client = logstorage_utils.BuildClient(creds)
