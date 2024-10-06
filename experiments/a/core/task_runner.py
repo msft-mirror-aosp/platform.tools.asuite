@@ -17,10 +17,9 @@
 
 """Classes to help coordinate running tasks and displaying progress."""
 
-import os
 import subprocess
+import sys
 import threading
-import time
 
 from .errors import TaskError
 
@@ -47,8 +46,10 @@ class TaskRunner:
     self.quiet = False
     self.output = ''
     self.running_indicator_thread = None
-    self.running_indicator_chars = ['◢', '◣', '◤', '◥']
+    self.running_indicator_chars = ['→']
+    # self.running_indicator_chars = ['◢', '◣', '◤', '◥']
     self.running_indicator_index = 0
+    self.stop_event = threading.Event()
 
   def add_task(self, name, function, *args, **kwargs):
     """Adds a task to the queue."""
@@ -63,13 +64,14 @@ class TaskRunner:
 
   def start(self):
     """Starts running all the tasks in the queue."""
+    print('Running Plan:')
     self.running = True
     self._run_next_task()
-    self.start_running_indicator()
 
   def run_task(self, name):
     """Run this task in the queue."""
     task = self.tasks[name]
+    self.render_output()
     try:
       for line in task['function'](*task['args'], **task['kwargs']):
         if isinstance(line, TaskResult):
@@ -78,14 +80,13 @@ class TaskRunner:
             raise TaskError(f'status_code: {result.status_code}')
         else:
           self.tasks[name]['output'] += line
-        if self.running:
-          self.render_output()
       self.tasks[name]['status'] = 'completed'
       if self.running:
         self._run_next_task()
     except TaskError as e:
       self.tasks[name]['status'] = 'failed'
       self.tasks[name]['output'] += f'Error: {e}\n'
+      self.render_output()
 
       if self.fall_back_tasks:
         self.task_queue = []
@@ -96,7 +97,6 @@ class TaskRunner:
         self._run_next_task()
       else:
         if self.running:
-          self.render_output()
           self.running = False
 
   def _run_next_task(self):
@@ -113,49 +113,27 @@ class TaskRunner:
         return
 
       print('')
+      print('Run Completed Successfully!')
       print(
           'Add workflows/tools: go/atool Join http://g/atool-discuss to discuss'
           ' and stay up to date'
       )
       print('')
-      print('Run Completed Successfully!')
 
   def add_shell_command_task(self, command):
     """Adds a shell command to the task queue."""
     self.add_task(command, run_shell_command, command)
-
-  def start_running_indicator(self):
-    """Starts the progress indicator thread."""
-    if (
-        self.running_indicator_thread is None
-        or not self.running_indicator_thread.is_alive()
-    ):
-      self.running_indicator_thread = threading.Thread(
-          target=self._update_running_indicator
-      )
-      self.running_indicator_thread.start()
-
-  def _update_running_indicator(self):
-    """Updates the progress indicator thread."""
-    while self.running:
-      self.running_indicator_index = (self.running_indicator_index + 1) % len(
-          self.running_indicator_chars
-      )
-      self.render_output()
-      time.sleep(0.15)
 
   def render_output(self):
     """Prints the output of the tasks as well as a table showing the progres on the task queue."""
     if self.quiet:
       return
 
-    os.system('cls' if os.name == 'nt' else 'clear')
+    # os.system('cls' if os.name == 'nt' else 'clear')
     print(f'{self.output}', end='')
     for name, command_data in self.tasks.items():
       print(f"{command_data['output']}", end='')
 
-    print('')
-    print('-' * 20)
     for name, command_data in self.tasks.items():
       status_icon = '.'
       status_color = '\033[94m'  # Blue
@@ -168,28 +146,37 @@ class TaskRunner:
       elif command_data['status'] == 'failed':
         status_icon = '✗'
         status_color = '\033[91m'  # Red
-      print(f'{status_color}{status_icon}\033[0m {status_color}{name}\033[0m')
+      print(f'{status_color}{status_icon}\033[0m {name}\033[0m')
     print('-' * 20)
 
 
-def run_shell_command(command):
+def run_shell_command(command, use_stdout=True):
   """Run a shell command and yield output."""
   last_line = ''
-  with subprocess.Popen(
-      command,
-      shell=True,
-      stdout=subprocess.PIPE,
-      stderr=subprocess.STDOUT,
-      text=True,
-  ) as process:
-    yield f'Running: {command}\n'
-    for line in iter(process.stdout.readline, ''):
-      if line.strip() == last_line:
-        continue
-      last_line = line.strip()
-      yield line
-    process.stdout.flush()
-    process.stdout.close()
+
+  if use_stdout:
+    with subprocess.Popen(
+        command,
+        shell=True,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        text=True,
+    ) as process:
+      status_code = process.wait()
+      yield TaskResult(status_code=status_code)
+  else:
+    with subprocess.Popen(
+        command,
+        shell=True,
+        text=True,
+    ) as process:
+      status_code = process.wait()
+      for line in iter(process.stdout.readline, ''):
+        if line.strip() == last_line:
+          continue
+        last_line = line.strip()
+        yield line
+      process.stdout.flush()
+      process.stdout.close()
     status_code = process.wait()
-    yield f'Command finished with exit code: {status_code}\n'
     yield TaskResult(status_code=status_code)
