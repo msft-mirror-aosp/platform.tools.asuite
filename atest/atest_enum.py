@@ -105,6 +105,18 @@ class DetectType(IntEnum):
   ROBOLEAF_NON_MODULE_FINDER = 57  # Deprecated.
   ROBOLEAF_UNSUPPORTED_FLAG = 58  # Deprecated.
   INDEX_TARGETS_MS = 59
+  # An int representing the negotiated speed (in Mbits per seconds) the
+  # device is operating at.
+  USB_NEGOTIATED_SPEED = 60
+  # An int representing the maximum speed (in Mbits per seconds) of which the
+  # device is capable.
+  USB_MAX_SPEED = 61
+  # Time spent on waiting indexing to complete.
+  WAIT_FOR_INDEXING_MS = 62
+  # Whether procate db is locked. Value 1 means True, otherwise is False.
+  IS_PLOCATEDB_LOCKED = 63
+  # Device update duration
+  DEVICE_UPDATE_MS = 64
 
 
 @unique
