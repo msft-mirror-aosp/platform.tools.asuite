@@ -349,6 +349,11 @@ class AtestExecutionInfo:
         self._proc_usb_speed.terminate()
 
     log_path = pathlib.Path(self.work_dir)
+
+    AtestExecutionInfo._copy_build_trace_to_log_dir(
+        self._start_time, time.time(), self._repo_out_dir, log_path
+    )
+
     html_path = None
 
     if self.result_file_obj and not has_non_test_options(self.args_ns):
@@ -386,9 +391,6 @@ class AtestExecutionInfo:
       logging.debug('handle_exc_and_send_exit_event:%s', main_exit_code)
       metrics_utils.handle_exc_and_send_exit_event(main_exit_code)
 
-    AtestExecutionInfo._copy_build_trace_to_log_dir(
-        self._start_time, time.time(), self._repo_out_dir, log_path
-    )
     if log_uploader.is_uploading_logs():
       log_uploader.upload_logs_detached(log_path)
 
