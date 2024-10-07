@@ -21,8 +21,7 @@ const ENV_OUT: &str = "OUT";
 const ENV_USER: &str = "USER";
 const ENV_TARGET: &str = "TARGET_PRODUCT";
 const ENV_SURVEY_BANNER: &str = "ADEVICE_SURVEY_BANNER";
-const METRICS_UPLOADER: &str = "/google/bin/releases/adevice-dev/
-";
+const METRICS_UPLOADER: &str = "/google/bin/releases/adevice-dev/";
 const ADEVICE_LOG_SOURCE: i32 = 2265;
 
 pub trait MetricSender {
