@@ -56,7 +56,7 @@ from atest.tf_proto import test_record_pb2
 
 _BUILD_OUTPUT_ROLLING_LINES = 6
 _BASH_CLEAR_PREVIOUS_LINE_CODE = '\033[F\033[K'
-_BASH_RESET_CODE = '\033[0m\n'
+_BASH_RESET_CODE = '\033[0m'
 DIST_OUT_DIR = Path(
     os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd()) + '/out/dist/'
 )
