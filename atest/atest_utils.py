@@ -42,7 +42,7 @@ import subprocess
 import sys
 from threading import Thread
 import traceback
-from typing import Any, Dict, List, Set, Tuple, IO
+from typing import Any, Dict, IO, List, Set, Tuple
 import urllib
 import xml.etree.ElementTree as ET
 import zipfile
@@ -279,7 +279,7 @@ def _stream_io_output(io_input: IO, io_output: IO, max_lines=None):
       max_lines: The maximum number of rolling lines to display. If None, all
         lines will be displayed.
   """
-  io_output.write('\n----------------------------------------------------\n')
+  print('\n----------------------------------------------------')
   term_width, _ = get_terminal_size()
   full_output = []
   last_lines = None if not max_lines else deque(maxlen=max_lines)
@@ -304,10 +304,10 @@ def _stream_io_output(io_input: IO, io_output: IO, max_lines=None):
     io_output.write('\n')
     io_output.flush()
     last_number_of_lines = len(last_lines)
-  io_output.write(_BASH_RESET_CODE)
-  io_output.write('----------------------------------------------------\n')
-  io_output.flush()
   io_input.close()
+  io_output.write(_BASH_RESET_CODE)
+  io_output.flush()
+  print('----------------------------------------------------')
 
 
 def run_limited_output(
@@ -336,7 +336,9 @@ def run_limited_output(
       start_new_session=start_new_session,
       text=True,
   ) as proc:
-    _stream_io_output(proc.stdout, sys.stdout, _BUILD_OUTPUT_ROLLING_LINES)
+    _stream_io_output(
+        proc.stdout, _original_sys_stdout, _BUILD_OUTPUT_ROLLING_LINES
+    )
     returncode = proc.wait()
     if returncode:
       raise subprocess.CalledProcessError(returncode, cmd, full_output)
