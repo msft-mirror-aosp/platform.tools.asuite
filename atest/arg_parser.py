@@ -516,9 +516,15 @@ def create_atest_arg_parser():
       '--aggregate-metric-filter',
       action='append',
       help=(
-          '(For performance testing) Regular expression that will be used for'
+          '(For performance tests) Regular expression that will be used for'
           ' filtering the aggregated metrics.'
       ),
+  )
+
+  parser.add_argument(
+      '--perf-itr-metrics',
+      action='store_true',
+      help='(For performance tests) Print individual performance metric.',
   )
 
   parser.add_argument(
