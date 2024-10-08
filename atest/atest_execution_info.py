@@ -349,6 +349,24 @@ class AtestExecutionInfo:
         self._proc_usb_speed.terminate()
 
     log_path = pathlib.Path(self.work_dir)
+
+    build_log_path = log_path / 'build_logs'
+    build_log_path.mkdir()
+    AtestExecutionInfo._copy_build_artifacts_to_log_dir(
+        self._start_time,
+        time.time(),
+        self._repo_out_dir,
+        build_log_path,
+        'build.trace',
+    )
+    AtestExecutionInfo._copy_build_artifacts_to_log_dir(
+        self._start_time,
+        time.time(),
+        self._repo_out_dir,
+        build_log_path,
+        'verbose.log',
+    )
+
     html_path = None
 
     if self.result_file_obj and not has_non_test_options(self.args_ns):
@@ -386,9 +404,6 @@ class AtestExecutionInfo:
       logging.debug('handle_exc_and_send_exit_event:%s', main_exit_code)
       metrics_utils.handle_exc_and_send_exit_event(main_exit_code)
 
-    AtestExecutionInfo._copy_build_trace_to_log_dir(
-        self._start_time, time.time(), self._repo_out_dir, log_path
-    )
     if log_uploader.is_uploading_logs():
       log_uploader.upload_logs_detached(log_path)
 
@@ -430,20 +445,29 @@ class AtestExecutionInfo:
     return f'http://go/from-atest-runid/{metrics.get_run_id()}'
 
   @staticmethod
-  def _copy_build_trace_to_log_dir(
+  def _copy_build_artifacts_to_log_dir(
       start_time: float,
       end_time: float,
       repo_out_path: pathlib.Path,
       log_path: pathlib.Path,
+      file_name_prefix: str,
   ):
+    """Copy build trace files to log directory.
 
+    Params:
+      start_time: The start time of the build.
+      end_time: The end time of the build.
+      repo_out_path: The path to the repo out directory.
+      log_path: The path to the log directory.
+      file_name_prefix: The prefix of the file name.
+    """
     for file in repo_out_path.iterdir():
       if (
           file.is_file()
-          and file.name.startswith('build.trace')
+          and file.name.startswith(file_name_prefix)
           and start_time <= file.stat().st_mtime <= end_time
       ):
-        shutil.copy(file, log_path)
+        shutil.copy(file, log_path / file.name)
 
   @staticmethod
   def _generate_execution_detail(args):
