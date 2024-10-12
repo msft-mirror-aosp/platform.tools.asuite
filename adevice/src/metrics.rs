@@ -14,15 +14,14 @@ use std::env;
 use std::fs;
 use std::process::{Command, Stdio};
 use std::time::UNIX_EPOCH;
-use tracing::debug;
+use tracing::info;
 use uuid::Uuid;
 
 const ENV_OUT: &str = "OUT";
 const ENV_USER: &str = "USER";
 const ENV_TARGET: &str = "TARGET_PRODUCT";
 const ENV_SURVEY_BANNER: &str = "ADEVICE_SURVEY_BANNER";
-const METRICS_UPLOADER: &str = "/google/bin/releases/adevice-dev/
-";
+const METRICS_UPLOADER: &str = "/google/bin/releases/adevice-dev/metrics_uploader";
 const ADEVICE_LOG_SOURCE: i32 = 2265;
 
 pub trait MetricSender {
@@ -220,7 +219,7 @@ impl Drop for Metrics {
     fn drop(&mut self) {
         match self.send() {
             Ok(_) => (),
-            Err(e) => debug!("Failed to send metrics: {}", e),
+            Err(e) => info!("Failed to send metrics: {}", e),
         };
     }
 }
