@@ -400,7 +400,12 @@ class ResultReporter:
     for runner_name, groups in self.runners.items():
       for group_name, stats in groups.items():
         name = group_name if group_name else runner_name
-        summary = self.process_summary(name, stats)
+        test_run_name = (
+            self.all_test_results[-1].test_run_name
+            if self.all_test_results[-1].test_run_name != name
+            else None
+        )
+        summary = self.process_summary(name, stats, test_run_name=test_run_name)
         run_summary.append(summary)
     summary_list = ITER_SUMMARY.get(iteration_num, [])
     summary_list.extend(run_summary)
@@ -616,7 +621,7 @@ class ResultReporter:
       for test_name in self.failed_tests:
         print(test_name)
 
-  def process_summary(self, name, stats):
+  def process_summary(self, name, stats, test_run_name=None):
     """Process the summary line.
 
     Strategy:
@@ -632,6 +637,7 @@ class ResultReporter:
     Args:
         name: A string of test name.
         stats: A RunStat instance for a test group.
+        test_run_name: A string of test run name (optional)
 
     Returns:
         A summary of the test result.
@@ -687,8 +693,9 @@ class ResultReporter:
     )
     ITER_COUNTS[name] = temp
 
+    summary_name = f'{name}:{test_run_name}' if test_run_name else name
     summary = '%s: %s: %s, %s: %s, %s: %s, %s: %s %s %s' % (
-        name,
+        summary_name,
         passed_label,
         stats.passed,
         failed_label,
