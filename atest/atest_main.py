@@ -39,8 +39,9 @@ import platform
 import subprocess
 import sys
 import tempfile
+import threading
 import time
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Set
 
 from atest import arg_parser
 from atest import atest_configs
@@ -831,18 +832,15 @@ class _AtestMain:
       return status
     return None
 
-  def _start_indexing_if_required(self) -> None:
+  def _start_indexing_if_required(self) -> threading.Thread:
     """Starts indexing if required.
 
-    The decision flow is as follows: If no build is required, returns False.
-    Otherwise, if some index files are missing, returns True. Otherwise, if
-    some arguments that doesn't require indexing is present, returns False.
-    Otherwise, returns True.
+    Returns:
+        A thread that runs indexing. None if no indexing is required.
     """
-    self._indexing_proc = None
     if not self._steps.build:
       logging.debug("Skip indexing because there's no build required.")
-      return
+      return None
 
     if indexing.Indices().has_all_indices():
       no_indexing_args = (
@@ -853,32 +851,16 @@ class _AtestMain:
         logging.debug(
             'Skip indexing for no_indexing_args=%s.', no_indexing_args
         )
-        return
+        return None
     else:
       logging.debug(
           'Indexing targets is required because some index files do not exist.'
       )
 
     logging.debug('Starting to index targets in a background thread.')
-    self._indexing_proc = atest_utils.start_threading(
+    return atest_utils.start_threading(
         indexing.index_targets,
         daemon=True,
-    )
-
-  def _check_indexing_status(self) -> None:
-    """Checks indexing status and wait for it to complete if necessary."""
-    if (
-        not self._indexing_proc
-        or not self._indexing_proc.is_alive()
-        or indexing.Indices().has_all_indices()
-    ):
-      return
-    start_wait_for_indexing = time.time()
-    print('Waiting for the module indexing to complete.')
-    self._indexing_proc.join()
-    metrics.LocalDetectEvent(
-        detect_type=DetectType.WAIT_FOR_INDEXING_MS,
-        result=int(round((time.time() - start_wait_for_indexing) * 1000)),
     )
 
   @functools.cache
@@ -969,7 +951,8 @@ class _AtestMain:
     Returns:
         Exit code if anything went wrong. None otherwise.
     """
-    self._start_indexing_if_required()
+    indexing_thread = self._start_indexing_if_required()
+
     self._load_module_info()
 
     translator = cli_translator.CLITranslator(
@@ -978,12 +961,15 @@ class _AtestMain:
         bazel_mode_enabled=self._args.bazel_mode,
         host=self._args.host,
         bazel_mode_features=self._args.bazel_mode_features,
+        indexing_thread=indexing_thread,
     )
-
-    self._check_indexing_status()
 
     find_start = time.time()
     self._test_infos = translator.translate(self._args)
+
+    _AtestMain._inject_default_arguments_based_on_test_infos(
+        self._test_infos, self._args
+    )
 
     # Only check for sufficient devices if not dry run.
     self._args.device_count_config = get_device_count_config(
@@ -999,13 +985,23 @@ class _AtestMain:
       return ExitCode.TEST_NOT_FOUND
 
     self._test_execution_plan = _TestExecutionPlan.create(
+        args=self._args,
         test_infos=self._test_infos,
         results_dir=self._results_dir,
         mod_info=self._mod_info,
-        args=self._args,
     )
 
     return None
+
+  @staticmethod
+  def _inject_default_arguments_based_on_test_infos(
+      test_infos: list[test_info.TestInfo], args: argparse.Namespace
+  ) -> None:
+    if any(
+        'performance-tests' in info.compatibility_suites for info in test_infos
+    ):
+      if not args.disable_upload_result:
+        args.request_upload_result = True
 
   def _handle_list_modules(self) -> int:
     """Print the testable modules for a given suite.
@@ -1286,19 +1282,18 @@ class _TestExecutionPlan(abc.ABC):
 
   @staticmethod
   def create(
-      *,
+      args: argparse.Namespace,
       test_infos: List[test_info.TestInfo],
       results_dir: str,
       mod_info: module_info.ModuleInfo,
-      args: argparse.Namespace,
   ) -> _TestExecutionPlan:
     """Creates a plan to execute the tests.
 
     Args:
+        args: An argparse.Namespace instance holding parsed args.
         test_infos: A list of instances of TestInfo.
         results_dir: A directory which stores the ATest execution information.
         mod_info: An instance of ModuleInfo.
-        args: An argparse.Namespace instance holding parsed args.
 
     Returns:
         An instance of _TestExecutionPlan.
@@ -1306,25 +1301,28 @@ class _TestExecutionPlan(abc.ABC):
 
     if is_from_test_mapping(test_infos):
       return _TestMappingExecutionPlan.create(
+          args=args,
           test_infos=test_infos,
           results_dir=results_dir,
           mod_info=mod_info,
-          args=args,
       )
 
     return _TestModuleExecutionPlan.create(
+        args=args,
         test_infos=test_infos,
         results_dir=results_dir,
         mod_info=mod_info,
-        args=args,
     )
 
   def __init__(
       self,
-      *,
+      args: argparse.Namespace,
       extra_args: Dict[str, Any],
+      test_infos: List[test_info.TestInfo],
   ):
+    self._args = args
     self._extra_args = extra_args
+    self._test_infos = test_infos
 
   @property
   def extra_args(self) -> Dict[str, Any]:
@@ -1348,28 +1346,28 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
 
   def __init__(
       self,
-      *,
-      test_type_to_invocations: Dict[str, List[TestRunnerInvocation]],
+      args: argparse.Namespace,
       extra_args: Dict[str, Any],
+      test_infos: List[test_info.TestInfo],
+      test_type_to_invocations: Dict[str, List[TestRunnerInvocation]],
   ):
-    super().__init__(extra_args=extra_args)
+    super().__init__(args, extra_args, test_infos)
     self._test_type_to_invocations = test_type_to_invocations
 
   @staticmethod
   def create(
-      *,
+      args: argparse.Namespace,
       test_infos: List[test_info.TestInfo],
       results_dir: str,
       mod_info: module_info.ModuleInfo,
-      args: argparse.Namespace,
   ) -> _TestMappingExecutionPlan:
     """Creates an instance of _TestMappingExecutionPlan.
 
     Args:
+        args: An argparse.Namespace instance holding parsed args.
         test_infos: A list of instances of TestInfo.
         results_dir: A directory which stores the ATest execution information.
         mod_info: An instance of ModuleInfo.
-        args: An argparse.Namespace instance holding parsed args.
 
     Returns:
         An instance of _TestMappingExecutionPlan.
@@ -1429,8 +1427,10 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
       )
 
     return _TestMappingExecutionPlan(
-        test_type_to_invocations=test_type_to_invocations,
+        args=args,
         extra_args=extra_args,
+        test_infos=test_infos,
+        test_type_to_invocations=test_type_to_invocations,
     )
 
   def requires_device_update(self) -> bool:
@@ -1471,6 +1471,8 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
       reporter = result_reporter.ResultReporter(
           collect_only=self._extra_args.get(constants.COLLECT_TESTS_ONLY),
           wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
+          args=self._args,
+          test_infos=self._test_infos,
       )
       reporter.print_starting_text()
 
@@ -1509,28 +1511,28 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
 
   def __init__(
       self,
-      *,
-      test_runner_invocations: List[TestRunnerInvocation],
+      args: argparse.Namespace,
       extra_args: Dict[str, Any],
+      test_infos: List[test_info.TestInfo],
+      test_runner_invocations: List[TestRunnerInvocation],
   ):
-    super().__init__(extra_args=extra_args)
+    super().__init__(args, extra_args, test_infos)
     self._test_runner_invocations = test_runner_invocations
 
   @staticmethod
   def create(
-      *,
+      args: argparse.Namespace,
       test_infos: List[test_info.TestInfo],
       results_dir: str,
       mod_info: module_info.ModuleInfo,
-      args: argparse.Namespace,
   ) -> _TestModuleExecutionPlan:
     """Creates an instance of _TestModuleExecutionPlan.
 
     Args:
+        args: An argparse.Namespace instance holding parsed args.
         test_infos: A list of instances of TestInfo.
         results_dir: A directory which stores the ATest execution information.
         mod_info: An instance of ModuleInfo.
-        args: An argparse.Namespace instance holding parsed args.
         dry_run: A boolean of whether this invocation is a dry run.
 
     Returns:
@@ -1553,8 +1555,10 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
     )
 
     return _TestModuleExecutionPlan(
-        test_runner_invocations=invocations,
+        args=args,
         extra_args=extra_args,
+        test_infos=test_infos,
+        test_runner_invocations=invocations,
     )
 
   def requires_device_update(self) -> bool:
@@ -1574,6 +1578,8 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
     reporter = result_reporter.ResultReporter(
         collect_only=self.extra_args.get(constants.COLLECT_TESTS_ONLY),
         wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
+        args=self._args,
+        test_infos=self._test_infos,
     )
     reporter.print_starting_text()
 
