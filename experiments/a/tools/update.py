@@ -23,11 +23,15 @@ import os
 import sys
 
 from core.errors import WorkflowError
+from core.task_runner import Task
 from core.task_runner import TaskRunner
 
 
 class Update:
   """Updates a device."""
+
+  def __init__(self, args):
+    self.args = args
 
   @classmethod
   def add_parser(cls, subparsers):
@@ -42,52 +46,74 @@ class Update:
     )
 
     parser.add_argument('alias', nargs='*', default=[], type=str)
+    parser.add_argument(
+        '--build-only',
+        action='store_true',
+        help='Only build the specified targets, do not update the device.',
+    )
+    parser.add_argument(
+        '--update-only',
+        action='store_true',
+        help='Only update the device with prebuilt targets, do not build.',
+    )
 
-  def main(self, args):
+  def main(self):
     """Main entrypoint for Update."""
-    tasks, fall_back_tasks = self.gather_tasks(args.alias)
-    self.run_tasks(tasks, fall_back_tasks)
+    tasks = self.gather_tasks()
+    self.run_tasks(tasks)
 
-  def gather_tasks(self, requested_aliases):
+  def gather_tasks(self):
     """Gathers tasks to run based on alias."""
     tasks = []
-    fall_back_tasks = []
 
+    requested_aliases = self.args.alias
     aliases = get_aliases()
     if len(requested_aliases) >= 1:
       for a in requested_aliases:
         if a not in aliases:
           raise WorkflowError(f'Unknown Alias {a}')
 
+    build_tasks = []
+    update_tasks = []
+
     if len(requested_aliases) == 1:
       a = requested_aliases[0]
-      config = aliases[a]()
-      tasks += config.build()
-      tasks += config.update()
+      config = aliases[a]
+      build_tasks += config.build()
+      update_tasks += config.update()
+
+    if self.args.build_only:
+      tasks = build_tasks
+    elif self.args.update_only:
+      tasks = update_tasks
+    else:
+      tasks = build_tasks + update_tasks
 
     if not tasks:
-      # default
+      # If no tasks run adevice update with a fall back to a full flash.
       tasks = [
           'm sync',
-          'adevice update',
+          Task(
+              cmd='adevice update',
+              fall_back_tasks=[
+                  'm droid',
+                  'flashall',
+              ],
+          ),
       ]
-      fall_back_tasks = [
-          'm droid',
-          'flashall',
-      ]
+    return tasks
 
-    return (tasks, fall_back_tasks)
-
-  def run_tasks(self, tasks, fall_back_tasks):
+  def run_tasks(self, tasks):
     """Runs tasks."""
     task_runner = TaskRunner()
     task_runner.quiet = False
     for task in tasks:
       if isinstance(task, str):
         task_runner.add_shell_command_task(task)
+      elif isinstance(task, Task):
+        task_runner.add_shell_command_task(task.cmd, task.fall_back_tasks)
       else:
         task_runner.add_task(task)
-    task_runner.fall_back_tasks = fall_back_tasks
     task_runner.start()
 
 
@@ -227,6 +253,249 @@ class CarSysUIG(Alias):
     ]
 
 
+# These definitions are imported from makepush
+# https://team.git.corp.google.com/android-framework/toolbox/+/refs/heads/main/makepush/makepush.sh
+alias_definitions = {
+    'droid': {
+        'build': 'droid',
+        'update': 'flashall',
+    },
+    'snod': {
+        'build': 'snod',
+        'update': 'flashall',
+    },
+    'core_jni': {'build': 'libandroid_runtime'},
+    'res_jni': {'build': 'libandroidfw libidmap2'},
+    'idmap2': {'build': 'idmap2 idmap2d'},
+    'sf': {'build': 'surfaceflinger'},
+    'res': {'build': 'framework-res'},
+    'services': {'build': 'services protolog.conf.json.gz'},
+    'inputflinger': {'build': 'libinputflinger'},
+    'carsysui': {
+        'build': 'carSystemUI',
+        'update': 'adb shell am force-stop com.android.systemui',
+    },
+    'carsysuig': {
+        'build': 'AAECarSystemUI',
+        'update': 'adb shell am force-stop com.android.systemui',
+    },
+    'car-mainline': {
+        'build': 'AAECarSystemUI',
+        'update': (
+            'adb install -r --staged --enable-rollback'
+            ' $OUT/system/apex/com.android.car.framework.apex'
+        ),
+    },
+    'carfwk': {'build': 'carfwk car-frameworks-service'},
+    'carfwk-module': {'build': 'car-frameworks-service-module'},
+    'carsettings': {
+        'build': 'carSettings',
+        'update': 'adb shell am force-stop com.android.car.settings',
+    },
+    'carks': {
+        'build': 'EmbeddedKitchenSinkApp',
+        'update': 'adb shell am force-stop com.google.android.car.kitchensink',
+    },
+    'carlauncher': {
+        'build': 'carLauncher',
+        'update': 'adb shell am force-stop com.android.car.carlauncher',
+    },
+    'carlauncherg': {
+        'build': 'GASCarLauncher',
+        'update': 'adb shell am force-stop com.android.car.carlauncher',
+    },
+    'car-md-launcher': {
+        'build': 'MultiDisplaySecondaryHomeTestLauncher',
+        'update': (
+            'adb install'
+            ' $OUT/system/priv-app/MultiDisplaySecondaryHomeTestLauncher/MultiDisplaySecondaryHomeTestLauncher.apk'
+        ),
+    },
+    'carsuw': {
+        'build': 'carProvision',
+        'update': 'adb shell am force-stop com.android.car.provision',
+    },
+    'car': {'build': 'android.car'},
+    'car-builtin': {'build': 'android.car.builtin'},
+    'vhal-legacy': {
+        'build': 'android.hardware.automotive.vehicle@2.0-service',
+        'update': (
+            'adb shell am force-stop'
+            ' android.hardware.automotive.vehicle@2.0-service'
+        ),
+    },
+    'vhal': {
+        'build': 'android.hardware.automotive.vehicle@V1-default-service',
+        'update': (
+            'adb shell am force-stop'
+            ' android.hardware.automotive.vehicle@V1-default-service'
+        ),
+    },
+    'vhal-pasa': {
+        'build': 'android.hardware.automotive.vehicle@V1-pasa-service',
+        'update': (
+            'adb shell am force-stop'
+            ' android.hardware.automotive.vehicle@V1-pasa-service'
+        ),
+    },
+    'launcher': {'build': 'NexusLauncherRelease'},
+    'launcherd': {
+        'build': 'nexusLauncherDebug',
+        'update': (
+            'adb install'
+            ' $OUT/anywhere/priv-app/NexusLauncherDebug/NexusLauncherDebug.apk'
+        ),
+    },
+    'launchergo': {
+        'build': 'launcherGoGoogle',
+        'update': 'adb shell am force-stop com.android.launcher3',
+    },
+    'intentresolver': {
+        'build': 'intentResolver',
+        'update': 'adb shell am force-stop com.android.intentresolver',
+    },
+    'sysuig': {
+        'build': 'systemUIGoogle',
+        'update': 'adb shell am force-stop com.android.systemui',
+    },
+    'sysuititan': {
+        'build': 'systemUITitan',
+        'update': 'adb shell am force-stop com.android.systemui',
+    },
+    'sysuigo': {
+        'build': 'systemUIGo',
+        'update': 'adb shell am force-stop com.android.systemui',
+    },
+    'flagflipper': {
+        'build': 'theFlippinApp',
+        'update': 'adb shell am force-stop com.android.theflippinapp',
+    },
+    'docsui': {
+        'build': 'documentsUI',
+        'update': 'adb shell am force-stop com.android.documentsui',
+    },
+    'docsuig': {
+        'build': 'documentsUIGoogle',
+        'update': 'adb shell am force-stop com.google.android.documentsui',
+    },
+    'settings': {
+        'build': 'settings',
+        'update': 'adb shell am force-stop com.android.settings',
+    },
+    'settingsg': {
+        'build': 'SettingsGoogle',
+        'update': 'adb shell am force-stop com.google.android.settings',
+    },
+    'settingsgf': {
+        'build': 'SettingsGoogleFutureFaceEnroll',
+        'update': (
+            'adb shell am force-stop'
+            ' com.google.android.settings.future.biometrics.faceenroll'
+        ),
+    },
+    'settings_provider': {'build': 'SettingsProvider'},
+    'apidemos': {
+        'build': 'ApiDemos',
+        'update': (
+            'adb install'
+            ' $OUT/testcases/ApiDemos/$var_cache_TARGET_ARCH/ApiDemos.apk'
+        ),
+    },
+    'teleservice': {
+        'build': 'TeleService',
+        'update': 'adb shell am force-stop com.android.phone',
+    },
+    'managed_provisioning': {
+        'build': 'ManagedProvisioning',
+        'update': 'adb shell am force-stop com.android.managedprovisioning',
+    },
+    'car_managed_provisioning': {
+        'build': 'carManagedProvisioning',
+        'update': (
+            'adb install'
+            ' $OUT/anywhere/priv-app/CarManagedProvisioning/CarManagedProvisioning.apk'
+        ),
+    },
+    'ctsv': {
+        'build': 'ctsVerifier',
+        'update': (
+            'adb install'
+            ' $OUT/testcases/CtsVerifier/$var_cache_TARGET_ARCH/CtsVerifier.apk'
+        ),
+    },
+    'gtsv': {
+        'build': 'gtsVerifier',
+        'update': (
+            'adb install'
+            ' $OUT/testcases/GtsVerifier/$var_cache_TARGET_ARCH/GtsVerifier.apk'
+        ),
+    },
+    'suw': {
+        'build': 'Provision',
+        'update': 'adb shell am force-stop com.android.provision',
+    },
+    'pkg_installer': {
+        'build': 'PackageInstaller',
+        'update': 'adb shell am force-stop com.android.packageinstaller',
+    },
+    'pkg_installer_g': {
+        'build': 'GooglePackageInstaller',
+        'update': 'adb shell am force-stop com.google.android.packageinstaller',
+    },
+    'perm_controller': {
+        'build': 'PermissionController',
+        'update': (
+            'adb install'
+            ' $OUT/apex/com.android.permission/priv-app/PermissionController/PermissionController.apk'
+        ),
+    },
+    'perm_controller_g': {
+        'build': 'GooglePermissionController',
+        'update': (
+            'adb install -r'
+            ' $OUT/apex/com.google.android.permission/priv-app/GooglePermissionController/GooglePermissionController.apk'
+        ),
+    },
+    'wifi': {
+        'build': 'wifi',
+        'update': (
+            'adb install -r --staged --enable-rollback'
+            ' $OUT/system/apex/com.android.wifi && adb shell am force-stop'
+            ' com.android.wifi'
+        ),
+    },
+    'vold': {'build': 'vold', 'update': 'adb shell am force-stop vold'},
+    'multidisplay': {
+        'build': 'multiDisplayProvider',
+        'update': 'adb shell am force-stop com.android.emulator.multidisplay',
+    },
+    'wm_ext': {
+        'build': 'androidx.window.extensions',
+    },
+    'rb': {
+        'build': 'adServicesApk',
+        'update': (
+            'adb install'
+            ' $OUT/apex/com.android.adservices/priv-app/AdServices/AdServices.apk'
+        ),
+    },
+    'rb_g': {
+        'build': 'adServicesApkGoogle',
+        'update': (
+            'adb install'
+            ' $OUT/apex/com.google.android.adservices/priv-app/AdServicesApkGoogle@MASTER/AdServicesApkGoogle.apk'
+        ),
+    },
+    'sdk_sandbox': {
+        'build': 'sdkSandbox',
+        'update': (
+            'adb install'
+            ' $OUT/apex/com.google.android.adservices/app/SdkSandboxGoogle@MASTER/SdkSandboxGoogle.apk'
+        ),
+    },
+}
+
+
 # Utilities to get type of target
 def is_nexus():
   target_product = os.getenv('TARGET_PRODUCT')
@@ -237,11 +506,33 @@ def is_nexus():
   )
 
 
+def create_alias_from_config(config):
+  """Generates a Alias class from json."""
+  alias = Alias()
+  build = config.get('build', None)
+  if build:
+    alias.build = lambda: [f'm {build}']
+
+  update = config.get('update', None)
+  if update:
+    alias.update = lambda: [
+        'adevice update --restart=None',
+        update,
+    ]
+  return alias
+
+
 def get_aliases():
-  return {
-      name.lower(): cls
+  """Dynamically find all aliases."""
+  # definitions that subclass the Alias class
+  aliases = {
+      name.lower(): cls()
       for name, cls in inspect.getmembers(
           sys.modules[__name__], inspect.isclass
       )
       if issubclass(cls, Alias) and cls != Alias
   }
+  # definitions that are defined in alias_definitions
+  for name, config in alias_definitions.items():
+    aliases[name.lower()] = create_alias_from_config(config)
+  return aliases
