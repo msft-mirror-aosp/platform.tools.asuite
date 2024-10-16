@@ -344,6 +344,7 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
       include_device_serial: bool,
       print_output: bool = True,
       use_prebuilt_atest_binary=None,
+      pipe_to_stdin: str = None,
   ) -> AtestRunResult:
     """Run either `atest-dev` or `atest` command through subprocess.
 
@@ -359,6 +360,8 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
           is running.
         use_prebuilt_atest_binary: Whether to run the command using the prebuilt
           atest binary instead of the atest-dev binary.
+        pipe_to_stdin: A string value to pipe continuously to the stdin of the
+          command subprocess.
 
     Returns:
         An AtestRunResult object containing the run information.
@@ -387,6 +390,7 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         env=step_in.get_env(),
         cwd=step_in.get_repo_root(),
         print_output=print_output,
+        pipe_to_stdin=pipe_to_stdin,
     )
     elapsed_time = time.time() - start_time
     result = AtestRunResult(
@@ -419,39 +423,50 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
       env: dict[str, str],
       cwd: str,
       print_output: bool = True,
+      pipe_to_stdin: str = None,
   ) -> subprocess.CompletedProcess[str]:
     """Execute shell command with real time output printing and capture."""
 
-    def read_output(read_src, print_dst, capture_dst):
+    def read_output(process, read_src, print_dst, capture_dst):
       while (output := read_src.readline()) or process.poll() is None:
         if output:
           if print_output:
             print(output, end='', file=print_dst)
           capture_dst.append(output)
 
-    with subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=env,
-        cwd=cwd,
-    ) as process:
-      stdout = []
-      stderr = []
-      with concurrent.futures.ThreadPoolExecutor() as executor:
-        stdout_future = executor.submit(
-            read_output, process.stdout, sys.stdout, stdout
-        )
-        stderr_future = executor.submit(
-            read_output, process.stderr, sys.stderr, stderr
-        )
-      stdout_future.result()
-      stderr_future.result()
+    def run_popen(stdin=None):
+      with subprocess.Popen(
+          cmd,
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE,
+          stdin=stdin,
+          text=True,
+          env=env,
+          cwd=cwd,
+      ) as process:
+        stdout = []
+        stderr = []
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+          stdout_future = executor.submit(
+              read_output, process, process.stdout, sys.stdout, stdout
+          )
+          stderr_future = executor.submit(
+              read_output, process, process.stderr, sys.stderr, stderr
+          )
+        stdout_future.result()
+        stderr_future.result()
 
-      return subprocess.CompletedProcess(
-          cmd, process.poll(), ''.join(stdout), ''.join(stderr)
-      )
+        return subprocess.CompletedProcess(
+            cmd, process.poll(), ''.join(stdout), ''.join(stderr)
+        )
+
+    if pipe_to_stdin:
+      with subprocess.Popen(
+          ['yes', pipe_to_stdin], stdout=subprocess.PIPE
+      ) as yes_process:
+        return run_popen(yes_process.stdout)
+
+    return run_popen()
 
   @staticmethod
   def _get_jdk_path_list() -> str:
