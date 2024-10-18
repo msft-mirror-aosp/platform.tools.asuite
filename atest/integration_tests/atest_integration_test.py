@@ -434,6 +434,9 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
             print(output, end='', file=print_dst)
           capture_dst.append(output)
 
+    # Disable log uploading when running locally.
+    env['ENABLE_ATEST_LOG_UPLOADING'] = 'false'
+
     def run_popen(stdin=None):
       with subprocess.Popen(
           cmd,
