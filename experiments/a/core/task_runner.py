@@ -24,6 +24,14 @@ import threading
 from .errors import TaskError
 
 
+class Task:
+  """Defines a task to be run by the task_runner."""
+
+  def __init__(self, cmd, fall_back_tasks=None):
+    self.cmd = cmd
+    self.fall_back_tasks = fall_back_tasks
+
+
 class TaskResult:
   """Holds result and status code of a task."""
 
@@ -38,7 +46,6 @@ class TaskRunner:
   def __init__(self):
     self.tasks = {}
     self.task_queue = []
-    self.fall_back_tasks = []
 
     self.running = False
 
@@ -51,7 +58,7 @@ class TaskRunner:
     self.running_indicator_index = 0
     self.stop_event = threading.Event()
 
-  def add_task(self, name, function, *args, **kwargs):
+  def add_task(self, name, function, *args, fall_back_tasks=None, **kwargs):
     """Adds a task to the queue."""
     self.tasks[name] = {
         'status': 'pending',
@@ -59,6 +66,7 @@ class TaskRunner:
         'output': '',
         'args': args,
         'kwargs': kwargs,
+        'fall_back_tasks': fall_back_tasks,
     }
     self.task_queue.append(name)
 
@@ -88,12 +96,12 @@ class TaskRunner:
       self.tasks[name]['output'] += f'Error: {e}\n'
       self.render_output()
 
-      if self.fall_back_tasks:
+      fall_back_tasks = self.tasks[name].get('fall_back_tasks', [])
+      if fall_back_tasks:
         self.task_queue = []
-        for t in self.fall_back_tasks:
+        for t in fall_back_tasks:
           if isinstance(t, str):
-            self.add_shell_command_task(t)
-        self.fall_back_tasks = []
+            self.add_shell_command_task([t])
         self._run_next_task()
       else:
         if self.running:
@@ -120,9 +128,11 @@ class TaskRunner:
       )
       print('')
 
-  def add_shell_command_task(self, command):
+  def add_shell_command_task(self, command, fall_back_tasks=None):
     """Adds a shell command to the task queue."""
-    self.add_task(command, run_shell_command, command)
+    self.add_task(
+        command, run_shell_command, command, fall_back_tasks=fall_back_tasks
+    )
 
   def render_output(self):
     """Prints the output of the tasks as well as a table showing the progres on the task queue."""

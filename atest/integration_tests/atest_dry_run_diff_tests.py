@@ -97,6 +97,7 @@ class AtestDryRunDiffTests(atest_integration_test.AtestTestCase):
         step_in,
         include_device_serial=False,
         use_prebuilt_atest_binary=use_prod,
+        pipe_to_stdin='n',
     )
     get_prod_result = functools.partial(run_command, True)
     get_dev_result = functools.partial(run_command, False)
