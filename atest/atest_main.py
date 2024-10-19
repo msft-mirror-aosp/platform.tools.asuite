@@ -916,12 +916,6 @@ class _AtestMain:
       logging.debug('"--test" mode detected, will not rebuild module-info.')
       return False
     if self._args.rebuild_module_info:
-      msg = (
-          f'`{constants.REBUILD_MODULE_INFO_FLAG}` is no longer needed '
-          f'since Atest can smartly rebuild {module_info._MODULE_INFO} '
-          r'only when needed.'
-      )
-      atest_utils.colorful_print(msg, constants.YELLOW)
       return True
     logging.debug('Examinating the consistency of build files...')
     if not atest_utils.build_files_integrity_is_ok():
