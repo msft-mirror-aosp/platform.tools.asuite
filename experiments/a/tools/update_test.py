@@ -16,11 +16,15 @@
 #
 import argparse
 import unittest
-from .update import Core
-from .update import get_aliases
-from .update import SystemServer
-from .update import SysUI
 from .update import Update
+from .update_aliases import Core
+from .update_aliases import get_aliases
+from .update_aliases import SystemServer
+from .update_aliases import SysUI
+from .update_utils import combine_build_commands
+from .update_utils import combine_update_commands
+from .update_utils import remove_commands_that_starts_with
+from .update_utils import remove_duplicates_maintain_order
 
 
 class UpdateTest(unittest.TestCase):
@@ -55,10 +59,8 @@ class UpdateTest(unittest.TestCase):
     self.assertEqual(tasks[1].fall_back_tasks, ['m droid', 'flashall'])
 
   def test_gather_tasks_alias(self):
-
     self.args.alias = ['core']
     update = Update(self.args)
-
     tasks = update.gather_tasks()
     self.assertEqual(
         tasks, ['m framework framework-minus-apex', 'adevice update']
@@ -79,6 +81,68 @@ class UpdateTest(unittest.TestCase):
     update = Update(self.args)
     tasks = update.gather_tasks()
     self.assertEqual(tasks, ['adevice update'])
+
+  def test_gather_tasks_multiple_alias(self):
+    self.args.alias = ['sf', 'res']
+    update = Update(self.args)
+    tasks = update.gather_tasks()
+    self.assertEqual(
+        tasks, ['m surfaceflinger framework-res', 'adevice update']
+    )
+
+
+class UpdateUtilsTest(unittest.TestCase):
+
+  def test_remove_duplicates_maintain_order(self):
+    self.assertEqual(
+        remove_duplicates_maintain_order(['1', '2', '1', '3']), ['1', '2', '3']
+    )
+
+  def test_remove_commands_that_starts_with_no_match(self):
+    self.assertEqual(
+        remove_commands_that_starts_with(
+            commands=[
+                'keep a',
+                'keep b',
+                'remove a',
+                'remove b',
+            ],
+            cmd_to_remove='remove',
+        ),
+        ['keep a', 'keep b'],
+    )
+
+  def test_combine_build_cmd(self):
+    self.assertEqual(combine_build_commands(['m foo', 'm bar']), ['m foo bar'])
+
+  def test_combine_update_cmds_adevice_update(self):
+    # adevice update restarts so remove unneeded force-stops
+    self.assertEqual(
+        combine_update_commands([
+            'adevice update',
+            'adb shell "am force-stop foo"',
+            'adevice update',
+            'adb shell "am force-stop bar"',
+            'adevice update restart=none',
+        ]),
+        ['adevice update'],
+    )
+
+  def test_combine_update_cmds_adevice_update_no_restart(self):
+    # adevice update will not restart so keep force-stops
+    self.assertEqual(
+        combine_update_commands([
+            'adevice update --restart=none',
+            'adb shell "am force-stop foo"',
+            'adevice update --restart=none',
+            'adb shell "am force-stop bar"',
+        ]),
+        [
+            'adevice update --restart=none',
+            'adb shell "am force-stop foo"',
+            'adb shell "am force-stop bar"',
+        ],
+    )
 
 
 if __name__ == '__main__':
