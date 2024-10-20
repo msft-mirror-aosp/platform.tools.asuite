@@ -18,230 +18,107 @@
 """Update Tool."""
 
 import argparse
-import inspect
-import os
-import sys
 
 from core.errors import WorkflowError
+from core.task_runner import Task
 from core.task_runner import TaskRunner
+from tools.update_aliases import get_aliases
+from tools.update_utils import combine_build_commands
+from tools.update_utils import combine_update_commands
 
 
 class Update:
   """Updates a device."""
 
+  def __init__(self, args):
+    self.args = args
+
   @classmethod
   def add_parser(cls, subparsers):
     """Parse command line update arguments."""
 
+    aliases = get_aliases()
     epilog = 'Aliases:\n'
     for alias in get_aliases().keys():
-      epilog += f'  {alias}\n'
+      name = alias
+      build_commands = (';').join(aliases[name].build())
+      update_commands = (';').join(aliases[name].update())
+      epilog += f'  {name}:\n\t{build_commands}\n\t{update_commands}\n'
 
     parser = subparsers.add_parser(
         'update', epilog=epilog, formatter_class=argparse.RawTextHelpFormatter
     )
 
     parser.add_argument('alias', nargs='*', default=[], type=str)
+    parser.add_argument(
+        '--build-only',
+        action='store_true',
+        help='only build the specified targets, do not update the device.',
+    )
+    parser.add_argument(
+        '--update-only',
+        action='store_true',
+        help=(
+            'only update the device with prebuilt targets, do not build'
+            ' targets.'
+        ),
+    )
 
-  def main(self, args):
+  def main(self):
     """Main entrypoint for Update."""
-    tasks, fall_back_tasks = self.gather_tasks(args.alias)
-    self.run_tasks(tasks, fall_back_tasks)
+    tasks = self.gather_tasks()
+    self.run_tasks(tasks)
 
-  def gather_tasks(self, requested_aliases):
+  def gather_tasks(self):
     """Gathers tasks to run based on alias."""
     tasks = []
-    fall_back_tasks = []
+    build_tasks = []
+    update_tasks = []
 
+    requested_aliases = self.args.alias
     aliases = get_aliases()
-    if len(requested_aliases) >= 1:
-      for a in requested_aliases:
-        if a not in aliases:
-          raise WorkflowError(f'Unknown Alias {a}')
+    for a in requested_aliases:
+      if a not in aliases:
+        raise WorkflowError(f'unknown alias: {a}')
+      config = aliases[a]
+      build_tasks += config.build()
+      update_tasks += config.update()
 
-    if len(requested_aliases) == 1:
-      a = requested_aliases[0]
-      config = aliases[a]()
-      tasks += config.build()
-      tasks += config.update()
+    # combine build tasks
+    build_tasks = combine_build_commands(build_tasks)
+    # combine update tasks
+    update_tasks = combine_update_commands(update_tasks)
+
+    if self.args.build_only:
+      tasks = build_tasks
+    elif self.args.update_only:
+      tasks = update_tasks
+    else:
+      tasks = build_tasks + update_tasks
 
     if not tasks:
-      # default
+      # If no tasks run adevice update with a fall back to a full flash.
       tasks = [
           'm sync',
-          'adevice update',
+          Task(
+              cmd='adevice update',
+              fall_back_tasks=[
+                  'm droid',
+                  'flashall',
+              ],
+          ),
       ]
-      fall_back_tasks = [
-          'm droid',
-          'flashall',
-      ]
+    return tasks
 
-    return (tasks, fall_back_tasks)
-
-  def run_tasks(self, tasks, fall_back_tasks):
+  def run_tasks(self, tasks):
     """Runs tasks."""
     task_runner = TaskRunner()
     task_runner.quiet = False
     for task in tasks:
       if isinstance(task, str):
         task_runner.add_shell_command_task(task)
+      elif isinstance(task, Task):
+        task_runner.add_shell_command_task(task.cmd, task.fall_back_tasks)
       else:
         task_runner.add_task(task)
-    task_runner.fall_back_tasks = fall_back_tasks
     task_runner.start()
-
-
-class Alias:
-  """Base class for defining an alias."""
-
-  def build(self):
-    return []
-
-  def update(self):
-    return []
-
-
-class Core(Alias):
-  """Alias for Core."""
-
-  def build(self):
-    return ['m framework framework-minus-apex']
-
-  def update(self):
-    return [
-        'adevice update',
-    ]
-
-
-class SystemServer(Alias):
-  """Alias for SystemServer."""
-
-  def update(self):
-    return [
-        'adevice update --restart=none',
-        'adb kill systemserver',
-    ]
-
-
-class SysUI(Alias):
-  """Alias for SystemUI."""
-
-  def build(self):
-    if is_nexus():
-      raise WorkflowError(
-          "Target 'sysui' is not allowed on Nexus Experience devices.\n"
-          'Try sysuig (with g at the end) or sysuititan'
-      )
-    return ['m framework framework-minus-apex SystemUI']
-
-  def update(self):
-    target = 'com.android.systemui'
-    return [
-        'adevice update --restart=none',
-        f'adb shell "am force-stop {target}"',
-    ]
-
-
-class SysUIG(Alias):
-  """Alias for SystemUI for Google Devices."""
-
-  def build(self):
-    if not is_nexus():
-      raise WorkflowError(
-          "Target 'sysuig' is only allowed on Nexus Experience devices.\n"
-          'Try sysui (no g at the end)'
-      )
-    return ['m framework framework-minus-apex SystemUIGoogle']
-
-  def update(self):
-    target = 'com.android.systemui'
-    return [
-        'adevice update --restart=none',
-        f'adb shell am force-stop {target}',
-    ]
-
-
-class SysUITitan(Alias):
-  """Alias for SystemUI Titan devices."""
-
-  def build(self):
-    if not is_nexus():
-      raise WorkflowError(
-          "Target 'sysuititan' is only allowed on Nexus Experience devices.\n"
-          'Try sysui (no g at the end)'
-      )
-    return ['m framework framework-minus-apex SystemUITitan']
-
-  def update(self):
-    target = 'com.android.systemui'
-    return [
-        'adevice update --restart=none',
-        f'adb shell am force-stop {target}',
-    ]
-
-
-class SysUIGo(Alias):
-  """Alias for SystemUI."""
-
-  def build(self):
-    if not is_nexus():
-      raise WorkflowError(
-          "Target 'sysuigo' is only allowed on Nexus Experience devices.\n"
-          'Try sysui (no go at the end)'
-      )
-    return ['m framework framework-minus-apex SystemUIGo']
-
-  def update(self):
-    target = 'com.android.systemui'
-    return [
-        'adevice update --restart=none',
-        f'adb shell am force-stop {target}',
-    ]
-
-
-class CarSysUI(Alias):
-  """Alias for CarSystemUI."""
-
-  def build(self):
-    return ['m framework framework-minus-apex CarSystemUI']
-
-  def update(self):
-    target = 'com.android.systemui'
-    return [
-        'adevice update --restart=none',
-        f'adb shell am force-stop {target}',
-    ]
-
-
-class CarSysUIG(Alias):
-  """Alias for CarSystemUI."""
-
-  def build(self):
-    return ['m framework framework-minus-apex AAECarSystemUI']
-
-  def update(self):
-    target = 'com.android.systemui'
-    return [
-        'adevice update --restart=none',
-        f'adb shell am force-stop {target}',
-    ]
-
-
-# Utilities to get type of target
-def is_nexus():
-  target_product = os.getenv('TARGET_PRODUCT')
-  return (
-      target_product.startswith('.aosp')
-      or 'wembley' in target_product
-      or 'gms_humuhumu' in target_product
-  )
-
-
-def get_aliases():
-  return {
-      name.lower(): cls
-      for name, cls in inspect.getmembers(
-          sys.modules[__name__], inspect.isclass
-      )
-      if issubclass(cls, Alias) and cls != Alias
-  }
