@@ -52,8 +52,8 @@ def run():
 
   # Tool
   tool_name = args.tool.lower()
-  tool = tools_map[tool_name]()
-  return tool.main(args)
+  tool = tools_map[tool_name](args)
+  return tool.main()
 
 
 if __name__ == '__main__':
