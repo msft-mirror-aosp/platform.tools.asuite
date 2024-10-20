@@ -35,25 +35,23 @@ tools_map = {
 def run():
   """Entry point for tool."""
   parser = argparse.ArgumentParser(
-      description='Run workflows to build update and test modules',
+      description='A runs tools and workflows for local Android development',
       formatter_class=argparse.RawDescriptionHelpFormatter,
   )
-  parser.add_argument(
-      '-q',
-      '--quiet',
-      action='store_true',
-      help='Do not display progress updates',
-  )
-  subparsers = parser.add_subparsers(dest='tool', required=True)
+  subparsers = parser.add_subparsers(dest='tool')
   for _, tool_class in tools_map.items():
     tool_class.add_parser(subparsers)
 
   args = parser.parse_args()
 
   # Tool
+  if not args.tool:
+    print('Error: Please specify a tool (eg. update)')
+    parser.print_help()
+    exit(1)
   tool_name = args.tool.lower()
-  tool = tools_map[tool_name]()
-  return tool.main(args)
+  tool = tools_map[tool_name](args)
+  return tool.main()
 
 
 if __name__ == '__main__':
