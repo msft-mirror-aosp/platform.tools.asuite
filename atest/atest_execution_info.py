@@ -389,10 +389,10 @@ class AtestExecutionInfo:
       print(f'Test logs: {log_path / "log"}')
     log_link = html_path if html_path else log_path
     if log_link:
-      print(f'Log file list: {atest_utils.mark_magenta(f"file://{log_link}")}')
+      print(atest_utils.mark_magenta(f'Log file list: file://{log_link}'))
     bug_report_url = AtestExecutionInfo._create_bug_report_url()
     if bug_report_url:
-      print(f'Issue report: {bug_report_url}')
+      print(atest_utils.mark_magenta(f"Bug report: {bug_report_url}"))
     print()
 
     # Do not send stacktrace with send_exit_event when exit code is not
