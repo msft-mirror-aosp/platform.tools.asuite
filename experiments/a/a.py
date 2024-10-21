@@ -48,7 +48,7 @@ def run():
   if not args.tool:
     print('Error: Please specify a tool (eg. update)')
     parser.print_help()
-    exit(1)
+    return 1
   tool_name = args.tool.lower()
   tool = tools_map[tool_name](args)
   return tool.main()
