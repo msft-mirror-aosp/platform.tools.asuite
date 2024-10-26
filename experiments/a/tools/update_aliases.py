@@ -198,7 +198,7 @@ alias_definitions = {
         'update': 'adb shell am force-stop com.android.systemui',
     },
     'car-mainline': {
-        'build': 'AAECarSystemUI',
+        'build': 'com.android.car.framework',
         'update': (
             'adb install -r --staged --enable-rollback'
             ' $OUT/system/apex/com.android.car.framework.apex'
@@ -375,7 +375,7 @@ alias_definitions = {
         ),
     },
     'wifi': {
-        'build': 'wifi',
+        'build': 'com.android.wifi',
         'update': (
             'adb install -r --staged --enable-rollback'
             ' $OUT/system/apex/com.android.wifi && adb shell am force-stop'
