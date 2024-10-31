@@ -21,6 +21,7 @@
 
 import os
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -229,45 +230,71 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         test_finder_utils.extract_selected_tests(uc.CLASS_NAME), []
     )
 
-  @mock.patch('builtins.input', return_value='1')
+  @mock.patch('builtins.input')
   def test_extract_test_from_multiselect(self, mock_input):
     """Test method extract_selected_tests method."""
-    # selecting 'All'
-    paths = ['/a/b/c.java', '/d/e/f.java', '/g/h/i.java']
-    mock_input.return_value = '3'
-    unittest_utils.assert_strict_equal(
-        self,
-        sorted(test_finder_utils.extract_selected_tests(FIND_THREE_LIST)),
-        sorted(paths),
-    )
     # multi-select
     paths = ['/a/b/c.java', '/g/h/i.java']
     mock_input.return_value = '0,2'
+
     unittest_utils.assert_strict_equal(
         self,
         sorted(test_finder_utils.extract_selected_tests(FIND_THREE_LIST)),
         sorted(paths),
     )
+
     # selecting a range
     paths = ['/d/e/f.java', '/g/h/i.java']
     mock_input.return_value = '1-2'
+
     unittest_utils.assert_strict_equal(
         self, test_finder_utils.extract_selected_tests(FIND_THREE_LIST), paths
     )
+
     # mixed formats
     paths = ['/a/b/c.java', '/d/e/f.java', '/g/h/i.java']
     mock_input.return_value = '0,1-2'
+
     unittest_utils.assert_strict_equal(
         self,
         sorted(test_finder_utils.extract_selected_tests(FIND_THREE_LIST)),
         sorted(paths),
     )
+
     # input unsupported formats, return empty
     paths = []
     mock_input.return_value = '?/#'
+
     unittest_utils.assert_strict_equal(
         self, test_finder_utils.extract_test_path(FIND_THREE), paths
     )
+
+  @mock.patch('builtins.input')
+  @mock.patch.object(test_finder_utils, 'get_selected_indices')
+  def test_multiselect_auxiliary_menu_all_returns_all_tests(
+      self, mock_get_selected_indices, mock_input):
+    paths = ['/a/b/c.java', '/d/e/f.java', '/g/h/i.java']
+    mock_input.return_value = 'A'
+
+    unittest_utils.assert_strict_equal(
+        self,
+        sorted(test_finder_utils.extract_selected_tests(FIND_THREE_LIST)),
+        sorted(paths),
+    )
+    mock_get_selected_indices.assert_not_called()
+
+  @mock.patch('builtins.input')
+  @mock.patch.object(sys, 'exit')
+  @mock.patch.object(test_finder_utils, 'get_selected_indices')
+  def test_multiselect_auxiliary_menu_lowercase_cancel_returns_empty_list(
+      self, mock_get_selected_indices, mock_exit, mock_input):
+    # Cancelling the command
+    mock_input.return_value = 'c'
+
+    test_finder_utils.extract_selected_tests(FIND_THREE_LIST)
+
+    mock_exit.assert_called_once_with(0)
+    mock_get_selected_indices.assert_not_called()
 
   @mock.patch('os.path.isdir')
   def test_is_equal_or_sub_dir(self, mock_isdir):

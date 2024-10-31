@@ -14,7 +14,7 @@ use std::env;
 use std::fs;
 use std::process::{Command, Stdio};
 use std::time::UNIX_EPOCH;
-use tracing::debug;
+use tracing::info;
 use uuid::Uuid;
 
 const ENV_OUT: &str = "OUT";
@@ -160,7 +160,9 @@ impl Metrics {
         if fs::metadata(METRICS_UPLOADER).is_err() {
             return Err(anyhow!("Not internal user: Metrics not sent since uploader not found"));
         }
-
+        if self.user.is_empty() {
+            return Err(anyhow!("USER env not set: Metrics not sent since no user set"));
+        }
         // Serialize
         let body = {
             let mut log_request = LogRequest::default();
@@ -217,7 +219,7 @@ impl Drop for Metrics {
     fn drop(&mut self) {
         match self.send() {
             Ok(_) => (),
-            Err(e) => debug!("Failed to send metrics: {}", e),
+            Err(e) => info!("Failed to send metrics: {}", e),
         };
     }
 }

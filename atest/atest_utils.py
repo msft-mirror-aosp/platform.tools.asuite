@@ -20,6 +20,7 @@
 
 from __future__ import print_function
 
+from collections import deque
 from dataclasses import dataclass
 import datetime
 import enum
@@ -41,7 +42,7 @@ import subprocess
 import sys
 from threading import Thread
 import traceback
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, IO, List, Set, Tuple
 import urllib
 import xml.etree.ElementTree as ET
 import zipfile
@@ -53,7 +54,9 @@ from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.tf_proto import test_record_pb2
 
-_BASH_RESET_CODE = '\033[0m\n'
+_BUILD_OUTPUT_ROLLING_LINES = 6
+_BASH_CLEAR_PREVIOUS_LINE_CODE = '\033[F\033[K'
+_BASH_RESET_CODE = '\033[0m'
 DIST_OUT_DIR = Path(
     os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd()) + '/out/dist/'
 )
@@ -95,8 +98,6 @@ _WILDCARD_CHARS = {'?', '*'}
 
 _WILDCARD_FILTER_RE = re.compile(r'.*[?|*]$')
 _REGULAR_FILTER_RE = re.compile(r'.*\w$')
-# Printed before the html log line. May be used in tests to parse the html path.
-_HTML_LOG_PRINT_PREFIX = 'To access logs, press "ctrl" and click on'
 
 SUGGESTIONS = {
     # (b/177626045) If Atest does not install target application properly.
@@ -269,13 +270,57 @@ def _capture_limited_output(full_log):
   return output
 
 
-# TODO: b/187122993 refine subprocess with 'with-statement' in fixit week.
-def run_limited_output(cmd, env_vars=None):
+def _stream_io_output(io_input: IO, io_output: IO, max_lines=None):
+  """Stream an IO output with max number of rolling lines to display if set.
+
+  Args:
+      input: The file-like object to read the output from.
+      output: The file-like object to write the output to.
+      max_lines: The maximum number of rolling lines to display. If None, all
+        lines will be displayed.
+  """
+  print('\n----------------------------------------------------')
+  term_width, _ = get_terminal_size()
+  full_output = []
+  last_lines = None if not max_lines else deque(maxlen=max_lines)
+  last_number_of_lines = 0
+  for line in iter(io_input.readline, ''):
+    full_output.append(line)
+    line = line.rstrip()
+    if last_lines is None:
+      io_output.write(line)
+      io_output.write('\n')
+      io_output.flush()
+      continue
+    # Split the line if it's longer than the terminal width
+    wrapped_lines = (
+        [line]
+        if len(line) <= term_width
+        else [line[i : i + term_width] for i in range(0, len(line), term_width)]
+    )
+    last_lines.extend(wrapped_lines)
+    io_output.write(_BASH_CLEAR_PREVIOUS_LINE_CODE * last_number_of_lines)
+    io_output.write('\n'.join(last_lines))
+    io_output.write('\n')
+    io_output.flush()
+    last_number_of_lines = len(last_lines)
+  io_input.close()
+  io_output.write(_BASH_RESET_CODE)
+  io_output.flush()
+  print('----------------------------------------------------')
+
+
+def run_limited_output(
+    cmd, env_vars=None, shell=False, start_new_session=False
+):
   """Runs a given command and streams the output on a single line in stdout.
 
   Args:
       cmd: A list of strings representing the command to run.
       env_vars: Optional arg. Dict of env vars to set during build.
+      shell: Optional arg. Whether to use shell to run the command.
+      start_new_session: Optional arg. Whether to start a new session for the
+        command.
 
   Raises:
       subprocess.CalledProcessError: When the command exits with a non-0
@@ -283,35 +328,20 @@ def run_limited_output(cmd, env_vars=None):
   """
   # Send stderr to stdout so we only have to deal with a single pipe.
   with subprocess.Popen(
-      cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env_vars
+      cmd,
+      stdout=subprocess.PIPE,
+      stderr=subprocess.STDOUT,
+      env=env_vars,
+      shell=shell,
+      start_new_session=start_new_session,
+      text=True,
   ) as proc:
-    sys.stdout.write('\n')
-    term_width, _ = get_terminal_size()
-    white_space = ' ' * int(term_width)
-    full_output = []
-    while proc.poll() is None:
-      line = proc.stdout.readline().decode('utf-8')
-      # Readline will often return empty strings.
-      if not line:
-        continue
-      full_output.append(line)
-      # Trim the line to the width of the terminal.
-      # Note: Does not handle terminal resizing, which is probably not
-      #       worth checking the width every loop.
-      if len(line) >= term_width:
-        line = line[: term_width - 1]
-      # Clear the last line we outputted.
-      sys.stdout.write('\r%s\r' % white_space)
-      sys.stdout.write('%s' % line.strip())
-      sys.stdout.flush()
-    # Reset stdout (on bash) to remove any custom formatting and newline.
-    sys.stdout.write(_BASH_RESET_CODE)
-    sys.stdout.flush()
-    # Wait for the Popen to finish completely before checking the
-    # returncode.
-    proc.wait()
-    if proc.returncode != 0:
-      raise subprocess.CalledProcessError(proc.returncode, cmd, full_output)
+    _stream_io_output(
+        proc.stdout, _original_sys_stdout, _BUILD_OUTPUT_ROLLING_LINES
+    )
+    returncode = proc.wait()
+    if returncode:
+      raise subprocess.CalledProcessError(returncode, cmd, full_output)
 
 
 def get_build_out_dir(*joinpaths) -> Path:
@@ -503,7 +533,6 @@ def is_test_mapping(args):
   return all((len(args.tests) == 1, args.tests[0][0] == ':'))
 
 
-@atest_decorator.static_var('cached_has_colors', {})
 def _has_colors(stream):
   """Check the output stream is colorful.
 
@@ -513,21 +542,11 @@ def _has_colors(stream):
   Returns:
       True if the file stream can interpreter the ANSI color code.
   """
-  cached_has_colors = _has_colors.cached_has_colors
-  if stream in cached_has_colors:
-    return cached_has_colors[stream]
-  cached_has_colors[stream] = True
   # Following from Python cookbook, #475186
-  if not hasattr(stream, 'isatty'):
-    cached_has_colors[stream] = False
-    return False
-  if not stream.isatty():
-    # Auto color only on TTYs
-    cached_has_colors[stream] = False
-    return False
+  # Auto color only on TTYs
   # curses.tigetnum() cannot be used for telling supported color numbers
   # because it does not come with the prebuilt py3-cmd.
-  return cached_has_colors[stream]
+  return getattr(stream, 'isatty', lambda: False)()
 
 
 def colorize(text, color, bp_color=None):
@@ -1637,7 +1656,7 @@ def save_build_files_timestamp():
         json.dump(timestamp, _file)
 
 
-def run_multi_proc(func, *args, **kwargs):
+def run_multi_proc(func, *args, **kwargs) -> Process:
   """Start a process with multiprocessing and return Process object.
 
   Args:
@@ -1653,13 +1672,13 @@ def run_multi_proc(func, *args, **kwargs):
   return proc
 
 
-def start_threading(target, *args, **kwargs):
+def start_threading(target, *args, **kwargs) -> Thread:
   """Start a Thread-based parallelism.
 
   Args:
-      func: A string of function name which will be the target name.
+      target: A string of function name which will be the target name.
         args/kwargs: check doc page:
-      https://docs.python.org/3/library/threading.html#threading.Thread
+        https://docs.python.org/3/library/threading.html#threading.Thread
 
   Returns:
       threading.Thread object.
@@ -1921,11 +1940,11 @@ def get_manifest_info(manifest: Path) -> Dict[str, Any]:
 
 
 # pylint: disable=broad-except
-def generate_print_result_html(result_file: Path):
+def generate_result_html(result_file: Path) -> Path:
   """Generate a html that collects all log files."""
   result_file = Path(result_file)
-  search_dir = Path(result_file).parent.joinpath('log')
-  result_html = Path(search_dir, 'test_logs.html')
+  search_dir = Path(result_file).parent
+  result_html = Path(result_file.parent, 'local_log_file_list.html')
   try:
     logs = sorted(find_files(str(search_dir), file_name='*', followlinks=True))
     with open(result_html, 'w', encoding='utf-8') as cache:
@@ -1938,15 +1957,14 @@ def generate_print_result_html(result_file: Path):
       for log in logs:
         cache.write(
             f'<p><a href="{urllib.parse.quote(log)}">'
-            f'{html.escape(Path(log).name)}</a></p>'
+            f'{html.escape(Path(log).relative_to(search_dir).as_posix())}</a></p>'
         )
       cache.write('</body></html>')
-    print(
-        f'\n{_HTML_LOG_PRINT_PREFIX}\n{mark_magenta(f"file://{result_html}")}\n'
-    )
     send_tradeded_elapsed_time_metric(search_dir)
+    return result_html
   except Exception as e:
     logging.debug('Did not generate log html for reason: %s', e)
+    return None
 
 
 def send_tradeded_elapsed_time_metric(search_dir: Path):

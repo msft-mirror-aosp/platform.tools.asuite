@@ -14,58 +14,70 @@
 
 """Module that detects device attributes and USB speed using adb commands."""
 
+import enum
 import logging
 import subprocess
+from typing import NamedTuple
 from atest import atest_utils
 from atest import constants
-from packages.modules.adb.proto import adb_host_pb2
 
 
-def verify_and_print_usb_speed_warning(device: adb_host_pb2.Device) -> bool:
+@enum.unique
+class UsbAttributeName(enum.Enum):
+  NEGOTIATED_SPEED = 'current_speed'
+  MAXIMUM_SPEED = 'maximum_speed'
+
+
+class DeviceIds(NamedTuple):
+  manufacturer: str
+  model: str
+  name: str
+  serial: str
+  address: str
+
+
+def verify_and_print_usb_speed_warning(
+    device_ids: DeviceIds, negotiated_speed: int, max_speed: int
+) -> bool:
   """Checks whether the connection speed is optimal for the given device.
 
   Args:
-      device: The proto representation of a device.
+      device_ids: Identifiers allowing a user to recognize the device the usb
+        speed warning is related to.
+      negotiated_speed: The current speed of the device.
+      max_speed: The maximum speed that the given device is capable of.
 
   Returns:
       True if the warning was printed, False otherwise.
   """
-  if (
-      device.connection_type != adb_host_pb2.ConnectionType.USB
-      or device.state != adb_host_pb2.ConnectionState.DEVICE
-  ):
-    return False
-
   # If a USB-2 is used with a USB-3 capable device, the speed will be
   # downgraded to 480 Mbps and never 12 Mbps, so this is the only case we
   # check.
-  if (
-      device.negotiated_speed == 480
-      and device.negotiated_speed < device.max_speed
-  ):
-    _print_usb_speed_warning(
-        device.serial, device.negotiated_speed, device.max_speed
-    )
+  if negotiated_speed == 480 and negotiated_speed < max_speed:
+    _print_usb_speed_warning(device_ids, negotiated_speed, max_speed)
     return True
   return False
 
 
 def _print_usb_speed_warning(
-    serial: str, negotiated_speed: int, max_speed: int
+    device_ids: DeviceIds, negotiated_speed: int, max_speed: int
 ):
   """Prints a warning about the device's operating speed if it's suboptimal.
 
   Args:
-    serial: The serial number of the device.
+    device_ids: Identifiers allowing a user to recognize the device the usb
+      speed warning is related to.
     negotiated_speed: The negotiated speed (in Mbits per seconds) the device is
       operating at.
     max_speed: The maximum speed (in Mbits per seconds) of which the device is
       capable.
   """
   atest_utils.colorful_print(
-      f'Warning: The device with serial {serial} is using'
-      f' {_speed_to_string(negotiated_speed)} while'
-      f' {_speed_to_string(max_speed)} capable. Check the USB cables/hubs.',
+      f'Warning: The {device_ids.manufacturer} {device_ids.model} device ('
+      f'{device_ids.name}) with address {device_ids.address} and serial '
+      f'{device_ids.serial} is using '
+      f'{_speed_to_string(negotiated_speed)} while '
+      f'{_speed_to_string(max_speed)} capable. Check the USB cables/hubs.',
       constants.MAGENTA,
   )
 
@@ -81,33 +93,117 @@ def _speed_to_string(speed: int) -> str:
   }.get(speed, f'{speed:,} Mbps')
 
 
-def get_device_proto_binary() -> adb_host_pb2.Device:
-  """Run `adb track-devices --proto-binary` to fetch the device info.
+def _string_to_speed(speed_str: str) -> int:
+  return {
+      'UNKNOWN': 0,
+      'high-speed': 480,
+      'super-speed': 5000,
+      'super-speed-plus': 10000,
+  }.get(speed_str, 0)
+
+
+def get_udc_driver_usb_device_dir_name() -> str:
+  """Reads the directory where the usb devices attributes are stored.
 
   Returns:
-     A Device object with the attributes of the given device.
+      A string corresponding to the directory name.
   """
-  if not atest_utils.has_command('adb'):
-    return adb_host_pb2.Device()
-  proc = subprocess.Popen(
-      ['adb', 'track-devices', '--proto-binary'],
-      stdin=subprocess.PIPE,
-      stdout=subprocess.PIPE,
+  return _adb_read_file('/config/usb_gadget/g1/UDC')
+
+
+def get_udc_driver_usb_device_attribute_speed_value(
+    speed_dir_name: str,
+    attr_name: UsbAttributeName,
+) -> int:
+  """Reads the usb speed string from the device and returns the numeric speed.
+
+  Args:
+      speed_dir_name: name of the directory where the usb driver attributes are
+        located.
+      attr_name: The attribute to read from the device.
+
+  Returns:
+      An int corresponding to the numeric speed value converted from the udc
+      driver attribute value. 0 is returned if adb is unable to read the value.
+  """
+  speed_reading = _adb_read_file(
+      '/sys/class/udc/' + speed_dir_name + '/' + attr_name.value
   )
-  devices = None
+  return _string_to_speed(speed_reading)
+
+
+def _adb_read_file(file_path: str) -> str:
+  cmd = [
+      'adb',
+      'shell',
+      'su',
+      '0',
+      f'cat {file_path}',
+  ]
   try:
-    devices = adb_host_pb2.Devices.FromString(
-        proc.stdout.read(int(proc.stdout.read(4).decode('utf-8'), 16))
+    logging.debug('Running command: %s', cmd)
+    result = subprocess.check_output(
+        cmd,
+        encoding='utf-8',
+        stderr=subprocess.STDOUT,
     )
-  except ValueError as ve:
+    return result.strip()
+  except subprocess.CalledProcessError as cpe:
     logging.debug(
-        'Exception raised while running `adb track-devices`. USB speed will'
-        ' not be read. Error: %s',
-        ve,
+        f'Cannot read directory; USB speed will not be read. Error: %s', cpe
     )
-  # Make sure the process is terminated even though an exception is thrown.
-  proc.terminate()
-  # When multiple devices are available, only one will be used.
-  return (
-      devices.device[0] if devices and devices.device else adb_host_pb2.Device()
+  except OSError as ose:
+    logging.debug(f'Cannot read usb speed from the device. Error: %s', ose)
+  return ''
+
+
+def get_adb_device_identifiers() -> DeviceIds | None:
+  """Fetch the user-facing device identifiers."""
+  if not atest_utils.has_command('adb'):
+    return None
+
+  device_serial = _adb_run_cmd(['adb', 'shell', 'getprop', 'ro.serialno'])
+  if not device_serial:
+    return None
+
+  device_address_resp = _adb_run_cmd(['adb', 'devices'])
+  try:
+    device_addresses = device_address_resp.splitlines()
+    for line in device_addresses:
+      if 'device' in line:
+        device_address = line.split()[0].strip()
+  except IndexError:
+    logging.debug('No devices are connected. USB speed will not be read.')
+    return None
+
+  device_manufacturer = _adb_run_cmd(
+      ['adb', 'shell', 'getprop', 'ro.product.manufacturer']
   )
+  device_model = _adb_run_cmd(['adb', 'shell', 'getprop', 'ro.product.model'])
+  device_name = _adb_run_cmd(['adb', 'shell', 'getprop', 'ro.product.name'])
+
+  return DeviceIds(
+      manufacturer=device_manufacturer,
+      model=device_model,
+      name=device_name,
+      serial=device_serial,
+      address=device_address,
+  )
+
+
+def _adb_run_cmd(cmd: list[str]) -> str:
+  try:
+    logging.debug(f'Running command: %s.', cmd)
+    result = subprocess.check_output(
+        cmd,
+        encoding='utf-8',
+        stderr=subprocess.STDOUT,
+    )
+    return result.strip() if result else ''
+  except subprocess.CalledProcessError:
+    logging.debug(
+        'Exception raised while running `%s`. USB speed will not be read.', cmd
+    )
+  except OSError:
+    logging.debug('Could not find adb. USB speed will not be read.')
+  return ''
