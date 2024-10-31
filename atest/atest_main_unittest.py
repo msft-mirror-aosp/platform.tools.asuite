@@ -247,6 +247,39 @@ class AtestUnittests(unittest.TestCase):
     )
 
 
+class AtestMainUnitTests(unittest.TestCase):
+
+  def test_performance_tests_inject_default_args(self):
+    non_perf_test_info = test_info.TestInfo(
+        'some_module',
+        'TestRunner',
+        set(),
+        compatibility_suites=['not-performance'],
+    )
+    perf_test_info = test_info.TestInfo(
+        'some_module',
+        'TestRunner',
+        set(),
+        compatibility_suites=['performance-tests'],
+    )
+    args_original = atest_main._parse_args([])
+    args = atest_main._parse_args([])
+
+    with self.subTest(name='does not inject default args for non-perf tests'):
+      atest_main._AtestMain._inject_default_arguments_based_on_test_infos(
+          [non_perf_test_info], args
+      )
+
+      self.assertEqual(args_original, args)
+
+    with self.subTest(name='injects default args for perf tests'):
+      atest_main._AtestMain._inject_default_arguments_based_on_test_infos(
+          [perf_test_info], args
+      )
+
+      self.assertNotEqual(args_original, args)
+
+
 # pylint: disable=missing-function-docstring
 class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
   """Fixture for ModuleInfo tests."""
