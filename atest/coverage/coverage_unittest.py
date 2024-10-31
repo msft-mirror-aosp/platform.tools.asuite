@@ -149,7 +149,14 @@ class CollectNativeReportBinariesUnittests(unittest.TestCase):
       return_value=PosixPath('/out/soong/.intermediates'),
   )
   @mock.patch.object(PosixPath, 'glob')
-  def test_native_binary(self, _glob, _get_build_out_dir):
+  @mock.patch.object(
+      coverage,
+      '_strip_irrelevant_objects',
+      return_value={
+          '/out/soong/.intermediates/path/to/native_bin/variant-name-cov/unstripped/native_bin'
+      },
+  )
+  def test_native_binary(self, _strip_irrelevant_objects, _glob, _get_build_out_dir):
     _glob.return_value = [
         PosixPath(
             '/out/soong/.intermediates/path/to/native_bin/variant-name-cov/unstripped/native_bin'
@@ -175,7 +182,14 @@ class CollectNativeReportBinariesUnittests(unittest.TestCase):
       return_value=PosixPath('/out/soong/.intermediates'),
   )
   @mock.patch.object(PosixPath, 'glob')
-  def test_skip_rsp_and_d_and_toc_files(self, _glob, _get_build_out_dir):
+  @mock.patch.object(
+      coverage,
+      '_strip_irrelevant_objects',
+      return_value={
+          '/out/soong/.intermediates/path/to/native_bin/variant-name-cov/unstripped/native_bin'
+      },
+  )
+  def test_skip_rsp_and_d_and_toc_files(self, _strip_irrelevant_objects, _glob, _get_build_out_dir):
     _glob.return_value = [
         PosixPath(
             '/out/soong/.intermediates/path/to/native_bin/variant-name-cov/unstripped/native_bin'
@@ -204,7 +218,14 @@ class CollectNativeReportBinariesUnittests(unittest.TestCase):
         },
     )
 
-  def test_host_test_includes_installed(self):
+  @mock.patch.object(
+      coverage,
+      '_strip_irrelevant_objects',
+      return_value={
+          '/out/host/nativetests/native_host_test'
+      },
+  )
+  def test_host_test_includes_installed(self, _strip_irrelevant_objects):
     code_under_test = {'native_host_test'}
     mod_info = create_module_info([
         module(
