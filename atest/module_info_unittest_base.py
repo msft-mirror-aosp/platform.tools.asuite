@@ -22,6 +22,7 @@ object, for use in unit tests.
 import pathlib
 import tempfile
 
+from atest import atest_utils
 from atest import constants
 from atest import module_info
 from atest.test_finders import test_info
@@ -53,6 +54,13 @@ class ModuleInfoTest(fake_filesystem_unittest.TestCase):
 
     for m in modules:
       mod_info.name_to_module_info[m[constants.MODULE_INFO_ID]] = m
+
+    for m in modules:
+      for path in m[constants.MODULE_PATH]:
+        if not mod_info.path_to_module_info.get(path, []):
+          mod_info.path_to_module_info[path] = [m]
+        else:
+          mod_info.path_to_module_info[path].append(m)
 
     return mod_info
 
@@ -87,10 +95,13 @@ def device_driven_test_module(
     host_deps=None,
     class_type=None,
     is_unit_test=None,
+    module_path=None,
+    srcs=None,
+    test_configs=None,
 ):
 
   name = name or 'hello_world_test'
-  module_path = 'example_module/project'
+  module_path = module_path or 'example_module/project'
 
   return test_module(
       name=name,
@@ -101,6 +112,8 @@ def device_driven_test_module(
       class_type=class_type or ['APP'],
       module_path=module_path,
       is_unit_test=is_unit_test,
+      srcs=srcs,
+      test_configs=test_configs,
   )
 
 
@@ -110,9 +123,11 @@ def device_driven_multi_config_test_module(
     compatibility_suites=None,
     host_deps=None,
     class_type=None,
+    module_path=None,
+    srcs=None,
 ):
 
-  module_path = 'example_module/project'
+  module_path = module_path or 'example_module/project'
   return test_module(
       name=name,
       supported_variants=['DEVICE'],
@@ -126,6 +141,7 @@ def device_driven_multi_config_test_module(
       host_deps=host_deps,
       class_type=class_type or ['APP'],
       module_path=module_path,
+      srcs=srcs,
   )
 
 
@@ -178,6 +194,7 @@ def test_module(
     class_type=None,
     module_path=None,
     is_unit_test=None,
+    srcs=None,
 ):
   """Creates a module object which with properties specific to a test module."""
   return module(
@@ -192,6 +209,7 @@ def test_module(
       class_type=class_type,
       module_path=[module_path],
       is_unit_test=is_unit_test,
+      srcs=srcs,
   )
 
 
@@ -207,6 +225,7 @@ def module(
     class_type=None,
     module_path=None,
     is_unit_test=None,
+    srcs=None,
 ):
   """Creates a ModuleInfo object.
 
@@ -227,5 +246,6 @@ def module(
   m[constants.MODULE_CLASS] = class_type or []
   m[constants.MODULE_PATH] = module_path or []
   m[constants.MODULE_IS_UNIT_TEST] = is_unit_test or 'false'
+  m[constants.MODULE_SRCS] = srcs or []
 
   return m
