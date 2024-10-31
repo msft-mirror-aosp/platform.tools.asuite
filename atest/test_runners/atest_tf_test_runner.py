@@ -306,8 +306,19 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     self._try_set_gts_authentication_key()
     result = 0
     upload_start = time.time()
+    invocation_properties = {'atest_run_id': metrics.get_run_id()}
+
+    # Set crystalball_ingest property if there are performance tests.
+    is_perf_tests = False
+    for info in test_infos:
+      if 'performance-tests' in info.compatibility_suites:
+        is_perf_tests = True
+        break
+    if is_perf_tests:
+      invocation_properties['crystalball_ingest'] = 'yes'
+
     creds, inv = (
-        logstorage_utils.do_upload_flow(extra_args)
+        logstorage_utils.do_upload_flow(extra_args, invocation_properties)
         if logstorage_utils.is_upload_enabled(extra_args)
         else (None, None)
     )
@@ -840,7 +851,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         A list that contains the string of atest tradefed run command.
         Only one command is returned.
     """
-    if extra_args.get(constants.USE_TF_MIN_BASE_TEMPLATE):
+    if any(
+        'performance-tests' in info.compatibility_suites for info in test_infos
+    ):
+      self.run_cmd_dict['template'] = 'template/performance-tests-base'
+    elif extra_args.get(constants.USE_TF_MIN_BASE_TEMPLATE):
       self.run_cmd_dict['template'] = self._TF_LOCAL_MIN
     else:
       self.run_cmd_dict['template'] = (
@@ -932,7 +947,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
       test_args.extend(atest_utils.get_result_server_args(for_test_mapping))
     self.run_cmd_dict['args'] = ' '.join(test_args)
     self.run_cmd_dict['tf_customize_template'] = (
-        self._extract_customize_tf_templates(extra_args, test_infos)
+        self._extract_customize_tf_templates(extra_args)
     )
 
     # By default using ATestFileSystemLogSaver no matter what running under
@@ -1153,27 +1168,16 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     ]
     return ' '.join(extracted_options)
 
-  def _extract_customize_tf_templates(self, extra_args, test_infos):
+  def _extract_customize_tf_templates(self, extra_args: dict[str]) -> str:
     """Extract tradefed template options to a string for output.
 
     Args:
         extra_args: Dict of extra args for test runners to use.
-        test_infos: A set of TestInfo instances.
 
-    Returns: A string of tradefed template options.
+    Returns:
+        A string of tradefed template options.
     """
     tf_templates = extra_args.get(constants.TF_TEMPLATE, [])
-    tf_template_keys = [i.split('=')[0] for i in tf_templates]
-    for info in test_infos:
-      if (
-          info.aggregate_metrics_result
-          and 'metric_post_processor' not in tf_template_keys
-      ):
-        template_key = 'metric_post_processor'
-        template_value = (
-            'google/template/postprocessors/metric-file-aggregate-disabled'
-        )
-        tf_templates.append(f'{template_key}={template_value}')
     return ' '.join(['--template:map %s' % x for x in tf_templates])
 
   def _handle_log_associations(self, event_handlers):

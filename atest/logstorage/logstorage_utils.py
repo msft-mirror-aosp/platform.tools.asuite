@@ -88,7 +88,7 @@ def is_upload_enabled(args: dict[str, str]) -> bool:
 
 
 def do_upload_flow(
-    extra_args: dict[str, str], atest_run_id: str = None
+    extra_args: dict[str, str], invocation_properties: dict[str, str] = None
 ) -> tuple:
   """Run upload flow.
 
@@ -96,13 +96,15 @@ def do_upload_flow(
 
   Args:
       extra_args: Dict of extra args to add to test run.
-      atest_run_id: The atest run ID to write into the invocation.
+      invocation_properties: Additional invocation properties to write into the
+        invocation.
 
   Return:
       A tuple of credential object and invocation information dict.
   """
+  invocation_properties = invocation_properties or {}
   return atest_gcp_utils.do_upload_flow(
-      extra_args, lambda cred: BuildClient(cred), atest_run_id
+      extra_args, lambda cred: BuildClient(cred), invocation_properties
   )
 
 
@@ -191,12 +193,15 @@ class BuildClient:
         .execute()
     )
 
-  def insert_invocation(self, build_record, atest_run_id: str):
+  def insert_invocation(
+      self, build_record: dict[str, str], invocation_properties: dict[str, str]
+  ):
     """Insert a build invocation record.
 
     Args:
         build_record: build record.
-        atest_run_id: The atest run ID to write into the invocation.
+        invocation_properties: Additional invocation properties to write into
+          the invocation.
 
     Returns:
         A build invocation object.
@@ -222,7 +227,9 @@ class BuildClient:
                 'name': 'test_uri',
                 'value': f'{constants.STORAGE2_TEST_URI}{sponge_invocation_id}',
             },
-            {'name': 'atest_run_id', 'value': atest_run_id},
+        ] + [
+            {'name': key, 'value': value}
+            for key, value in invocation_properties.items()
         ],
     }
     return self.client.invocation().insert(body=invocation).execute()

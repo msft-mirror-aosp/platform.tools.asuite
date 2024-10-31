@@ -67,6 +67,7 @@ from __future__ import print_function
 from collections import OrderedDict
 import logging
 import os
+import pathlib
 import re
 import zipfile
 
@@ -290,7 +291,14 @@ class ResultReporter:
             'VtsTradefedTestRunner': {'Module1': RunStat(passed:4, failed:0)}}
   """
 
-  def __init__(self, silent=False, collect_only=False, wait_for_debugger=False):
+  def __init__(
+      self,
+      silent=False,
+      collect_only=False,
+      wait_for_debugger=False,
+      args=None,
+      test_infos=None,
+  ):
     """Init ResultReporter.
 
     Args:
@@ -308,6 +316,8 @@ class ResultReporter:
     self.test_result_link = None
     self.device_count = 0
     self.wait_for_debugger = wait_for_debugger
+    self._args = args
+    self._test_infos = test_infos or []
 
   def get_test_results_by_runner(self, runner_name):
     return [t for t in self.all_test_results if t.runner_name == runner_name]
@@ -390,7 +400,12 @@ class ResultReporter:
     for runner_name, groups in self.runners.items():
       for group_name, stats in groups.items():
         name = group_name if group_name else runner_name
-        summary = self.process_summary(name, stats)
+        test_run_name = (
+            self.all_test_results[-1].test_run_name
+            if self.all_test_results[-1].test_run_name != name
+            else None
+        )
+        summary = self.process_summary(name, stats, test_run_name=test_run_name)
         run_summary.append(summary)
     summary_list = ITER_SUMMARY.get(iteration_num, [])
     summary_list.extend(run_summary)
@@ -479,9 +494,8 @@ class ResultReporter:
         print(au.mark_red(message))
         print('-' * len(message))
         self.print_failed_tests()
-    if self.log_path:
-      # Print aggregate result if any.
-      self._print_aggregate_test_metrics()
+
+    self._print_perf_test_metrics()
     # TODO(b/174535786) Error handling while uploading test results has
     # unexpected exceptions.
     # TODO (b/174627499) Saving this information in atest history.
@@ -489,32 +503,67 @@ class ResultReporter:
       print('Test Result uploaded to %s' % au.mark_green(self.test_result_link))
     return tests_ret
 
-  def _print_aggregate_test_metrics(self):
-    """Print aggregate test metrics text content if metric files exist."""
-    metric_files = au.find_files(
+  def _print_perf_test_metrics(self) -> bool:
+    """Print perf test metrics text content to console.
+
+    Returns:
+        True if metric printing is attempted; False if not perf tests.
+    """
+    if not any(
+        'performance-tests' in info.compatibility_suites
+        for info in self._test_infos
+    ):
+      return False
+
+    if not self.log_path:
+      return True
+
+    aggregated_metric_files = au.find_files(
         self.log_path, file_name='*_aggregate_test_metrics_*.txt'
     )
 
-    if metric_files:
-      print('\n{}'.format(au.mark_cyan('Aggregate test metrics')))
+    if self._args.perf_itr_metrics:
+      individual_metric_files = au.find_files(
+          self.log_path, file_name='test_results_*.txt'
+      )
+      print('\n{}'.format(au.mark_cyan('Individual test metrics')))
       print(au.delimiter('-', 7))
-      for metric_file in metric_files:
-        self._print_test_metric(metric_file)
+      for metric_file in individual_metric_files:
+        metric_file_path = pathlib.Path(metric_file)
+        # Skip aggregate metrics as we are printing individual metrics here.
+        if '_aggregate_test_metrics_' in metric_file_path.name:
+          continue
+        print('{}:'.format(au.mark_cyan(metric_file_path.name)))
+        print(
+            ''.join(
+                f'{" "*4}{line}'
+                for line in metric_file_path.read_text(
+                    encoding='utf-8'
+                ).splitlines(keepends=True)
+            )
+        )
 
-  def _print_test_metric(self, metric_file):
+    print('\n{}'.format(au.mark_cyan('Aggregate test metrics')))
+    print(au.delimiter('-', 7))
+    for metric_file in aggregated_metric_files:
+      self._print_test_metric(pathlib.Path(metric_file))
+
+    return True
+
+  def _print_test_metric(self, metric_file: pathlib.Path) -> None:
     """Print the content of the input metric file."""
     test_metrics_re = re.compile(
         r'test_results.*\s(.*)_aggregate_test_metrics_.*\.txt'
     )
-    if not os.path.isfile(metric_file):
+    if not metric_file.is_file():
       return
-    matches = re.findall(test_metrics_re, metric_file)
+    matches = re.findall(test_metrics_re, metric_file.as_posix())
     test_name = matches[0] if matches else ''
     if test_name:
       print('{}:'.format(au.mark_cyan(test_name)))
-      with open(metric_file, 'r', encoding='utf-8') as f:
+      with metric_file.open('r', encoding='utf-8') as f:
         matched = False
-        filter_res = atest_configs.GLOBAL_ARGS.aggregate_metric_filter
+        filter_res = self._args.aggregate_metric_filter
         logging.debug('Aggregate metric filters: %s', filter_res)
         test_methods = []
         # Collect all test methods
@@ -564,9 +613,6 @@ class ResultReporter:
       for group_name, _ in groups.items():
         name = group_name if group_name else runner_name
         print(name)
-    print()
-    if self.log_path:
-      print(f'{_TEST_LOG_PATH_PRINT_PREFIX}{self.log_path}')
     return ExitCode.SUCCESS
 
   def print_failed_tests(self):
@@ -575,7 +621,7 @@ class ResultReporter:
       for test_name in self.failed_tests:
         print(test_name)
 
-  def process_summary(self, name, stats):
+  def process_summary(self, name, stats, test_run_name=None):
     """Process the summary line.
 
     Strategy:
@@ -591,6 +637,7 @@ class ResultReporter:
     Args:
         name: A string of test name.
         stats: A RunStat instance for a test group.
+        test_run_name: A string of test run name (optional)
 
     Returns:
         A summary of the test result.
@@ -646,8 +693,9 @@ class ResultReporter:
     )
     ITER_COUNTS[name] = temp
 
+    summary_name = f'{name}:{test_run_name}' if test_run_name else name
     summary = '%s: %s: %s, %s: %s, %s: %s, %s: %s %s %s' % (
-        name,
+        summary_name,
         passed_label,
         stats.passed,
         failed_label,

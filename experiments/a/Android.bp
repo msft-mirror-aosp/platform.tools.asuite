@@ -13,18 +13,29 @@
 // limitations under the License.
 
 python_binary_host {
-    name: "filter_teams",
+    name: "a",
+    main: "a.py",
     srcs: [
-        "filter_teams.py",
+        "a.py",
+        "**/*.py",
     ],
-    libs: [
-        "teams-proto-py",
-        "code-metadata-proto-py",
-        "test-spec-proto-py",
-    ],
+    libs: [],
     version: {
         py3: {
             embedded_launcher: true,
         },
     },
+}
+
+python_test_host {
+    name: "a_tests",
+    main: "tests.py",
+    srcs: [
+        "tests.py",
+        "**/*.py",
+    ],
+    test_options: {
+        unit_test: true,
+    },
+    test_suites: ["general-tests"],
 }
