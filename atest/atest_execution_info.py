@@ -311,6 +311,7 @@ class AtestExecutionInfo:
     self.result_file_obj = None
     self.args_ns = args_ns
     self.test_result = os.path.join(self.work_dir, _TEST_RESULT_NAME)
+    self._proc_usb_speed = None
     logging.debug(
         'A %s object is created with args %s, work_dir %s',
         __class__,
@@ -330,26 +331,42 @@ class AtestExecutionInfo:
       self.result_file_obj = open(self.test_result, 'w')
     except IOError:
       atest_utils.print_and_log_error('Cannot open file %s', self.test_result)
+
+    self._proc_usb_speed = atest_utils.run_multi_proc(
+        func=self._send_usb_metrics_and_warning
+    )
+
     return self.result_file_obj
 
   def __exit__(self, exit_type, value, traceback):
     """Write execution information and close information file."""
 
-    # Read the USB speed and send usb metrics.
-    device_proto = usb.get_device_proto_binary()
-    usb.verify_and_print_usb_speed_warning(device_proto)
-    metrics.LocalDetectEvent(
-        detect_type=atest_enum.DetectType.USB_NEGOTIATED_SPEED,
-        result=device_proto.negotiated_speed
-        if device_proto.negotiated_speed
-        else 0,
-    )
-    metrics.LocalDetectEvent(
-        detect_type=atest_enum.DetectType.USB_MAX_SPEED,
-        result=device_proto.max_speed if device_proto.max_speed else 0,
-    )
+    if self._proc_usb_speed:
+      # Usb speed detection is not an obligatory function of atest,
+      # so it can be skipped if the process hasn't finished by the time atest
+      # is ready to exit.
+      if self._proc_usb_speed.is_alive():
+        self._proc_usb_speed.terminate()
 
     log_path = pathlib.Path(self.work_dir)
+
+    build_log_path = log_path / 'build_logs'
+    build_log_path.mkdir()
+    AtestExecutionInfo._copy_build_artifacts_to_log_dir(
+        self._start_time,
+        time.time(),
+        self._repo_out_dir,
+        build_log_path,
+        'build.trace',
+    )
+    AtestExecutionInfo._copy_build_artifacts_to_log_dir(
+        self._start_time,
+        time.time(),
+        self._repo_out_dir,
+        build_log_path,
+        'verbose.log',
+    )
+
     html_path = None
 
     if self.result_file_obj and not has_non_test_options(self.args_ns):
@@ -368,12 +385,14 @@ class AtestExecutionInfo:
     )
 
     print()
+    if log_path:
+      print(f'Test logs: {log_path / "log"}')
     log_link = html_path if html_path else log_path
     if log_link:
-      print(f'Logs: {atest_utils.mark_magenta(f"file://{log_link}")}')
+      print(atest_utils.mark_magenta(f'Log file list: file://{log_link}'))
     bug_report_url = AtestExecutionInfo._create_bug_report_url()
     if bug_report_url:
-      print(f'Issue report: {bug_report_url}')
+      print(atest_utils.mark_magenta(f"Bug report: {bug_report_url}"))
     print()
 
     # Do not send stacktrace with send_exit_event when exit code is not
@@ -385,11 +404,37 @@ class AtestExecutionInfo:
       logging.debug('handle_exc_and_send_exit_event:%s', main_exit_code)
       metrics_utils.handle_exc_and_send_exit_event(main_exit_code)
 
-    AtestExecutionInfo._copy_build_trace_to_log_dir(
-        self._start_time, time.time(), self._repo_out_dir, log_path
-    )
     if log_uploader.is_uploading_logs():
       log_uploader.upload_logs_detached(log_path)
+
+  def _send_usb_metrics_and_warning(self):
+    # Read the USB speed and send usb metrics.
+    device_ids = usb.get_adb_device_identifiers()
+    if not device_ids:
+      return
+
+    usb_speed_dir_name = usb.get_udc_driver_usb_device_dir_name()
+    if not usb_speed_dir_name:
+      return
+
+    usb_negotiated_speed = usb.get_udc_driver_usb_device_attribute_speed_value(
+        usb_speed_dir_name, usb.UsbAttributeName.NEGOTIATED_SPEED
+    )
+    usb_max_speed = usb.get_udc_driver_usb_device_attribute_speed_value(
+        usb_speed_dir_name, usb.UsbAttributeName.MAXIMUM_SPEED
+    )
+    usb.verify_and_print_usb_speed_warning(
+        device_ids, usb_negotiated_speed, usb_max_speed
+    )
+
+    metrics.LocalDetectEvent(
+        detect_type=atest_enum.DetectType.USB_NEGOTIATED_SPEED,
+        result=usb_negotiated_speed,
+    )
+    metrics.LocalDetectEvent(
+        detect_type=atest_enum.DetectType.USB_MAX_SPEED,
+        result=usb_max_speed,
+    )
 
   @staticmethod
   def _create_bug_report_url() -> str:
@@ -400,20 +445,29 @@ class AtestExecutionInfo:
     return f'http://go/from-atest-runid/{metrics.get_run_id()}'
 
   @staticmethod
-  def _copy_build_trace_to_log_dir(
+  def _copy_build_artifacts_to_log_dir(
       start_time: float,
       end_time: float,
       repo_out_path: pathlib.Path,
       log_path: pathlib.Path,
+      file_name_prefix: str,
   ):
+    """Copy build trace files to log directory.
 
+    Params:
+      start_time: The start time of the build.
+      end_time: The end time of the build.
+      repo_out_path: The path to the repo out directory.
+      log_path: The path to the log directory.
+      file_name_prefix: The prefix of the file name.
+    """
     for file in repo_out_path.iterdir():
       if (
           file.is_file()
-          and file.name.startswith('build.trace')
+          and file.name.startswith(file_name_prefix)
           and start_time <= file.stat().st_mtime <= end_time
       ):
-        shutil.copy(file, log_path)
+        shutil.copy(file, log_path / file.name)
 
   @staticmethod
   def _generate_execution_detail(args):
