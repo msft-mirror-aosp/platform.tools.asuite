@@ -249,7 +249,7 @@ def _collect_native_report_binaries(code_under_test, mod_info, is_host_enabled):
         continue
       module_dir = soong_intermediates.joinpath(path, module)
       # Check for unstripped binaries to report coverage.
-      report_binaries.update(_find_native_binaries(module_dir))
+      report_binaries.update(module_dir.glob('*cov*/**/unstripped/*'))
 
     # Host tests use the test itself to generate the coverage report.
     info = mod_info.get_module_info(module)
@@ -264,26 +264,21 @@ def _collect_native_report_binaries(code_under_test, mod_info, is_host_enabled):
           str(f) for f in mod_info.get_installed_paths(module)
       )
 
-  return report_binaries
+  return _strip_irrelevant_objects(report_binaries)
 
 
-def _find_native_binaries(module_dir):
-  files = module_dir.glob('*cov*/**/unstripped/*')
-
-  # Exclude .rsp files. These are files containing the command line used to
-  # generate the unstripped binaries, but are stored in the same directory as
-  # the actual output binary.
-  # Exclude .d and .d.raw files. These are Rust dependency files and are also
-  # stored in the unstripped directory.
-  # Exclude .toc files. These are just a table of conents of a shared library,
-  # but are also stored in the unstripped directory.
-  return [
-      str(file)
-      for file in files
-      if '.rsp' not in file.suffixes
-      and '.d' not in file.suffixes
-      and '.toc' not in file.suffixes
-  ]
+def _strip_irrelevant_objects(files):
+  objects = set()
+  for file in files:
+    cmd = ['llvm-readobj', file]
+    try:
+      subprocess.run(
+          cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+      )
+      objects.add(file)
+    except subprocess.CalledProcessError:
+      logging.debug(f'{file} is not a valid object file, skipping.')
+  return objects
 
 
 def _get_all_src_paths(modules, mod_info):
