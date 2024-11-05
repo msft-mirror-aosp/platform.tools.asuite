@@ -113,6 +113,10 @@ class DetectType(IntEnum):
   USB_MAX_SPEED = 61
   # Time spent on waiting indexing to complete.
   WAIT_FOR_INDEXING_MS = 62
+  # Whether procate db is locked. Value 1 means True, otherwise is False.
+  IS_PLOCATEDB_LOCKED = 63
+  # Device update duration
+  DEVICE_UPDATE_MS = 64
 
 
 @unique

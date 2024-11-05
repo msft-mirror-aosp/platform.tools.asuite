@@ -14,7 +14,7 @@ use std::env;
 use std::fs;
 use std::process::{Command, Stdio};
 use std::time::UNIX_EPOCH;
-use tracing::debug;
+use tracing::info;
 use uuid::Uuid;
 
 const ENV_OUT: &str = "OUT";
@@ -219,7 +219,7 @@ impl Drop for Metrics {
     fn drop(&mut self) {
         match self.send() {
             Ok(_) => (),
-            Err(e) => debug!("Failed to send metrics: {}", e),
+            Err(e) => info!("Failed to send metrics: {}", e),
         };
     }
 }
