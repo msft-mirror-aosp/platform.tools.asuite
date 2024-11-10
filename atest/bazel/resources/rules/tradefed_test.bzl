@@ -14,10 +14,6 @@
 
 """Rules used to run tests using Tradefed."""
 
-load("//bazel/rules:platform_transitions.bzl", "device_transition", "host_transition")
-load("//bazel/rules:tradefed_test_aspects.bzl", "soong_prebuilt_tradefed_test_aspect")
-load("//bazel/rules:tradefed_test_dependency_info.bzl", "TradefedTestDependencyInfo")
-load("//bazel/rules:common_settings.bzl", "BuildSettingInfo")
 load(
     "//:constants.bzl",
     "aapt2_label",
@@ -32,7 +28,11 @@ load(
     "tradefed_test_framework_label",
     "vts_core_tradefed_harness_label",
 )
+load("//bazel/rules:common_settings.bzl", "BuildSettingInfo")
 load("//bazel/rules:device_test.bzl", "device_test")
+load("//bazel/rules:platform_transitions.bzl", "device_transition", "host_transition")
+load("//bazel/rules:tradefed_test_aspects.bzl", "soong_prebuilt_tradefed_test_aspect")
+load("//bazel/rules:tradefed_test_dependency_info.bzl", "TradefedTestDependencyInfo")
 
 TradefedTestInfo = provider(
     doc = "Info about a Tradefed test module",
@@ -381,7 +381,7 @@ def _get_tradefed_deps(suites, tradefed_deps = []):
     # Since `vts-core-tradefed-harness` includes `compatibility-tradefed`, we
     # will exclude `compatibility-tradefed` if `vts-core-tradefed-harness` exists.
     if vts_core_tradefed_harness_label in all_tradefed_deps:
-        all_tradefed_deps.pop(compatibility_tradefed_label, default = None)
+        all_tradefed_deps.pop(compatibility_tradefed_label)
 
     return all_tradefed_deps.keys()
 
@@ -424,18 +424,16 @@ def _configure_java_toolchain(ctx):
 
 def _configure_python_toolchain(ctx):
     py_toolchain_info = ctx.toolchains[_PY_TOOLCHAIN]
-    py2_interpreter = py_toolchain_info.py2_runtime.interpreter
     py3_interpreter = py_toolchain_info.py3_runtime.interpreter
 
     # Create `python` and `python3` symlinks in the runfiles tree and add them
     # to the executable path. This is required because scripts reference these
     # commands in their shebang line.
     py_runfiles = ctx.runfiles(symlinks = {
-        "/".join([py2_interpreter.dirname, "python"]): py2_interpreter,
+        "/".join([py3_interpreter.dirname, "python"]): py3_interpreter,
         "/".join([py3_interpreter.dirname, "python3"]): py3_interpreter,
     })
     py_paths = [
-        _BAZEL_WORK_DIR + py2_interpreter.dirname,
         _BAZEL_WORK_DIR + py3_interpreter.dirname,
     ]
     return (py_paths, py_runfiles)
