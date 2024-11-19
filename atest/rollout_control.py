@@ -15,6 +15,7 @@
 
 """Rollout control for Atest features."""
 
+import functools
 import getpass
 import hashlib
 import logging
@@ -60,6 +61,7 @@ class RolloutControlledFeature:
       return None
     return os.environ[self._env_control_flag] in ('TRUE', 'True', 'true', '1')
 
+  @functools.cache
   def is_enabled(self, username: str | None = None) -> bool:
     """Checks whether the current feature is enabled for the user.
 
