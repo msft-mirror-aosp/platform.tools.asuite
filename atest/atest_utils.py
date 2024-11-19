@@ -27,7 +27,8 @@ import enum
 import fnmatch
 import hashlib
 import html
-import importlib
+import importlib.resources
+import importlib.util
 import io
 import itertools
 import json
