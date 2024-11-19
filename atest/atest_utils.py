@@ -28,6 +28,7 @@ import fnmatch
 import hashlib
 import html
 import importlib
+import io
 import itertools
 import json
 import logging
@@ -274,7 +275,7 @@ def _capture_limited_output(full_log):
 def stream_io_output(
     io_input: IO,
     max_lines=None,
-    full_output_lines_receiver: list[str] = None,
+    full_output_receiver: IO = None,
     io_output: IO = None,
     is_io_output_atty=None,
 ):
@@ -284,8 +285,7 @@ def stream_io_output(
       input: The file-like object to read the output from.
       max_lines: The maximum number of rolling lines to display. If None, all
         lines will be displayed.
-      full_output_lines_receiver: Optional list to receive the full set of
-        output lines.
+      full_output_receiver: Optional io to receive the full output.
       io_output: The file-like object to write the output to.
       is_io_output_atty: Whether the io_output is a TTY.
   """
@@ -297,8 +297,8 @@ def stream_io_output(
     for line in iter(io_input.readline, ''):
       if not line:
         break
-      if full_output_lines_receiver is not None:
-        full_output_lines_receiver.append(
+      if full_output_receiver is not None:
+        full_output_receiver.write(
             line if isinstance(line, str) else line.decode('utf-8')
         )
       io_output.write(line)
@@ -355,8 +355,8 @@ def stream_io_output(
     if not line:
       break
     line = line.decode('utf-8') if isinstance(line, bytes) else line
-    if full_output_lines_receiver is not None:
-      full_output_lines_receiver.append(line)
+    if full_output_receiver is not None:
+      full_output_receiver.write(line)
     line = line.rstrip()
     # Split the line if it's longer than the terminal width
     wrapped_lines = (
@@ -405,17 +405,17 @@ def run_limited_output(
       start_new_session=start_new_session,
       text=True,
   ) as proc:
-    full_output_lines = []
+    full_output_receiver = io.StringIO()
     stream_io_output(
         proc.stdout,
         DEFAULT_OUTPUT_ROLLING_LINES,
-        full_output_lines,
+        full_output_receiver,
         _original_sys_stdout,
     )
     returncode = proc.wait()
     if returncode:
       raise subprocess.CalledProcessError(
-          returncode, cmd, ''.join(full_output_lines)
+          returncode, cmd, full_output_receiver.getvalue()
       )
 
 
