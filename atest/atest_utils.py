@@ -327,6 +327,7 @@ def stream_io_output(
     io_output.flush()
 
   original_stdout = sys.stdout
+  original_stderr = sys.stderr
 
   lock = threading.Lock()
 
@@ -351,6 +352,7 @@ def stream_io_output(
       original_stdout.flush()
 
   sys.stdout = SafeStdout()
+  sys.stderr = sys.stdout
 
   for line in iter(io_input.readline, ''):
     if not line:
@@ -376,6 +378,7 @@ def stream_io_output(
     io_output.flush()
 
   sys.stdout = original_stdout
+  sys.stderr = original_stderr
 
   io_input.close()
 
