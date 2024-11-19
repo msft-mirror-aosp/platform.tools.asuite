@@ -40,6 +40,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 from threading import Thread
 import traceback
 from typing import Any, Dict, IO, List, Set, Tuple
@@ -270,44 +271,100 @@ def _capture_limited_output(full_log):
   return output
 
 
-def _stream_io_output(io_input: IO, io_output: IO, max_lines=None):
+def stream_io_output(
+    io_input: IO,
+    max_lines=None,
+    full_output_lines_receiver: list[str] = None,
+    io_output: IO = None,
+):
   """Stream an IO output with max number of rolling lines to display if set.
 
   Args:
       input: The file-like object to read the output from.
-      output: The file-like object to write the output to.
       max_lines: The maximum number of rolling lines to display. If None, all
         lines will be displayed.
+      full_output_lines_receiver: Optional list to receive the full set of
+        output lines.
+      io_output: The file-like object to write the output to.
   """
-  print('\n----------------------------------------------------')
-  term_width, _ = get_terminal_size()
-  full_output = []
-  last_lines = None if not max_lines else deque(maxlen=max_lines)
-  last_number_of_lines = 0
-  for line in iter(io_input.readline, ''):
-    full_output.append(line)
-    line = line.rstrip()
-    if last_lines is None:
+  if io_output is None:
+    io_output = _original_sys_stdout
+  if not max_lines:
+    for line in iter(io_input.readline, ''):
+      if not line:
+        break
+      if full_output_lines_receiver is not None:
+        full_output_lines_receiver.append(
+            line if isinstance(line, str) else line.decode('utf-8')
+        )
       io_output.write(line)
-      io_output.write('\n')
       io_output.flush()
-      continue
+    return
+
+  term_width, _ = get_terminal_size()
+  last_lines = deque(maxlen=max_lines)
+
+  def reset_output():
+    io_output.write(_BASH_CLEAR_PREVIOUS_LINE_CODE * (len(last_lines) + 2))
+
+  def write_output(new_lines: list[str]):
+    last_lines.extend(new_lines)
+    lines = ['========== Rolling subprocess output ==========']
+    lines.extend(last_lines)
+    lines.append('-----------------------------------------------')
+    io_output.write('\n'.join(lines))
+    io_output.write('\n')
+    io_output.flush()
+
+  original_stdout = sys.stdout
+
+  lock = threading.Lock()
+
+  class SafeStdout:
+
+    def __init__(self):
+      self._buffers = []
+
+    def write(self, buf: str) -> None:
+      if len(buf) == 1 and buf[0] == '\n' and self._buffers:
+        with lock:
+          reset_output()
+          original_stdout.write(''.join(self._buffers))
+          original_stdout.write('\n')
+          original_stdout.flush()
+          write_output([])
+          self._buffers.clear()
+      else:
+        self._buffers.append(buf)
+
+    def flush(self) -> None:
+      original_stdout.flush()
+
+  sys.stdout = SafeStdout()
+
+  for line in iter(io_input.readline, ''):
+    if not line:
+      break
+    line = line.decode('utf-8') if isinstance(line, bytes) else line
+    if full_output_lines_receiver is not None:
+      full_output_lines_receiver.append(line)
+    line = line.rstrip()
     # Split the line if it's longer than the terminal width
     wrapped_lines = (
         [line]
         if len(line) <= term_width
         else [line[i : i + term_width] for i in range(0, len(line), term_width)]
     )
-    last_lines.extend(wrapped_lines)
-    io_output.write(_BASH_CLEAR_PREVIOUS_LINE_CODE * last_number_of_lines)
-    io_output.write('\n'.join(last_lines))
-    io_output.write('\n')
-    io_output.flush()
-    last_number_of_lines = len(last_lines)
-  io_input.close()
+    with lock:
+      reset_output()
+      write_output(wrapped_lines)
+
   io_output.write(_BASH_RESET_CODE)
   io_output.flush()
-  print('----------------------------------------------------')
+
+  sys.stdout = original_stdout
+
+  io_input.close()
 
 
 def run_limited_output(
@@ -336,12 +393,18 @@ def run_limited_output(
       start_new_session=start_new_session,
       text=True,
   ) as proc:
-    _stream_io_output(
-        proc.stdout, _original_sys_stdout, _BUILD_OUTPUT_ROLLING_LINES
+    full_output_lines = []
+    stream_io_output(
+        proc.stdout,
+        _BUILD_OUTPUT_ROLLING_LINES,
+        full_output_lines,
+        _original_sys_stdout,
     )
     returncode = proc.wait()
     if returncode:
-      raise subprocess.CalledProcessError(returncode, cmd, full_output)
+      raise subprocess.CalledProcessError(
+          returncode, cmd, ''.join(full_output_lines)
+      )
 
 
 def get_build_out_dir(*joinpaths) -> Path:

@@ -142,3 +142,10 @@ disable_bazel_mode_by_default = RolloutControlledFeature(
     env_control_flag='DISABLE_BAZEL_MODE_BY_DEFAULT',
     feature_id=1,
 )
+
+rolling_tf_subprocess_output = RolloutControlledFeature(
+    name='rolling_tf_subprocess_output',
+    rollout_percentage=0,
+    env_control_flag='ROLLING_TF_SUBPROCESS_OUTPUT',
+    feature_id=2,
+)

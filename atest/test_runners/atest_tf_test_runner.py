@@ -31,6 +31,7 @@ import re
 import select
 import shutil
 import socket
+import threading
 import time
 from typing import Any, Dict, List, Set, Tuple
 
@@ -40,6 +41,7 @@ from atest import atest_utils
 from atest import constants
 from atest import module_info
 from atest import result_reporter
+from atest import rollout_control
 from atest.atest_enum import DetectType, ExitCode
 from atest.coverage import coverage
 from atest.logstorage import logstorage_utils
@@ -404,7 +406,17 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         run_cmds[0],
         output_to_stdout=extra_args.get(constants.VERBOSE, False),
         env_vars=self.generate_env_vars(extra_args),
+        rolling_output_lines=rollout_control.rolling_tf_subprocess_output.is_enabled(),
     )
+
+    if (
+        rollout_control.rolling_tf_subprocess_output.is_enabled()
+        and not extra_args.get(constants.VERBOSE, False)
+    ):
+      threading.Thread(
+          target=atest_utils.stream_io_output, args=(subproc.stdout)
+      ).start()
+
     self.handle_subprocess(
         subproc,
         partial(self._start_monitor, server, subproc, reporter, extra_args),

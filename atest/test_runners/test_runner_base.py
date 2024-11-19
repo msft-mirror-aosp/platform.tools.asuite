@@ -116,7 +116,13 @@ class TestRunnerBase:
     """Checks whether this runner requires device update."""
     return False
 
-  def run(self, cmd, output_to_stdout=False, env_vars=None):
+  def run(
+      self,
+      cmd,
+      output_to_stdout=False,
+      env_vars=None,
+      rolling_output_lines=False,
+  ):
     """Shell out and execute command.
 
     Args:
@@ -127,20 +133,33 @@ class TestRunnerBase:
           reporter to print the test results.  Set to True to see the output of
           the cmd. This would be appropriate for verbose runs.
         env_vars: Environment variables passed to the subprocess.
+        rolling_output_lines: If True, the subprocess output will be streamed
+          with rolling lines when output_to_stdout is False.
     """
-    if not output_to_stdout:
-      self.test_log_file = tempfile.NamedTemporaryFile(
-          mode='w', dir=self.results_dir, delete=True
-      )
     logging.debug('Executing command: %s', cmd)
-    return subprocess.Popen(
-        cmd,
-        start_new_session=True,
-        shell=True,
-        stderr=subprocess.STDOUT,
-        stdout=self.test_log_file,
-        env=env_vars,
-    )
+
+    if rolling_output_lines:
+      return subprocess.Popen(
+          cmd,
+          start_new_session=True,
+          shell=True,
+          stderr=subprocess.STDOUT,
+          stdout=None if output_to_stdout else subprocess.PIPE,
+          env=env_vars,
+      )
+    else:
+      if not output_to_stdout:
+        self.test_log_file = tempfile.NamedTemporaryFile(
+            mode='w', dir=self.results_dir, delete=True
+        )
+      return subprocess.Popen(
+          cmd,
+          start_new_session=True,
+          shell=True,
+          stderr=subprocess.STDOUT,
+          stdout=self.test_log_file,
+          env=env_vars,
+      )
 
   # pylint: disable=broad-except
   def handle_subprocess(self, subproc, func):
