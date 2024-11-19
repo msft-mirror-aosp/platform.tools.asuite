@@ -44,8 +44,17 @@ class RolloutControlledFeature:
           enablement. When set, 'true' or '1' means enable, other values means
           disable.
         feature_id: The ID of the feature that is controlled by rollout control
-          for metric collection purpose.
+          for metric collection purpose. Must be a positive integer.
     """
+    if rollout_percentage < 0 or rollout_percentage > 100:
+      raise ValueError(
+          'Rollout percentage must be in [0, 100]. Got %s instead.'
+          % rollout_percentage
+      )
+    if feature_id is not None and feature_id <= 0:
+      raise ValueError(
+          'Feature ID must be a positive integer. Got %s instead.' % feature_id
+      )
     self._name = name
     self._rollout_percentage = rollout_percentage
     self._env_control_flag = env_control_flag
