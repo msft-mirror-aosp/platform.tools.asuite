@@ -77,7 +77,9 @@ class StreamIoOutputTest(unittest.TestCase):
     io_input.seek(0)
     io_output = StringIO()
 
-    atest_utils.stream_io_output(io_input, max_lines=None, io_output=io_output)
+    atest_utils.stream_io_output(
+        io_input, max_lines=None, io_output=io_output, is_io_output_atty=True
+    )
 
     self.assertNotIn(
         atest_utils._BASH_CLEAR_PREVIOUS_LINE_CODE, io_output.getvalue()
@@ -91,7 +93,9 @@ class StreamIoOutputTest(unittest.TestCase):
     io_input.seek(0)
     io_output = StringIO()
 
-    atest_utils.stream_io_output(io_input, max_lines=10, io_output=io_output)
+    atest_utils.stream_io_output(
+        io_input, max_lines=10, io_output=io_output, is_io_output_atty=True
+    )
 
     self.assertIn('11111\n11111', io_output.getvalue())
 
@@ -103,7 +107,9 @@ class StreamIoOutputTest(unittest.TestCase):
     io_input.seek(0)
     io_output = StringIO()
 
-    atest_utils.stream_io_output(io_input, max_lines=2, io_output=io_output)
+    atest_utils.stream_io_output(
+        io_input, max_lines=2, io_output=io_output, is_io_output_atty=True
+    )
 
     self.assertIn(
         '2\n3\n',
@@ -122,7 +128,9 @@ class StreamIoOutputTest(unittest.TestCase):
     io_input.seek(0)
     io_output = StringIO()
 
-    atest_utils.stream_io_output(io_input, max_lines=4, io_output=io_output)
+    atest_utils.stream_io_output(
+        io_input, max_lines=4, io_output=io_output, is_io_output_atty=True
+    )
 
     self.assertIn(
         '1\n2\n3\n',

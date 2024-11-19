@@ -55,7 +55,7 @@ from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.tf_proto import test_record_pb2
 
-_BUILD_OUTPUT_ROLLING_LINES = 6
+DEFAULT_OUTPUT_ROLLING_LINES = 6
 _BASH_CLEAR_PREVIOUS_LINE_CODE = '\033[F\033[K'
 _BASH_RESET_CODE = '\033[0m'
 DIST_OUT_DIR = Path(
@@ -276,6 +276,7 @@ def stream_io_output(
     max_lines=None,
     full_output_lines_receiver: list[str] = None,
     io_output: IO = None,
+    is_io_output_atty=None,
 ):
   """Stream an IO output with max number of rolling lines to display if set.
 
@@ -286,10 +287,13 @@ def stream_io_output(
       full_output_lines_receiver: Optional list to receive the full set of
         output lines.
       io_output: The file-like object to write the output to.
+      is_io_output_atty: Whether the io_output is a TTY.
   """
   if io_output is None:
     io_output = _original_sys_stdout
-  if not max_lines:
+  if is_io_output_atty is None:
+    is_io_output_atty = _has_colors(io_output)
+  if not max_lines or not is_io_output_atty:
     for line in iter(io_input.readline, ''):
       if not line:
         break
@@ -396,7 +400,7 @@ def run_limited_output(
     full_output_lines = []
     stream_io_output(
         proc.stdout,
-        _BUILD_OUTPUT_ROLLING_LINES,
+        DEFAULT_OUTPUT_ROLLING_LINES,
         full_output_lines,
         _original_sys_stdout,
     )
@@ -594,6 +598,11 @@ def is_test_mapping(args):
     return True
   # ':postsubmit' implicitly indicates running in test-mapping mode.
   return all((len(args.tests) == 1, args.tests[0][0] == ':'))
+
+
+def is_atty_terminal() -> bool:
+  """Check if the current process is running in a TTY."""
+  return getattr(_original_sys_stdout, 'isatty', lambda: False)()
 
 
 def _has_colors(stream):
