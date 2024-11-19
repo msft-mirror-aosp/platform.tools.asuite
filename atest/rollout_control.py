@@ -19,13 +19,19 @@ import getpass
 import hashlib
 import logging
 import os
+from atest import atest_enum
+from atest.metrics import metrics
 
 
 class RolloutControlledFeature:
   """Base class for Atest features under rollout control."""
 
   def __init__(
-      self, name: str, rollout_percentage: float, env_control_flag: str
+      self,
+      name: str,
+      rollout_percentage: float,
+      env_control_flag: str,
+      feature_id: int = None,
   ):
     """Initializes the object.
 
@@ -36,10 +42,13 @@ class RolloutControlledFeature:
         env_control_flag: The environment variable name to override the feature
           enablement. When set, 'true' or '1' means enable, other values means
           disable.
+        feature_id: The ID of the feature that is controlled by rollout control
+          for metric collection purpose.
     """
     self._name = name
     self._rollout_percentage = rollout_percentage
     self._env_control_flag = env_control_flag
+    self._feature_id = feature_id
 
   def _check_env_control_flag(self) -> bool | None:
     """Checks the environment variable to override the feature enablement.
@@ -69,6 +78,10 @@ class RolloutControlledFeature:
           'enabled' if override_flag_value else 'disabled',
           self._env_control_flag,
       )
+      metrics.LocalDetectEvent(
+          detect_type=atest_enum.DetectType.ROLLOUT_CONTROLLED_FEATURE_ID_OVERRIDE,
+          result=self._feature_id if override_flag_value else -self._feature_id,
+      )
       return override_flag_value
 
     if username is None:
@@ -94,5 +107,11 @@ class RolloutControlledFeature:
         'enabled' if is_enabled else 'disabled',
         username,
     )
+
+    if self._feature_id is not None and 0 < self._rollout_percentage < 100:
+      metrics.LocalDetectEvent(
+          detect_type=atest_enum.DetectType.ROLLOUT_CONTROLLED_FEATURE_ID,
+          result=self._feature_id if is_enabled else -self._feature_id,
+      )
 
     return is_enabled
