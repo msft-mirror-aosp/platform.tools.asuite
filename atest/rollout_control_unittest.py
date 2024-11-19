@@ -91,3 +91,14 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
 
     with mock.patch.dict('os.environ', {'TEST_FEATURE': 'false'}):
       self.assertFalse(sut.is_enabled())
+
+  def test_is_enabled_is_owner_returns_true(self):
+    sut = rollout_control.RolloutControlledFeature(
+        name='test_feature',
+        rollout_percentage=0,
+        env_control_flag='TEST_FEATURE',
+        owners=['owner_name'],
+    )
+
+    self.assertFalse(sut.is_enabled('name'))
+    self.assertTrue(sut.is_enabled('owner_name'))

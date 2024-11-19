@@ -18,10 +18,32 @@
 import functools
 import getpass
 import hashlib
+import importlib.resources
 import logging
 import os
 from atest import atest_enum
 from atest.metrics import metrics
+
+
+@functools.cache
+def _get_project_owners() -> list[str]:
+  """Returns the owners of the feature."""
+  owners = []
+  try:
+    with importlib.resources.as_file(
+        importlib.resources.files('atest').joinpath('OWNERS')
+    ) as version_file_path:
+      owners.extend(version_file_path.read_text(encoding='utf-8').splitlines())
+  except (ModuleNotFoundError, FileNotFoundError) as e:
+    logging.error(e)
+  try:
+    with importlib.resources.as_file(
+        importlib.resources.files('atest').joinpath('OWNERS_ADTE_TEAM')
+    ) as version_file_path:
+      owners.extend(version_file_path.read_text(encoding='utf-8').splitlines())
+  except (ModuleNotFoundError, FileNotFoundError) as e:
+    logging.error(e)
+  return [line.split('@')[0] for line in owners if '@google.com' in line]
 
 
 class RolloutControlledFeature:
@@ -33,6 +55,7 @@ class RolloutControlledFeature:
       rollout_percentage: float,
       env_control_flag: str,
       feature_id: int = None,
+      owners: list[str] | None = None,
   ):
     """Initializes the object.
 
@@ -45,6 +68,8 @@ class RolloutControlledFeature:
           disable.
         feature_id: The ID of the feature that is controlled by rollout control
           for metric collection purpose. Must be a positive integer.
+        owners: The owners of the feature. If not provided, the owners of the
+          feature will be read from OWNERS file.
     """
     if rollout_percentage < 0 or rollout_percentage > 100:
       raise ValueError(
@@ -55,10 +80,13 @@ class RolloutControlledFeature:
       raise ValueError(
           'Feature ID must be a positive integer. Got %s instead.' % feature_id
       )
+    if owners is None:
+      owners = _get_project_owners()
     self._name = name
     self._rollout_percentage = rollout_percentage
     self._env_control_flag = env_control_flag
     self._feature_id = feature_id
+    self._owners = owners
 
   def _check_env_control_flag(self) -> bool | None:
     """Checks the environment variable to override the feature enablement.
@@ -98,8 +126,6 @@ class RolloutControlledFeature:
         )
       return override_flag_value
 
-    if self._rollout_percentage == 0:
-      return False
     if self._rollout_percentage == 100:
       return True
 
@@ -113,12 +139,17 @@ class RolloutControlledFeature:
       )
       return False
 
-    hash_object = hashlib.sha256()
-    hash_object.update((username + ' ' + self._name).encode('utf-8'))
+    is_enabled = username in self._owners
 
-    is_enabled = (
-        int(hash_object.hexdigest(), 16) % 100 < self._rollout_percentage
-    )
+    if not is_enabled:
+      if self._rollout_percentage == 0:
+        return False
+
+      hash_object = hashlib.sha256()
+      hash_object.update((username + ' ' + self._name).encode('utf-8'))
+      is_enabled = (
+          int(hash_object.hexdigest(), 16) % 100 < self._rollout_percentage
+      )
 
     logging.debug(
         'Feature %s is %s for user %s.',
