@@ -98,11 +98,16 @@ class RolloutControlledFeature:
         )
       return override_flag_value
 
+    if self._rollout_percentage == 0:
+      return False
+    if self._rollout_percentage == 100:
+      return True
+
     if username is None:
       username = getpass.getuser()
 
     if not username:
-      logging.error(
+      logging.debug(
           'Unable to determine the username. Disabling the feature %s.',
           self._name,
       )
@@ -122,7 +127,7 @@ class RolloutControlledFeature:
         username,
     )
 
-    if self._feature_id and 0 < self._rollout_percentage < 100:
+    if self._feature_id:
       metrics.LocalDetectEvent(
           detect_type=atest_enum.DetectType.ROLLOUT_CONTROLLED_FEATURE_ID,
           result=self._feature_id if is_enabled else -self._feature_id,

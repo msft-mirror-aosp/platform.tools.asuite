@@ -56,7 +56,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   def test_is_enabled_username_undetermined_returns_false(self):
     sut = rollout_control.RolloutControlledFeature(
         name='test_feature',
-        rollout_percentage=100,
+        rollout_percentage=99,
         env_control_flag='TEST_FEATURE',
     )
 
