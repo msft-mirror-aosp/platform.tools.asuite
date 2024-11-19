@@ -89,10 +89,13 @@ class RolloutControlledFeature:
           'enabled' if override_flag_value else 'disabled',
           self._env_control_flag,
       )
-      metrics.LocalDetectEvent(
-          detect_type=atest_enum.DetectType.ROLLOUT_CONTROLLED_FEATURE_ID_OVERRIDE,
-          result=self._feature_id if override_flag_value else -self._feature_id,
-      )
+      if self._feature_id:
+        metrics.LocalDetectEvent(
+            detect_type=atest_enum.DetectType.ROLLOUT_CONTROLLED_FEATURE_ID_OVERRIDE,
+            result=self._feature_id
+            if override_flag_value
+            else -self._feature_id,
+        )
       return override_flag_value
 
     if username is None:
@@ -119,10 +122,18 @@ class RolloutControlledFeature:
         username,
     )
 
-    if self._feature_id is not None and 0 < self._rollout_percentage < 100:
+    if self._feature_id and 0 < self._rollout_percentage < 100:
       metrics.LocalDetectEvent(
           detect_type=atest_enum.DetectType.ROLLOUT_CONTROLLED_FEATURE_ID,
           result=self._feature_id if is_enabled else -self._feature_id,
       )
 
     return is_enabled
+
+
+disable_bazel_mode_by_default = RolloutControlledFeature(
+    name='disable_bazel_mode_by_default',
+    rollout_percentage=0,
+    env_control_flag='DISABLE_BAZEL_MODE_BY_DEFAULT',
+    feature_id=1,
+)
