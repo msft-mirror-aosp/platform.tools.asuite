@@ -137,7 +137,6 @@ class TestRunnerBase:
           with rolling lines when output_to_stdout is False.
     """
     logging.debug('Executing command: %s', cmd)
-
     if rolling_output_lines:
       return subprocess.Popen(
           cmd,

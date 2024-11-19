@@ -307,11 +307,16 @@ def stream_io_output(
 
   term_width, _ = get_terminal_size()
   last_lines = deque(maxlen=max_lines)
+  is_rolling = True
 
   def reset_output():
+    if not is_rolling:
+      return
     io_output.write(_BASH_CLEAR_PREVIOUS_LINE_CODE * (len(last_lines) + 2))
 
   def write_output(new_lines: list[str]):
+    if not is_rolling:
+      return
     last_lines.extend(new_lines)
     lines = ['========== Rolling subprocess output ==========']
     lines.extend(last_lines)
@@ -363,8 +368,11 @@ def stream_io_output(
       reset_output()
       write_output(wrapped_lines)
 
-  io_output.write(_BASH_RESET_CODE)
-  io_output.flush()
+  with lock:
+    reset_output()
+    is_rolling = False
+    io_output.write(_BASH_RESET_CODE)
+    io_output.flush()
 
   sys.stdout = original_stdout
 
