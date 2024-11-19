@@ -79,6 +79,7 @@ class TestRunnerBase:
     """Init stuff for base class."""
     self.results_dir = results_dir
     self.test_log_file = None
+    self._subprocess_stdout = None
     if not self.NAME:
       raise atest_error.NoTestRunnerName('Class var NAME is not defined.')
     if not self.EXECUTABLE:
@@ -138,7 +139,7 @@ class TestRunnerBase:
     """
     logging.debug('Executing command: %s', cmd)
     if rolling_output_lines:
-      return subprocess.Popen(
+      proc = subprocess.Popen(
           cmd,
           start_new_session=True,
           shell=True,
@@ -146,6 +147,8 @@ class TestRunnerBase:
           stdout=None if output_to_stdout else subprocess.PIPE,
           env=env_vars,
       )
+      self._subprocess_stdout = proc.stdout
+      return proc
     else:
       if not output_to_stdout:
         self.test_log_file = tempfile.NamedTemporaryFile(
@@ -183,11 +186,15 @@ class TestRunnerBase:
         # we have to save it above.
         logging.debug('Subproc already terminated, skipping')
       finally:
-        if self.test_log_file:
+        full_output = ''
+        if self._subprocess_stdout:
+          full_output = self._subprocess_stdout.read()
+        elif self.test_log_file:
           with open(self.test_log_file.name, 'r') as f:
-            intro_msg = 'Unexpected Issue. Raw Output:'
-            print(atest_utils.mark_red(intro_msg))
-            print(f.read())
+            full_output = f.read()
+        if full_output:
+          print(atest_utils.mark_red('Unexpected Issue. Raw Output:'))
+          print(full_output)
         # Ignore socket.recv() raising due to ctrl-c
         if not error.args or error.args[0] != errno.EINTR:
           raise error
