@@ -311,9 +311,8 @@ def stream_io_output(
   is_rolling = True
 
   def reset_output():
-    if not is_rolling:
-      return
-    io_output.write(_BASH_CLEAR_PREVIOUS_LINE_CODE * (len(last_lines) + 2))
+    if is_rolling and last_lines:
+      io_output.write(_BASH_CLEAR_PREVIOUS_LINE_CODE * (len(last_lines) + 2))
 
   def write_output(new_lines: list[str]):
     if not is_rolling:
