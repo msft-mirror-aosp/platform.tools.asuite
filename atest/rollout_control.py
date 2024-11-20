@@ -15,17 +15,24 @@
 
 """Rollout control for Atest features."""
 
+import functools
 import getpass
 import hashlib
 import logging
 import os
+from atest import atest_enum
+from atest.metrics import metrics
 
 
 class RolloutControlledFeature:
   """Base class for Atest features under rollout control."""
 
   def __init__(
-      self, name: str, rollout_percentage: float, env_control_flag: str
+      self,
+      name: str,
+      rollout_percentage: float,
+      env_control_flag: str,
+      feature_id: int = None,
   ):
     """Initializes the object.
 
@@ -36,10 +43,22 @@ class RolloutControlledFeature:
         env_control_flag: The environment variable name to override the feature
           enablement. When set, 'true' or '1' means enable, other values means
           disable.
+        feature_id: The ID of the feature that is controlled by rollout control
+          for metric collection purpose. Must be a positive integer.
     """
+    if rollout_percentage < 0 or rollout_percentage > 100:
+      raise ValueError(
+          'Rollout percentage must be in [0, 100]. Got %s instead.'
+          % rollout_percentage
+      )
+    if feature_id is not None and feature_id <= 0:
+      raise ValueError(
+          'Feature ID must be a positive integer. Got %s instead.' % feature_id
+      )
     self._name = name
     self._rollout_percentage = rollout_percentage
     self._env_control_flag = env_control_flag
+    self._feature_id = feature_id
 
   def _check_env_control_flag(self) -> bool | None:
     """Checks the environment variable to override the feature enablement.
@@ -51,6 +70,7 @@ class RolloutControlledFeature:
       return None
     return os.environ[self._env_control_flag] in ('TRUE', 'True', 'true', '1')
 
+  @functools.cache
   def is_enabled(self, username: str | None = None) -> bool:
     """Checks whether the current feature is enabled for the user.
 
@@ -69,6 +89,13 @@ class RolloutControlledFeature:
           'enabled' if override_flag_value else 'disabled',
           self._env_control_flag,
       )
+      if self._feature_id:
+        metrics.LocalDetectEvent(
+            detect_type=atest_enum.DetectType.ROLLOUT_CONTROLLED_FEATURE_ID_OVERRIDE,
+            result=self._feature_id
+            if override_flag_value
+            else -self._feature_id,
+        )
       return override_flag_value
 
     if username is None:
@@ -95,4 +122,18 @@ class RolloutControlledFeature:
         username,
     )
 
+    if self._feature_id and 0 < self._rollout_percentage < 100:
+      metrics.LocalDetectEvent(
+          detect_type=atest_enum.DetectType.ROLLOUT_CONTROLLED_FEATURE_ID,
+          result=self._feature_id if is_enabled else -self._feature_id,
+      )
+
     return is_enabled
+
+
+disable_bazel_mode_by_default = RolloutControlledFeature(
+    name='disable_bazel_mode_by_default',
+    rollout_percentage=0,
+    env_control_flag='DISABLE_BAZEL_MODE_BY_DEFAULT',
+    feature_id=1,
+)
