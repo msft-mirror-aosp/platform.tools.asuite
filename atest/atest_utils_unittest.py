@@ -152,6 +152,23 @@ class StreamIoOutputTest(unittest.TestCase):
         io_output.getvalue(),
     )
 
+  @mock.patch.object(atest_utils, 'get_terminal_size', return_value=(5, -1))
+  def test_stream_io_output_replace_tab_with_spaces(self, _):
+    """Test when line exceeds max_lines, the previous lines are cleared."""
+    io_input = StringIO()
+    io_input.write('1\t2')
+    io_input.seek(0)
+    io_output = StringIO()
+
+    atest_utils.stream_io_output(
+        io_input, max_lines=2, io_output=io_output, is_io_output_atty=True
+    )
+
+    self.assertNotIn(
+        '\t',
+        io_output.getvalue(),
+    )
+
 
 class ConcatenatePathTest(unittest.TestCase):
   """Class that tests path concatenation."""
