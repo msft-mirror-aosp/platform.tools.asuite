@@ -66,6 +66,7 @@ Manifest groups: all,-notdefault
 ----------------------------
 """
 
+
 class StreamIoOutputTest(unittest.TestCase):
   """Class that tests the _stream_io_output function."""
 
@@ -76,9 +77,13 @@ class StreamIoOutputTest(unittest.TestCase):
     io_input.seek(0)
     io_output = StringIO()
 
-    atest_utils._stream_io_output(io_input, io_output, max_lines=None)
+    atest_utils.stream_io_output(
+        io_input, max_lines=None, io_output=io_output, is_io_output_atty=True
+    )
 
-    self.assertNotIn(atest_utils._BASH_CLEAR_PREVIOUS_LINE_CODE, io_output.getvalue())
+    self.assertNotIn(
+        atest_utils._BASH_CLEAR_PREVIOUS_LINE_CODE, io_output.getvalue()
+    )
 
   @mock.patch.object(atest_utils, 'get_terminal_size', return_value=(5, -1))
   def test_stream_io_output_wrap_long_lines(self, _):
@@ -88,7 +93,9 @@ class StreamIoOutputTest(unittest.TestCase):
     io_input.seek(0)
     io_output = StringIO()
 
-    atest_utils._stream_io_output(io_input, io_output, max_lines=10)
+    atest_utils.stream_io_output(
+        io_input, max_lines=10, io_output=io_output, is_io_output_atty=True
+    )
 
     self.assertIn('11111\n11111', io_output.getvalue())
 
@@ -100,10 +107,16 @@ class StreamIoOutputTest(unittest.TestCase):
     io_input.seek(0)
     io_output = StringIO()
 
-    atest_utils._stream_io_output(io_input, io_output, max_lines=2)
+    atest_utils.stream_io_output(
+        io_input, max_lines=2, io_output=io_output, is_io_output_atty=True
+    )
 
     self.assertIn(
-        atest_utils._BASH_CLEAR_PREVIOUS_LINE_CODE * 2 + '2\n3\n',
+        '2\n3\n',
+        io_output.getvalue(),
+    )
+    self.assertNotIn(
+        '1\n2\n3\n',
         io_output.getvalue(),
     )
 
@@ -115,10 +128,44 @@ class StreamIoOutputTest(unittest.TestCase):
     io_input.seek(0)
     io_output = StringIO()
 
-    atest_utils._stream_io_output(io_input, io_output, max_lines=4)
+    atest_utils.stream_io_output(
+        io_input, max_lines=4, io_output=io_output, is_io_output_atty=True
+    )
 
     self.assertIn(
-        atest_utils._BASH_CLEAR_PREVIOUS_LINE_CODE * 2 + '1\n2\n3\n',
+        '1\n2\n3\n',
+        io_output.getvalue(),
+    )
+
+  @mock.patch.object(atest_utils, 'get_terminal_size', return_value=(5, -1))
+  def test_stream_io_output_no_lines_written_no_lines_cleared(self, _):
+    """Test when nothing is written, no lines are cleared."""
+    io_input = StringIO()
+    io_output = StringIO()
+
+    atest_utils.stream_io_output(
+        io_input, max_lines=2, io_output=io_output, is_io_output_atty=True
+    )
+
+    self.assertNotIn(
+        atest_utils._BASH_CLEAR_PREVIOUS_LINE_CODE,
+        io_output.getvalue(),
+    )
+
+  @mock.patch.object(atest_utils, 'get_terminal_size', return_value=(5, -1))
+  def test_stream_io_output_replace_tab_with_spaces(self, _):
+    """Test when line exceeds max_lines, the previous lines are cleared."""
+    io_input = StringIO()
+    io_input.write('1\t2')
+    io_input.seek(0)
+    io_output = StringIO()
+
+    atest_utils.stream_io_output(
+        io_input, max_lines=2, io_output=io_output, is_io_output_atty=True
+    )
+
+    self.assertNotIn(
+        '\t',
         io_output.getvalue(),
     )
 
