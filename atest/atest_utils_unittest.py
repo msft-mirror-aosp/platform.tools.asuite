@@ -137,6 +137,21 @@ class StreamIoOutputTest(unittest.TestCase):
         io_output.getvalue(),
     )
 
+  @mock.patch.object(atest_utils, 'get_terminal_size', return_value=(5, -1))
+  def test_stream_io_output_no_lines_written_no_lines_cleared(self, _):
+    """Test when nothing is written, no lines are cleared."""
+    io_input = StringIO()
+    io_output = StringIO()
+
+    atest_utils.stream_io_output(
+        io_input, max_lines=2, io_output=io_output, is_io_output_atty=True
+    )
+
+    self.assertNotIn(
+        atest_utils._BASH_CLEAR_PREVIOUS_LINE_CODE,
+        io_output.getvalue(),
+    )
+
 
 class ConcatenatePathTest(unittest.TestCase):
   """Class that tests path concatenation."""
