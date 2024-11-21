@@ -169,7 +169,7 @@ class RolloutControlledFeature:
 
 disable_bazel_mode_by_default = RolloutControlledFeature(
     name='disable_bazel_mode_by_default',
-    rollout_percentage=0,
+    rollout_percentage=5,
     env_control_flag='DISABLE_BAZEL_MODE_BY_DEFAULT',
     feature_id=1,
 )
