@@ -359,7 +359,7 @@ def stream_io_output(
     line = line.decode('utf-8') if isinstance(line, bytes) else line
     if full_output_receiver is not None:
       full_output_receiver.write(line)
-    line = line.rstrip()
+    line = line.rstrip().replace('\t', '  ')
     # Split the line if it's longer than the terminal width
     wrapped_lines = (
         [line]
