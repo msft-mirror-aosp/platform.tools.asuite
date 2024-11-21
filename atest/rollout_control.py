@@ -164,19 +164,28 @@ class RolloutControlledFeature:
           result=self._feature_id if is_enabled else -self._feature_id,
       )
 
+    if is_enabled and self._rollout_percentage < 100:
+      print(
+          '\nYou are among the first %s%% of users to receive the feature "%s".'
+          ' If you experience any issues, you can disable the feature by'
+          ' setting the environment variable "%s" to false, and the atest team'
+          ' will be notified.\n'
+          % (self._rollout_percentage, self._name, self._env_control_flag)
+      )
+
     return is_enabled
 
 
 disable_bazel_mode_by_default = RolloutControlledFeature(
-    name='disable_bazel_mode_by_default',
-    rollout_percentage=0,
+    name='Bazel mode disabled by default',
+    rollout_percentage=5,
     env_control_flag='DISABLE_BAZEL_MODE_BY_DEFAULT',
     feature_id=1,
 )
 
 rolling_tf_subprocess_output = RolloutControlledFeature(
-    name='rolling_tf_subprocess_output',
-    rollout_percentage=0,
+    name='Rolling TradeFed subprocess output',
+    rollout_percentage=5,
     env_control_flag='ROLLING_TF_SUBPROCESS_OUTPUT',
     feature_id=2,
 )
