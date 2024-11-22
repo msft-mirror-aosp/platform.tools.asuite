@@ -188,7 +188,7 @@ disable_bazel_mode_by_default = RolloutControlledFeature(
 
 rolling_tf_subprocess_output = RolloutControlledFeature(
     name='Rolling TradeFed subprocess output',
-    rollout_percentage=5,
+    rollout_percentage=30,
     env_control_flag='ROLLING_TF_SUBPROCESS_OUTPUT',
     feature_id=2,
     print_message=(
