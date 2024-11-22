@@ -311,9 +311,8 @@ def stream_io_output(
   is_rolling = True
 
   def reset_output():
-    if not is_rolling:
-      return
-    io_output.write(_BASH_CLEAR_PREVIOUS_LINE_CODE * (len(last_lines) + 2))
+    if is_rolling and last_lines:
+      io_output.write(_BASH_CLEAR_PREVIOUS_LINE_CODE * (len(last_lines) + 2))
 
   def write_output(new_lines: list[str]):
     if not is_rolling:
@@ -327,6 +326,7 @@ def stream_io_output(
     io_output.flush()
 
   original_stdout = sys.stdout
+  original_stderr = sys.stderr
 
   lock = threading.Lock()
 
@@ -351,6 +351,7 @@ def stream_io_output(
       original_stdout.flush()
 
   sys.stdout = SafeStdout()
+  sys.stderr = sys.stdout
 
   for line in iter(io_input.readline, ''):
     if not line:
@@ -358,7 +359,7 @@ def stream_io_output(
     line = line.decode('utf-8') if isinstance(line, bytes) else line
     if full_output_receiver is not None:
       full_output_receiver.write(line)
-    line = line.rstrip()
+    line = line.rstrip().replace('\t', '  ')
     # Split the line if it's longer than the terminal width
     wrapped_lines = (
         [line]
@@ -376,6 +377,7 @@ def stream_io_output(
     io_output.flush()
 
   sys.stdout = original_stdout
+  sys.stderr = original_stderr
 
   io_input.close()
 
