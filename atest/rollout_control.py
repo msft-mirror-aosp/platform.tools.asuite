@@ -22,6 +22,7 @@ import importlib.resources
 import logging
 import os
 from atest import atest_enum
+from atest import atest_utils
 from atest.metrics import metrics
 
 
@@ -169,7 +170,7 @@ class RolloutControlledFeature:
       )
 
     if is_enabled and self._print_message:
-      print(self._print_message)
+      print(atest_utils.mark_magenta(self._print_message))
 
     return is_enabled
 
