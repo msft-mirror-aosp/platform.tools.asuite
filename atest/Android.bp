@@ -68,6 +68,7 @@ python_binary_host {
     defaults: ["atest_binary_defaults"],
     main: "atest_main.py",
     data: [
+        ":adte-owners-files",
         ":atest_flag_list_for_completion",
         ":atest_log_uploader",
     ],

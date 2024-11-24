@@ -57,3 +57,11 @@ python_library_host {
         canonical_path_from_root: false,
     },
 }
+
+filegroup {
+    name: "adte-owners-files",
+    srcs: [
+        "OWNERS_ADTE_TEAM",
+        "OWNERS",
+    ],
+}

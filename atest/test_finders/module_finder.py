@@ -107,7 +107,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     Args:
         test: TestInfo to update with vts10 specific details.
 
-    Return:
+    Returns:
         TestInfo that is ready for the vts10 test runner.
     """
     test.test_runner = self._VTS_TEST_RUNNER
@@ -197,7 +197,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     Args:
         test: TestInfo that has been filled out by a find method.
 
-    Return:
+    Returns:
         TestInfo that has been modified as needed and return None if
         this module can't be found in the module_info.
     """
@@ -237,7 +237,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
       logging.debug(
           'Add %s to build targets...', ', '.join(artifact_map.keys())
       )
-      test.artifacts = [apk for p in artifact_map.values() for apk in p]
+      test.artifacts = []
+      for p in artifact_map.values():
+        test.artifacts += p
       logging.debug('Will install target APK: %s\n', test.artifacts)
       metrics.LocalDetectEvent(
           detect_type=DetectType.FOUND_TARGET_ARTIFACTS,
@@ -292,11 +294,6 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     for module_path in self.module_info.get_paths(module_name):
       mod_dir = module_path.replace('/', '-')
       targets.add(constants.MODULES_IN + mod_dir)
-    # (b/156457698) Force add vts_kernel_ltp_tests as build target if our
-    # test belongs to REQUIRED_LTP_TEST_MODULES due to required_module
-    # option not working for sh_test in soong.
-    if module_name in constants.REQUIRED_LTP_TEST_MODULES:
-      targets.add('vts_kernel_ltp_tests')
     # (b/184567849) Force adding module_name as a build_target. This will
     # allow excluding MODULES-IN-* and prevent from missing build targets.
     if module_name and self.module_info.is_module(module_name):
@@ -345,14 +342,17 @@ class ModuleFinder(test_finder_base.TestFinderBase):
       # Double check if below section is needed.
       if (
           not self.module_info.is_auto_gen_test_config(module_name)
-          and len(test_configs) > 0
+          and test_configs
       ):
         return test_configs
     return [rel_config] if rel_config else []
 
   # pylint: disable=too-many-branches
   # pylint: disable=too-many-locals
-  def _get_test_info_filter(self, path, methods, **kwargs):
+  def _get_test_info_filter(
+      self, path, methods, rel_module_dir=None, class_name=None,
+      is_native_test=False
+  ):
     """Get test info filter.
 
     Args:
@@ -361,20 +361,21 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         rel_module_dir: Optional. A string of the module dir no-absolute to
           root.
         class_name: Optional. A string of the class name.
-        is_native_test: Optional. A boolean variable of whether to search for a
-          native test or not.
+        is_native_test: Optional. A boolean variable of whether to search for
+          a native test or not.
 
     Returns:
         A set of test info filter.
     """
     _, file_name = test_finder_utils.get_dir_path_and_filename(path)
     ti_filter = frozenset()
-    if os.path.isfile(path) and kwargs.get('is_native_test', None):
+    if os.path.isfile(path) and is_native_test:
       class_info = test_finder_utils.get_cc_class_info(path)
       ti_filter = frozenset([
           test_info.TestFilter(
               test_filter_utils.get_cc_filter(
-                  class_info, kwargs.get('class_name', '*'), methods
+                  class_info,
+                  class_name if class_name is not None else '*', methods
               ),
               frozenset(),
           )
@@ -404,14 +405,13 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         )
       ti_filter = frozenset(cc_filters)
     # If input path is a folder and have class_name information.
-    elif not file_name and kwargs.get('class_name', None):
+    elif not file_name and class_name:
       ti_filter = frozenset(
-          [test_info.TestFilter(kwargs.get('class_name', None), methods)]
+          [test_info.TestFilter(class_name, methods)]
       )
     # Path to non-module dir, treat as package.
-    elif not file_name and kwargs.get(
-        'rel_module_dir', None
-    ) != os.path.relpath(path, self.root_dir):
+    elif not file_name and rel_module_dir != os.path.relpath(
+        path, self.root_dir):
       dir_items = [os.path.join(path, f) for f in os.listdir(path)]
       for dir_item in dir_items:
         if constants.JAVA_EXT_RE.match(dir_item):
@@ -784,7 +784,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     Args:
         package: A string of the package name.
         module_name: Optional. A string of the module name.
-        ref_config: Optional. A string of rel path of config.
+        rel_config: Optional. A string of rel path of config.
 
     Returns:
         A list of populated TestInfo namedtuple if found, else None.
@@ -868,7 +868,6 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     """
     logging.debug('Finding test by path: %s', rel_path)
     path, methods = test_filter_utils.split_methods(rel_path)
-    # TODO: See if this can be generalized and shared with methods above
     # create absolute path from cwd and remove symbolic links
     path = os.path.realpath(path)
     if not os.path.exists(path):
@@ -1026,16 +1025,16 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     Args:
         user_input: the target module name for fuzzy searching.
 
-    Return:
+    Returns:
         A list of guessed modules.
     """
     modules_with_ld = self.get_testable_modules_with_ld(
         user_input, ld_range=constants.LD_RANGE
     )
     guessed_modules = []
-    for _distance, _module in modules_with_ld:
-      if _distance <= abs(constants.LD_RANGE):
-        guessed_modules.append(_module)
+    for distance_, module_ in modules_with_ld:
+      if distance_ <= abs(constants.LD_RANGE):
+        guessed_modules.append(module_)
     return guessed_modules
 
   def find_test_by_config_name(self, config_name):

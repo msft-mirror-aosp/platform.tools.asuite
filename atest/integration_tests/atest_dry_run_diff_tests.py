@@ -154,7 +154,7 @@ class AtestDryRunDiffTests(atest_integration_test.AtestTestCase):
             map(
                 lambda result: result.get_atest_log_values_from_prefix(
                     atest_integration_test.DRY_RUN_COMMAND_LOG_PREFIX
-                )[0],
+                ),
                 cmd_results_prod,
             )
         ),
@@ -165,7 +165,7 @@ class AtestDryRunDiffTests(atest_integration_test.AtestTestCase):
             map(
                 lambda result: result.get_atest_log_values_from_prefix(
                     atest_integration_test.DRY_RUN_COMMAND_LOG_PREFIX
-                )[0],
+                ),
                 cmd_results_dev,
             )
         ),
@@ -209,20 +209,28 @@ class AtestDryRunDiffTests(atest_integration_test.AtestTestCase):
       with self.subTest(
           name=f'{usages[idx].command}_runner_cmd_has_same_elements'
       ):
-        sanitized_runner_cmd_prod = (
-            atest_integration_test.sanitize_runner_command(runner_cmd_prod[idx])
-        )
-        sanitized_runner_cmd_dev = (
-            atest_integration_test.sanitize_runner_command(runner_cmd_dev[idx])
-        )
         self.assertEqual(
-            set(sanitized_runner_cmd_prod.split(' ')),
-            set(sanitized_runner_cmd_dev.split(' ')),
-            'Runner command mismatch for command:'
-            f' {usages[idx].command}.\nProd:\n'
-            f' {sanitized_runner_cmd_prod}\nDev:\n{sanitized_runner_cmd_dev}\n'
-            f' {impact_str}',
+            len(runner_cmd_prod[idx]),
+            len(runner_cmd_dev[idx]),
+            'Nummber of runner commands mismatch for command:'
+            ' {usages[idx].command}.',
         )
+
+        for cmd_idx in range(len(runner_cmd_prod[idx])):
+          sanitized_runner_cmd_prod = (
+              atest_integration_test.sanitize_runner_command(runner_cmd_prod[idx][cmd_idx])
+          )
+          sanitized_runner_cmd_dev = (
+              atest_integration_test.sanitize_runner_command(runner_cmd_dev[idx][cmd_idx])
+          )
+          self.assertEqual(
+              set(sanitized_runner_cmd_prod.split(' ')),
+              set(sanitized_runner_cmd_dev.split(' ')),
+              'Runner command mismatch for command:'
+              f' {usages[idx].command}.\nProd:\n'
+              f' {sanitized_runner_cmd_prod}\nDev:\n{sanitized_runner_cmd_dev}\n'
+              f' {impact_str}',
+          )
 
 
 # A copy of the list of atest commands tested in the command verification tests.

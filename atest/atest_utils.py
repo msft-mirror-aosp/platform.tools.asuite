@@ -27,7 +27,9 @@ import enum
 import fnmatch
 import hashlib
 import html
-import importlib
+import importlib.resources
+import importlib.util
+import io
 import itertools
 import json
 import logging
@@ -40,6 +42,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 from threading import Thread
 import traceback
 from typing import Any, Dict, IO, List, Set, Tuple
@@ -54,7 +57,7 @@ from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.tf_proto import test_record_pb2
 
-_BUILD_OUTPUT_ROLLING_LINES = 6
+DEFAULT_OUTPUT_ROLLING_LINES = 6
 _BASH_CLEAR_PREVIOUS_LINE_CODE = '\033[F\033[K'
 _BASH_RESET_CODE = '\033[0m'
 DIST_OUT_DIR = Path(
@@ -270,44 +273,113 @@ def _capture_limited_output(full_log):
   return output
 
 
-def _stream_io_output(io_input: IO, io_output: IO, max_lines=None):
+def stream_io_output(
+    io_input: IO,
+    max_lines=None,
+    full_output_receiver: IO = None,
+    io_output: IO = None,
+    is_io_output_atty=None,
+):
   """Stream an IO output with max number of rolling lines to display if set.
 
   Args:
       input: The file-like object to read the output from.
-      output: The file-like object to write the output to.
       max_lines: The maximum number of rolling lines to display. If None, all
         lines will be displayed.
+      full_output_receiver: Optional io to receive the full output.
+      io_output: The file-like object to write the output to.
+      is_io_output_atty: Whether the io_output is a TTY.
   """
-  print('\n----------------------------------------------------')
-  term_width, _ = get_terminal_size()
-  full_output = []
-  last_lines = None if not max_lines else deque(maxlen=max_lines)
-  last_number_of_lines = 0
-  for line in iter(io_input.readline, ''):
-    full_output.append(line)
-    line = line.rstrip()
-    if last_lines is None:
+  if io_output is None:
+    io_output = _original_sys_stdout
+  if is_io_output_atty is None:
+    is_io_output_atty = _has_colors(io_output)
+  if not max_lines or not is_io_output_atty:
+    for line in iter(io_input.readline, ''):
+      if not line:
+        break
+      if full_output_receiver is not None:
+        full_output_receiver.write(
+            line if isinstance(line, str) else line.decode('utf-8')
+        )
       io_output.write(line)
-      io_output.write('\n')
       io_output.flush()
-      continue
+    return
+
+  term_width, _ = get_terminal_size()
+  last_lines = deque(maxlen=max_lines)
+  is_rolling = True
+
+  def reset_output():
+    if is_rolling and last_lines:
+      io_output.write(_BASH_CLEAR_PREVIOUS_LINE_CODE * (len(last_lines) + 2))
+
+  def write_output(new_lines: list[str]):
+    if not is_rolling:
+      return
+    last_lines.extend(new_lines)
+    lines = ['========== Rolling subprocess output ==========']
+    lines.extend(last_lines)
+    lines.append('-----------------------------------------------')
+    io_output.write('\n'.join(lines))
+    io_output.write('\n')
+    io_output.flush()
+
+  original_stdout = sys.stdout
+  original_stderr = sys.stderr
+
+  lock = threading.Lock()
+
+  class SafeStdout:
+
+    def __init__(self):
+      self._buffers = []
+
+    def write(self, buf: str) -> None:
+      if len(buf) == 1 and buf[0] == '\n' and self._buffers:
+        with lock:
+          reset_output()
+          original_stdout.write(''.join(self._buffers))
+          original_stdout.write('\n')
+          original_stdout.flush()
+          write_output([])
+          self._buffers.clear()
+      else:
+        self._buffers.append(buf)
+
+    def flush(self) -> None:
+      original_stdout.flush()
+
+  sys.stdout = SafeStdout()
+  sys.stderr = sys.stdout
+
+  for line in iter(io_input.readline, ''):
+    if not line:
+      break
+    line = line.decode('utf-8') if isinstance(line, bytes) else line
+    if full_output_receiver is not None:
+      full_output_receiver.write(line)
+    line = line.rstrip().replace('\t', '  ')
     # Split the line if it's longer than the terminal width
     wrapped_lines = (
         [line]
         if len(line) <= term_width
         else [line[i : i + term_width] for i in range(0, len(line), term_width)]
     )
-    last_lines.extend(wrapped_lines)
-    io_output.write(_BASH_CLEAR_PREVIOUS_LINE_CODE * last_number_of_lines)
-    io_output.write('\n'.join(last_lines))
-    io_output.write('\n')
+    with lock:
+      reset_output()
+      write_output(wrapped_lines)
+
+  with lock:
+    reset_output()
+    is_rolling = False
+    io_output.write(_BASH_RESET_CODE)
     io_output.flush()
-    last_number_of_lines = len(last_lines)
+
+  sys.stdout = original_stdout
+  sys.stderr = original_stderr
+
   io_input.close()
-  io_output.write(_BASH_RESET_CODE)
-  io_output.flush()
-  print('----------------------------------------------------')
 
 
 def run_limited_output(
@@ -336,12 +408,18 @@ def run_limited_output(
       start_new_session=start_new_session,
       text=True,
   ) as proc:
-    _stream_io_output(
-        proc.stdout, _original_sys_stdout, _BUILD_OUTPUT_ROLLING_LINES
+    full_output_receiver = io.StringIO()
+    stream_io_output(
+        proc.stdout,
+        DEFAULT_OUTPUT_ROLLING_LINES,
+        full_output_receiver,
+        _original_sys_stdout,
     )
     returncode = proc.wait()
     if returncode:
-      raise subprocess.CalledProcessError(returncode, cmd, full_output)
+      raise subprocess.CalledProcessError(
+          returncode, cmd, full_output_receiver.getvalue()
+      )
 
 
 def get_build_out_dir(*joinpaths) -> Path:
@@ -531,6 +609,11 @@ def is_test_mapping(args):
     return True
   # ':postsubmit' implicitly indicates running in test-mapping mode.
   return all((len(args.tests) == 1, args.tests[0][0] == ':'))
+
+
+def is_atty_terminal() -> bool:
+  """Check if the current process is running in a TTY."""
+  return getattr(_original_sys_stdout, 'isatty', lambda: False)()
 
 
 def _has_colors(stream):
@@ -852,7 +935,7 @@ def update_test_info_cache(test_reference, test_infos, cache_root=None):
   # Save test_info to files.
   try:
     with open(cache_path, 'wb') as test_info_cache_file:
-      logging.debug('Saving cache %s.', cache_path)
+      logging.debug('Saving cache for %s as %s.', test_reference, cache_path)
       pickle.dump(test_infos, test_info_cache_file, protocol=2)
   except (pickle.PicklingError, TypeError, IOError) as err:
     # Won't break anything, just log this error, and collect the exception
@@ -876,7 +959,7 @@ def load_test_info_cache(test_reference, cache_root=None):
 
   cache_file = get_test_info_cache_path(test_reference, cache_root)
   if os.path.isfile(cache_file):
-    logging.debug('Loading cache %s.', cache_file)
+    logging.debug('Loading cache %s from %s.', test_reference, cache_file)
     try:
       with open(cache_file, 'rb') as config_dictionary_file:
         return pickle.load(config_dictionary_file, encoding='utf-8')

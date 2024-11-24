@@ -20,6 +20,7 @@ import argparse
 
 from atest import bazel_mode
 from atest import constants
+from atest import rollout_control
 from atest.atest_utils import BuildOutputMode
 
 
@@ -119,7 +120,7 @@ def create_atest_arg_parser():
   )
   parser.add_argument(
       '--bazel-mode',
-      default=True,
+      default=not rollout_control.disable_bazel_mode_by_default.is_enabled(),
       action='store_true',
       help='Run tests using Bazel (default: True).',
   )
