@@ -117,6 +117,10 @@ class DetectType(IntEnum):
   IS_PLOCATEDB_LOCKED = 63
   # Device update duration
   DEVICE_UPDATE_MS = 64
+  # The ID of the feature that is controlled by rollout control. Positive value
+  # means the feature is enabled, negative value means disabled.
+  ROLLOUT_CONTROLLED_FEATURE_ID = 65
+  ROLLOUT_CONTROLLED_FEATURE_ID_OVERRIDE = 66
 
 
 @unique
