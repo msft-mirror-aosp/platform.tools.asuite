@@ -402,9 +402,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         test_infos, extra_args, server.getsockname()[1]
     )
     is_rolling_output = (
-        rollout_control.rolling_tf_subprocess_output.is_enabled()
-        and not extra_args.get(constants.VERBOSE, False)
+        not extra_args.get(constants.VERBOSE, False)
         and atest_utils.is_atty_terminal()
+        and rollout_control.rolling_tf_subprocess_output.is_enabled()
     )
 
     logging.debug('Running test: %s', run_cmds[0])
