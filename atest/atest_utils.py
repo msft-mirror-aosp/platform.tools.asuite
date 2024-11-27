@@ -935,7 +935,7 @@ def update_test_info_cache(test_reference, test_infos, cache_root=None):
   # Save test_info to files.
   try:
     with open(cache_path, 'wb') as test_info_cache_file:
-      logging.debug('Saving cache %s.', cache_path)
+      logging.debug('Saving cache for %s as %s.', test_reference, cache_path)
       pickle.dump(test_infos, test_info_cache_file, protocol=2)
   except (pickle.PicklingError, TypeError, IOError) as err:
     # Won't break anything, just log this error, and collect the exception
@@ -959,7 +959,7 @@ def load_test_info_cache(test_reference, cache_root=None):
 
   cache_file = get_test_info_cache_path(test_reference, cache_root)
   if os.path.isfile(cache_file):
-    logging.debug('Loading cache %s.', cache_file)
+    logging.debug('Loading cache %s from %s.', test_reference, cache_file)
     try:
       with open(cache_file, 'rb') as config_dictionary_file:
         return pickle.load(config_dictionary_file, encoding='utf-8')
