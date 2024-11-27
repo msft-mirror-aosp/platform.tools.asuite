@@ -175,15 +175,15 @@ class RolloutControlledFeature:
     return is_enabled
 
 
-disable_bazel_mode_by_default = RolloutControlledFeature(
-    name='Bazel mode disabled by default',
-    rollout_percentage=10,
-    env_control_flag='DISABLE_BAZEL_MODE_BY_DEFAULT',
+deprecate_bazel_mode = RolloutControlledFeature(
+    name='Deprecate Bazel Mode',
+    rollout_percentage=30,
+    env_control_flag='DEPRECATE_BAZEL_MODE',
     feature_id=1,
     print_message=(
-        'Running host unit tests without bazel mode which is being deprecated.'
-        ' If you experienced any issues and require bazel mode, please comment'
-        ' on http://b/377371679.'
+        'Running host unit tests without bazel mode as bazel mode is'
+        ' deprecated. If you experienced any issues and require bazel mode,'
+        ' please comment on http://b/377371679.'
     ),
 )
 
