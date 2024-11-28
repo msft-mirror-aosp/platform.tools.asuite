@@ -63,9 +63,19 @@ class Update:
             ' targets.'
         ),
     )
+    parser.add_argument(
+        '--list-aliases',
+        action='store_true',
+        help='list aliases; used for autocomplete',
+    )
 
   def main(self):
     """Main entrypoint for Update."""
+
+    if self.args.list_aliases:
+      print(' '.join(get_aliases().keys()))
+      return
+
     tasks = self.gather_tasks()
     self.run_tasks(tasks)
 
