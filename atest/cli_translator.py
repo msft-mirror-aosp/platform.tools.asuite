@@ -35,6 +35,7 @@ from atest import atest_error
 from atest import atest_utils
 from atest import bazel_mode
 from atest import constants
+from atest import rollout_control
 from atest import test_finder_handler
 from atest import test_mapping
 from atest.atest_enum import DetectType, ExitCode
@@ -103,7 +104,10 @@ class CLITranslator:
     """
     self.mod_info = mod_info
     self.root_dir = os.getenv(constants.ANDROID_BUILD_TOP, os.sep)
-    self._bazel_mode = bazel_mode_enabled
+    self._bazel_mode = (
+        bazel_mode_enabled
+        and not rollout_control.deprecate_bazel_mode.is_enabled()
+    )
     self._bazel_mode_features = bazel_mode_features or []
     self._host = host
     self.enable_file_patterns = False
