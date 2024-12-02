@@ -193,3 +193,16 @@ rolling_tf_subprocess_output = RolloutControlledFeature(
         ' http://b/380460196.'
     ),
 )
+
+tf_preparer_incremental_setup = RolloutControlledFeature(
+    name='TradeFed preparer incremental setup',
+    rollout_percentage=0,
+    env_control_flag='TF_PREPARER_INCREMENTAL_SETUP',
+    feature_id=3,
+    print_message=(
+        'You are one of the first users selected to receive the "Incremental'
+        ' setup for TradeFed preparers" feature. If you are happy with it,'
+        ' please +1 on http://b/381900378. If you experienced any issues,'
+        ' please comment on the same bug.'
+    ),
+)
