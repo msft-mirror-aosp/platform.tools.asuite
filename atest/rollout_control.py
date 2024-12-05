@@ -103,6 +103,36 @@ class RolloutControlledFeature:
       return None
     return os.environ[self._env_control_flag] in ('TRUE', 'True', 'true', '1')
 
+  def _is_enabled_for_user(self, username: str | None) -> bool:
+    """Checks whether the feature is enabled for the user.
+
+    Args:
+        username: The username to check the feature enablement for. If not
+          provided, the current user's username will be used.
+
+    Returns:
+        True if the feature is enabled for the user, False otherwise.
+    """
+    if self._rollout_percentage == 100:
+      return True
+
+    if username is None:
+      username = getpass.getuser()
+
+    if not username:
+      logging.debug(
+          'Unable to determine the username. Disabling the feature %s.',
+          self._name,
+      )
+      return False
+
+    if username in self._owners:
+      return True
+
+    hash_object = hashlib.sha256()
+    hash_object.update((username + ' ' + self._name).encode('utf-8'))
+    return int(hash_object.hexdigest(), 16) % 100 < self._rollout_percentage
+
   @functools.cache
   def is_enabled(self, username: str | None = None) -> bool:
     """Checks whether the current feature is enabled for the user.
@@ -131,30 +161,7 @@ class RolloutControlledFeature:
         )
       return override_flag_value
 
-    if self._rollout_percentage == 100:
-      return True
-
-    if username is None:
-      username = getpass.getuser()
-
-    if not username:
-      logging.debug(
-          'Unable to determine the username. Disabling the feature %s.',
-          self._name,
-      )
-      return False
-
-    is_enabled = username in self._owners
-
-    if not is_enabled:
-      if self._rollout_percentage == 0:
-        return False
-
-      hash_object = hashlib.sha256()
-      hash_object.update((username + ' ' + self._name).encode('utf-8'))
-      is_enabled = (
-          int(hash_object.hexdigest(), 16) % 100 < self._rollout_percentage
-      )
+    is_enabled = self._is_enabled_for_user(username)
 
     logging.debug(
         'Feature %s is %s for user %s.',
