@@ -184,7 +184,7 @@ class RolloutControlledFeature:
 
 deprecate_bazel_mode = RolloutControlledFeature(
     name='Deprecate Bazel Mode',
-    rollout_percentage=30,
+    rollout_percentage=60,
     env_control_flag='DEPRECATE_BAZEL_MODE',
     feature_id=1,
 )
