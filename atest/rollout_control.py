@@ -22,6 +22,7 @@ import importlib.resources
 import logging
 import os
 from atest import atest_enum
+from atest import atest_utils
 from atest.metrics import metrics
 
 
@@ -56,6 +57,7 @@ class RolloutControlledFeature:
       env_control_flag: str,
       feature_id: int = None,
       owners: list[str] | None = None,
+      print_message: str | None = None,
   ):
     """Initializes the object.
 
@@ -70,6 +72,8 @@ class RolloutControlledFeature:
           for metric collection purpose. Must be a positive integer.
         owners: The owners of the feature. If not provided, the owners of the
           feature will be read from OWNERS file.
+        print_message: The message to print to the console when the feature is
+          enabled for the user.
     """
     if rollout_percentage < 0 or rollout_percentage > 100:
       raise ValueError(
@@ -87,6 +91,7 @@ class RolloutControlledFeature:
     self._env_control_flag = env_control_flag
     self._feature_id = feature_id
     self._owners = owners
+    self._print_message = print_message
 
   def _check_env_control_flag(self) -> bool | None:
     """Checks the environment variable to override the feature enablement.
@@ -164,28 +169,27 @@ class RolloutControlledFeature:
           result=self._feature_id if is_enabled else -self._feature_id,
       )
 
-    if is_enabled and self._rollout_percentage < 100:
-      print(
-          '\nYou are among the first %s%% of users to receive the feature "%s".'
-          ' If you experience any issues, you can disable the feature by'
-          ' setting the environment variable "%s" to false, and the atest team'
-          ' will be notified.\n'
-          % (self._rollout_percentage, self._name, self._env_control_flag)
-      )
+    if is_enabled and self._print_message:
+      print(atest_utils.mark_magenta(self._print_message))
 
     return is_enabled
 
 
-disable_bazel_mode_by_default = RolloutControlledFeature(
-    name='Bazel mode disabled by default',
-    rollout_percentage=5,
-    env_control_flag='DISABLE_BAZEL_MODE_BY_DEFAULT',
+deprecate_bazel_mode = RolloutControlledFeature(
+    name='Deprecate Bazel Mode',
+    rollout_percentage=30,
+    env_control_flag='DEPRECATE_BAZEL_MODE',
     feature_id=1,
 )
 
 rolling_tf_subprocess_output = RolloutControlledFeature(
     name='Rolling TradeFed subprocess output',
-    rollout_percentage=5,
+    rollout_percentage=60,
     env_control_flag='ROLLING_TF_SUBPROCESS_OUTPUT',
     feature_id=2,
+    print_message=(
+        'You are one of the first users receiving the "Rolling subprocess'
+        ' output" feature. If you are happy with it, please +1 on'
+        ' http://b/380460196.'
+    ),
 )
