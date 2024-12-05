@@ -191,7 +191,7 @@ deprecate_bazel_mode = RolloutControlledFeature(
 
 rolling_tf_subprocess_output = RolloutControlledFeature(
     name='Rolling TradeFed subprocess output',
-    rollout_percentage=60,
+    rollout_percentage=100,
     env_control_flag='ROLLING_TF_SUBPROCESS_OUTPUT',
     feature_id=2,
     print_message=(
