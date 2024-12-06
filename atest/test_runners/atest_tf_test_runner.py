@@ -59,6 +59,9 @@ SOCKET_QUEUE_MAX = 1
 SOCKET_BUFFER = 4096
 SELECT_TIMEOUT = 0.5
 
+# Env key for rolling subprocess output window height.
+_ROLLING_OUTPUT_WINDOW_HEIGHT_ENV_KEY = 'ATEST_ROLLING_OUTPUT_WINDOW_HEIGHT'
+
 # Socket Events of form FIRST_EVENT {JSON_DATA}\nSECOND_EVENT {JSON_DATA}
 # EVENT_RE has groups for the name and the data. "." does not match \n.
 EVENT_RE = re.compile(
@@ -402,9 +405,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         test_infos, extra_args, server.getsockname()[1]
     )
     is_rolling_output = (
-        rollout_control.rolling_tf_subprocess_output.is_enabled()
-        and not extra_args.get(constants.VERBOSE, False)
+        not extra_args.get(constants.VERBOSE, False)
         and atest_utils.is_atty_terminal()
+        and rollout_control.rolling_tf_subprocess_output.is_enabled()
     )
 
     logging.debug('Running test: %s', run_cmds[0])
@@ -416,9 +419,20 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     )
 
     if is_rolling_output:
+      height = os.environ.get(_ROLLING_OUTPUT_WINDOW_HEIGHT_ENV_KEY, None)
+      if height:
+        try:
+          height = int(height)
+        except ValueError:
+          atest_utils.print_and_log_warning(
+              'Invalid rolling output window height: %s', height
+          )
       threading.Thread(
           target=atest_utils.stream_io_output,
-          args=(subproc.stdout, atest_utils.DEFAULT_OUTPUT_ROLLING_LINES),
+          args=(
+              subproc.stdout,
+              height if height else atest_utils.DEFAULT_OUTPUT_ROLLING_LINES,
+          ),
       ).start()
 
     self.handle_subprocess(
