@@ -31,6 +31,7 @@ import re
 import select
 import shutil
 import socket
+import threading
 import time
 from typing import Any, Dict, List, Set, Tuple
 
@@ -40,6 +41,7 @@ from atest import atest_utils
 from atest import constants
 from atest import module_info
 from atest import result_reporter
+from atest import rollout_control
 from atest.atest_enum import DetectType, ExitCode
 from atest.coverage import coverage
 from atest.logstorage import logstorage_utils
@@ -306,8 +308,19 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     self._try_set_gts_authentication_key()
     result = 0
     upload_start = time.time()
+    invocation_properties = {'atest_run_id': metrics.get_run_id()}
+
+    # Set crystalball_ingest property if there are performance tests.
+    is_perf_tests = False
+    for info in test_infos:
+      if 'performance-tests' in info.compatibility_suites:
+        is_perf_tests = True
+        break
+    if is_perf_tests:
+      invocation_properties['crystalball_ingest'] = 'yes'
+
     creds, inv = (
-        logstorage_utils.do_upload_flow(extra_args)
+        logstorage_utils.do_upload_flow(extra_args, invocation_properties)
         if logstorage_utils.is_upload_enabled(extra_args)
         else (None, None)
     )
@@ -388,12 +401,26 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     run_cmds = self.generate_run_commands(
         test_infos, extra_args, server.getsockname()[1]
     )
+    is_rolling_output = (
+        not extra_args.get(constants.VERBOSE, False)
+        and atest_utils.is_atty_terminal()
+        and rollout_control.rolling_tf_subprocess_output.is_enabled()
+    )
+
     logging.debug('Running test: %s', run_cmds[0])
     subproc = self.run(
         run_cmds[0],
         output_to_stdout=extra_args.get(constants.VERBOSE, False),
         env_vars=self.generate_env_vars(extra_args),
+        rolling_output_lines=is_rolling_output,
     )
+
+    if is_rolling_output:
+      threading.Thread(
+          target=atest_utils.stream_io_output,
+          args=(subproc.stdout, atest_utils.DEFAULT_OUTPUT_ROLLING_LINES),
+      ).start()
+
     self.handle_subprocess(
         subproc,
         partial(self._start_monitor, server, subproc, reporter, extra_args),
@@ -840,7 +867,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         A list that contains the string of atest tradefed run command.
         Only one command is returned.
     """
-    if extra_args.get(constants.USE_TF_MIN_BASE_TEMPLATE):
+    if any(
+        'performance-tests' in info.compatibility_suites for info in test_infos
+    ):
+      self.run_cmd_dict['template'] = 'template/performance-tests-base'
+    elif extra_args.get(constants.USE_TF_MIN_BASE_TEMPLATE):
       self.run_cmd_dict['template'] = self._TF_LOCAL_MIN
     else:
       self.run_cmd_dict['template'] = (
@@ -932,7 +963,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
       test_args.extend(atest_utils.get_result_server_args(for_test_mapping))
     self.run_cmd_dict['args'] = ' '.join(test_args)
     self.run_cmd_dict['tf_customize_template'] = (
-        self._extract_customize_tf_templates(extra_args, test_infos)
+        self._extract_customize_tf_templates(extra_args)
     )
 
     # By default using ATestFileSystemLogSaver no matter what running under
@@ -1153,27 +1184,16 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     ]
     return ' '.join(extracted_options)
 
-  def _extract_customize_tf_templates(self, extra_args, test_infos):
+  def _extract_customize_tf_templates(self, extra_args: dict[str]) -> str:
     """Extract tradefed template options to a string for output.
 
     Args:
         extra_args: Dict of extra args for test runners to use.
-        test_infos: A set of TestInfo instances.
 
-    Returns: A string of tradefed template options.
+    Returns:
+        A string of tradefed template options.
     """
     tf_templates = extra_args.get(constants.TF_TEMPLATE, [])
-    tf_template_keys = [i.split('=')[0] for i in tf_templates]
-    for info in test_infos:
-      if (
-          info.aggregate_metrics_result
-          and 'metric_post_processor' not in tf_template_keys
-      ):
-        template_key = 'metric_post_processor'
-        template_value = (
-            'google/template/postprocessors/metric-file-aggregate-disabled'
-        )
-        tf_templates.append(f'{template_key}={template_value}')
     return ' '.join(['--template:map %s' % x for x in tf_templates])
 
   def _handle_log_associations(self, event_handlers):

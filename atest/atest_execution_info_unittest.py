@@ -22,9 +22,9 @@ import pathlib
 import time
 import unittest
 from unittest.mock import patch
-
-from atest import atest_configs
+from atest import arg_parser
 from atest import atest_execution_info as aei
+from atest import constants
 from atest import result_reporter
 from atest.metrics import metrics
 from atest.test_runners import test_runner_base
@@ -50,8 +50,9 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
   def setUp(self):
     super().setUp()
     self.setUpPyfakefs()
+    self.fs.create_dir(constants.ATEST_RESULT_ROOT)
 
-  def test_copy_build_trace_to_log_dir_new_trace_copy(self):
+  def test_copy_build_artifacts_to_log_dir_new_trace_copy(self):
     start_time = 10
     log_path = pathlib.Path('/logs')
     self.fs.create_dir(log_path)
@@ -60,21 +61,17 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
     self.fs.create_file(build_trace_path)
     # Set the trace file's mtime greater than start time
     os.utime(build_trace_path, (20, 20))
+    end_time = 30
 
-    with aei.AtestExecutionInfo(
-        [],
-        log_path,
-        atest_configs.GLOBAL_ARGS,
-        start_time=start_time,
-        repo_out_dir=out_path,
-    ) as result_file:
-      pass
+    aei.AtestExecutionInfo._copy_build_artifacts_to_log_dir(
+        start_time, end_time, out_path, log_path, 'build.trace'
+    )
 
     self.assertTrue(
         self._is_dir_contains_files_with_prefix(log_path, 'build.trace')
     )
 
-  def test_copy_build_trace_to_log_dir_old_trace_does_not_copy(self):
+  def test_copy_build_artifacts_to_log_dir_old_trace_does_not_copy(self):
     start_time = 10
     log_path = pathlib.Path('/logs')
     self.fs.create_dir(log_path)
@@ -83,15 +80,11 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
     self.fs.create_file(build_trace_path)
     # Set the trace file's mtime smaller than start time
     os.utime(build_trace_path, (5, 5))
+    end_time = 30
 
-    with aei.AtestExecutionInfo(
-        [],
-        log_path,
-        atest_configs.GLOBAL_ARGS,
-        start_time=start_time,
-        repo_out_dir=out_path,
-    ) as result_file:
-      pass
+    aei.AtestExecutionInfo._copy_build_artifacts_to_log_dir(
+        start_time, end_time, out_path, log_path, 'build.trace'
+    )
 
     self.assertFalse(
         self._is_dir_contains_files_with_prefix(log_path, 'build.trace')
@@ -102,28 +95,24 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
     log_path = pathlib.Path('/logs')
     self.fs.create_dir(log_path)
     out_path = pathlib.Path('/out')
-    build_trace_path1 = out_path / 'build.trace.1'
-    build_trace_path2 = out_path / 'build.trace.2'
+    build_trace_path1 = out_path / 'build.trace.1.gz'
+    build_trace_path2 = out_path / 'build.trace.2.gz'
     self.fs.create_file(build_trace_path1)
     self.fs.create_file(build_trace_path2)
     # Set the trace file's mtime greater than start time
     os.utime(build_trace_path1, (20, 20))
     os.utime(build_trace_path2, (20, 20))
+    end_time = 30
 
-    with aei.AtestExecutionInfo(
-        [],
-        log_path,
-        atest_configs.GLOBAL_ARGS,
-        start_time=start_time,
-        repo_out_dir=out_path,
-    ) as result_file:
-      pass
+    aei.AtestExecutionInfo._copy_build_artifacts_to_log_dir(
+        start_time, end_time, out_path, log_path, 'build.trace'
+    )
 
     self.assertTrue(
-        self._is_dir_contains_files_with_prefix(log_path, 'build.trace.1')
+        self._is_dir_contains_files_with_prefix(log_path, 'build.trace.1.gz')
     )
     self.assertTrue(
-        self._is_dir_contains_files_with_prefix(log_path, 'build.trace.2')
+        self._is_dir_contains_files_with_prefix(log_path, 'build.trace.2.gz')
     )
 
   def _is_dir_contains_files_with_prefix(
