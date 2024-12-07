@@ -91,6 +91,9 @@ _TF_EXIT_CODE = [
     'WRONG_JAVA_VERSION',
 ]
 
+# The environment variable for TF preparer incremental setup.
+_INCREMENTAL_SETUP_KEY = 'TF_PREPARER_INCREMENTAL_SETUP'
+
 
 class Error(Exception):
   """Module-level error."""
@@ -234,10 +237,13 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
           )
       )
     if device_test_infos:
+      extra_args_for_device_test = extra_args.copy()
+      if rollout_control.tf_preparer_incremental_setup.is_enabled():
+        extra_args_for_device_test.update({_INCREMENTAL_SETUP_KEY: True})
       invocations.append(
           TestRunnerInvocation(
               test_runner=self,
-              extra_args=extra_args,
+              extra_args=extra_args_for_device_test,
               test_infos=device_test_infos,
           )
       )
@@ -1512,6 +1518,7 @@ def extra_args_to_tf_args(
           ),
       ],
       constants.COVERAGE: lambda _: coverage.tf_args(mod_info),
+      _INCREMENTAL_SETUP_KEY: constant_list('--incremental-setup=YES'),
   })
 
   for arg in extra_args:
