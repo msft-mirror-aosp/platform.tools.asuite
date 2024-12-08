@@ -103,6 +103,36 @@ class RolloutControlledFeature:
       return None
     return os.environ[self._env_control_flag] in ('TRUE', 'True', 'true', '1')
 
+  def _is_enabled_for_user(self, username: str | None) -> bool:
+    """Checks whether the feature is enabled for the user.
+
+    Args:
+        username: The username to check the feature enablement for. If not
+          provided, the current user's username will be used.
+
+    Returns:
+        True if the feature is enabled for the user, False otherwise.
+    """
+    if self._rollout_percentage == 100:
+      return True
+
+    if username is None:
+      username = getpass.getuser()
+
+    if not username:
+      logging.debug(
+          'Unable to determine the username. Disabling the feature %s.',
+          self._name,
+      )
+      return False
+
+    if username in self._owners:
+      return True
+
+    hash_object = hashlib.sha256()
+    hash_object.update((username + ' ' + self._name).encode('utf-8'))
+    return int(hash_object.hexdigest(), 16) % 100 < self._rollout_percentage
+
   @functools.cache
   def is_enabled(self, username: str | None = None) -> bool:
     """Checks whether the current feature is enabled for the user.
@@ -131,30 +161,7 @@ class RolloutControlledFeature:
         )
       return override_flag_value
 
-    if self._rollout_percentage == 100:
-      return True
-
-    if username is None:
-      username = getpass.getuser()
-
-    if not username:
-      logging.debug(
-          'Unable to determine the username. Disabling the feature %s.',
-          self._name,
-      )
-      return False
-
-    is_enabled = username in self._owners
-
-    if not is_enabled:
-      if self._rollout_percentage == 0:
-        return False
-
-      hash_object = hashlib.sha256()
-      hash_object.update((username + ' ' + self._name).encode('utf-8'))
-      is_enabled = (
-          int(hash_object.hexdigest(), 16) % 100 < self._rollout_percentage
-      )
+    is_enabled = self._is_enabled_for_user(username)
 
     logging.debug(
         'Feature %s is %s for user %s.',
@@ -177,24 +184,32 @@ class RolloutControlledFeature:
 
 deprecate_bazel_mode = RolloutControlledFeature(
     name='Deprecate Bazel Mode',
-    rollout_percentage=30,
+    rollout_percentage=60,
     env_control_flag='DEPRECATE_BAZEL_MODE',
     feature_id=1,
-    print_message=(
-        'Running host unit tests without bazel mode as bazel mode is'
-        ' deprecated. If you experienced any issues and require bazel mode,'
-        ' please comment on http://b/377371679.'
-    ),
 )
 
 rolling_tf_subprocess_output = RolloutControlledFeature(
     name='Rolling TradeFed subprocess output',
-    rollout_percentage=60,
+    rollout_percentage=100,
     env_control_flag='ROLLING_TF_SUBPROCESS_OUTPUT',
     feature_id=2,
     print_message=(
         'You are one of the first users receiving the "Rolling subprocess'
         ' output" feature. If you are happy with it, please +1 on'
         ' http://b/380460196.'
+    ),
+)
+
+tf_preparer_incremental_setup = RolloutControlledFeature(
+    name='TradeFed preparer incremental setup',
+    rollout_percentage=0,
+    env_control_flag='TF_PREPARER_INCREMENTAL_SETUP',
+    feature_id=3,
+    print_message=(
+        'You are one of the first users selected to receive the "Incremental'
+        ' setup for TradeFed preparers" feature. If you are happy with it,'
+        ' please +1 on http://b/381900378. If you experienced any issues,'
+        ' please comment on the same bug.'
     ),
 )
