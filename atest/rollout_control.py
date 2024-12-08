@@ -180,11 +180,6 @@ deprecate_bazel_mode = RolloutControlledFeature(
     rollout_percentage=30,
     env_control_flag='DEPRECATE_BAZEL_MODE',
     feature_id=1,
-    print_message=(
-        'Running host unit tests without bazel mode as bazel mode is'
-        ' deprecated. If you experienced any issues and require bazel mode,'
-        ' please comment on http://b/377371679.'
-    ),
 )
 
 rolling_tf_subprocess_output = RolloutControlledFeature(
