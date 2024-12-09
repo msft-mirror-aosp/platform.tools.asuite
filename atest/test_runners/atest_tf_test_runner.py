@@ -59,9 +59,6 @@ SOCKET_QUEUE_MAX = 1
 SOCKET_BUFFER = 4096
 SELECT_TIMEOUT = 0.5
 
-# Env key for rolling subprocess output window height.
-_ROLLING_OUTPUT_WINDOW_HEIGHT_ENV_KEY = 'ATEST_ROLLING_OUTPUT_WINDOW_HEIGHT'
-
 # Socket Events of form FIRST_EVENT {JSON_DATA}\nSECOND_EVENT {JSON_DATA}
 # EVENT_RE has groups for the name and the data. "." does not match \n.
 EVENT_RE = re.compile(
@@ -90,9 +87,6 @@ _TF_EXIT_CODE = [
     'NO_DEVICE_ALLOCATED',
     'WRONG_JAVA_VERSION',
 ]
-
-# The environment variable for TF preparer incremental setup.
-_INCREMENTAL_SETUP_KEY = 'TF_PREPARER_INCREMENTAL_SETUP'
 
 
 class Error(Exception):
@@ -237,13 +231,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
           )
       )
     if device_test_infos:
-      extra_args_for_device_test = extra_args.copy()
-      if rollout_control.tf_preparer_incremental_setup.is_enabled():
-        extra_args_for_device_test.update({_INCREMENTAL_SETUP_KEY: True})
       invocations.append(
           TestRunnerInvocation(
               test_runner=self,
-              extra_args=extra_args_for_device_test,
+              extra_args=extra_args,
               test_infos=device_test_infos,
           )
       )
@@ -425,20 +416,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     )
 
     if is_rolling_output:
-      height = os.environ.get(_ROLLING_OUTPUT_WINDOW_HEIGHT_ENV_KEY, None)
-      if height:
-        try:
-          height = int(height)
-        except ValueError:
-          atest_utils.print_and_log_warning(
-              'Invalid rolling output window height: %s', height
-          )
       threading.Thread(
           target=atest_utils.stream_io_output,
-          args=(
-              subproc.stdout,
-              height if height else atest_utils.DEFAULT_OUTPUT_ROLLING_LINES,
-          ),
+          args=(subproc.stdout, atest_utils.DEFAULT_OUTPUT_ROLLING_LINES),
       ).start()
 
     self.handle_subprocess(
@@ -1518,7 +1498,6 @@ def extra_args_to_tf_args(
           ),
       ],
       constants.COVERAGE: lambda _: coverage.tf_args(mod_info),
-      _INCREMENTAL_SETUP_KEY: constant_list('--incremental-setup=YES'),
   })
 
   for arg in extra_args:

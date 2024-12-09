@@ -878,35 +878,6 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
   )
   @mock.patch('os.environ.get', return_value=None)
   @mock.patch('atest.atest_utils.get_result_server_args')
-  def test_generate_run_commands_incremental_setup(
-      self, mock_resultargs, _, _mock_is_all
-  ):
-    """Test generate_run_command method with incremental setup."""
-    mock_resultargs.return_value = []
-    extra_args = {atf_tr._INCREMENTAL_SETUP_KEY: True}
-
-    run_commands = self.tr.generate_run_commands([], extra_args)
-
-    unittest_utils.assert_strict_equal(
-        self,
-        run_commands,
-        [
-            RUN_CMD.format(
-                serial=' --incremental-setup=YES',
-                template=self.tr._TF_DEVICE_TEST_TEMPLATE,
-                tf_customize_template='',
-                device_early_release=' --no-early-device-release',
-            )
-        ],
-    )
-
-  @mock.patch.object(
-      atf_tr.AtestTradefedTestRunner,
-      '_is_all_tests_parameter_auto_enabled',
-      return_value=False,
-  )
-  @mock.patch('os.environ.get', return_value=None)
-  @mock.patch('atest.atest_utils.get_result_server_args')
   def test_generate_run_commands_with_tf_template(
       self, mock_resultargs, _, _mock_all
   ):
