@@ -195,9 +195,7 @@ rolling_tf_subprocess_output = RolloutControlledFeature(
     env_control_flag='ROLLING_TF_SUBPROCESS_OUTPUT',
     feature_id=2,
     print_message=(
-        'You are one of the first users receiving the "Rolling subprocess'
-        ' output" feature. If you are happy with it, please +1 on'
-        ' http://b/380460196.'
+        'Rolling subprocess output is currently enabled: http://b/380460196.'
     ),
 )
 
