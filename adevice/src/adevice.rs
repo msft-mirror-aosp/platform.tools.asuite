@@ -291,6 +291,8 @@ pub fn adevice(
         }
     }
     metrics.display_survey();
+    println!("New android update workflow tool available! go/a-update");
+
     Ok(())
 }
 

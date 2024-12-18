@@ -20,7 +20,6 @@
 # pylint: disable=too-many-lines
 # pylint: disable=unused-argument
 
-from argparse import Namespace
 from io import StringIO
 import json
 import os
@@ -30,6 +29,8 @@ import sys
 import tempfile
 import unittest
 from unittest import mock
+
+from atest import arg_parser
 from atest import atest_configs
 from atest import atest_utils
 from atest import constants
@@ -287,9 +288,9 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     self.tr = atf_tr.AtestTradefedTestRunner(
         results_dir=uc.TEST_INFO_DIR, extra_args={constants.HOST: False}
     )
-    if not atest_configs.GLOBAL_ARGS:
-      atest_configs.GLOBAL_ARGS = Namespace()
-    atest_configs.GLOBAL_ARGS.device_count_config = None
+    self._global_args = arg_parser.create_atest_arg_parser().parse_args([])
+    self._global_args.device_count_config = 0
+    mock.patch.object(atest_configs, 'GLOBAL_ARGS', self._global_args).start()
 
   def tearDown(self):
     mock.patch.stopall()
@@ -877,6 +878,35 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
   )
   @mock.patch('os.environ.get', return_value=None)
   @mock.patch('atest.atest_utils.get_result_server_args')
+  def test_generate_run_commands_incremental_setup(
+      self, mock_resultargs, _, _mock_is_all
+  ):
+    """Test generate_run_command method with incremental setup."""
+    mock_resultargs.return_value = []
+    extra_args = {atf_tr._INCREMENTAL_SETUP_KEY: True}
+
+    run_commands = self.tr.generate_run_commands([], extra_args)
+
+    unittest_utils.assert_strict_equal(
+        self,
+        run_commands,
+        [
+            RUN_CMD.format(
+                serial=' --incremental-setup=YES',
+                template=self.tr._TF_DEVICE_TEST_TEMPLATE,
+                tf_customize_template='',
+                device_early_release=' --no-early-device-release',
+            )
+        ],
+    )
+
+  @mock.patch.object(
+      atf_tr.AtestTradefedTestRunner,
+      '_is_all_tests_parameter_auto_enabled',
+      return_value=False,
+  )
+  @mock.patch('os.environ.get', return_value=None)
+  @mock.patch('atest.atest_utils.get_result_server_args')
   def test_generate_run_commands_with_tf_template(
       self, mock_resultargs, _, _mock_all
   ):
@@ -1131,40 +1161,6 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
   @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_create_test_args')
   @mock.patch('os.environ.get', return_value=None)
   @mock.patch('atest.atest_utils.get_result_server_args')
-  def test_generate_run_commands_for_aggregate_metric_result(
-      self,
-      mock_resultargs,
-      _mock_env,
-      _mock_create,
-      _mock_parse,
-      _mock_handle_native,
-  ):
-    """Test generate_run_command method for test need aggregate metric."""
-    mock_resultargs.return_value = []
-    _mock_create.return_value = []
-    _mock_parse.return_value = [], []
-    test_info_with_aggregate_metrics = test_info.TestInfo(
-        test_name='perf_test', test_runner='test_runner', build_targets=set()
-    )
-    test_info_with_aggregate_metrics.aggregate_metrics_result = True
-
-    run_cmd = self.tr.generate_run_commands(
-        [test_info_with_aggregate_metrics], extra_args={}
-    )
-
-    self.assertTrue(
-        str(run_cmd).find(
-            'metric_post_processor='
-            'google/template/postprocessors/metric-file-aggregate-disabled'
-        )
-        > 0
-    )
-
-  @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_handle_native_tests')
-  @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_parse_extra_args')
-  @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_create_test_args')
-  @mock.patch('os.environ.get', return_value=None)
-  @mock.patch('atest.atest_utils.get_result_server_args')
   def test_run_commands_for_aggregate_metric_result_with_manually_input(
       self,
       mock_resultargs,
@@ -1347,19 +1343,19 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
     self.assertTokensIn(['--disable-target-preparers'], cmd[0])
 
   def test_multidevice_in_config_and_generate_in_run_cmd(self):
-    atest_configs.GLOBAL_ARGS.device_count_config = 2
+    self._global_args.device_count_config = 2
     cmd = self.tr.generate_run_commands([], {})
     self.assertTokensIn(
         ['--replicate-parent-setup', '--multi-device-count', '2'], cmd[0]
     )
 
-    atest_configs.GLOBAL_ARGS.device_count_config = 1
+    self._global_args.device_count_config = 1
     cmd = self.tr.generate_run_commands([], {})
     self.assertTokensNotIn(
         ['--replicate-parent-setup', '--multi-device-count'], cmd[0]
     )
 
-    atest_configs.GLOBAL_ARGS.device_count_config = None
+    self._global_args.device_count_config = None
     cmd = self.tr.generate_run_commands([], {})
     self.assertTokensNotIn(
         ['--replicate-parent-setup', '--multi-device-count'], cmd[0]

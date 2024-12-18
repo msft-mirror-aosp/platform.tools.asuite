@@ -20,12 +20,14 @@ from __future__ import print_function
 
 from dataclasses import dataclass
 import fnmatch
+import functools
 import json
 import logging
 import os
 from pathlib import Path
 import re
 import sys
+import threading
 import time
 from typing import List, Set
 
@@ -33,6 +35,7 @@ from atest import atest_error
 from atest import atest_utils
 from atest import bazel_mode
 from atest import constants
+from atest import rollout_control
 from atest import test_finder_handler
 from atest import test_mapping
 from atest.atest_enum import DetectType, ExitCode
@@ -41,6 +44,7 @@ from atest.metrics import metrics_utils
 from atest.test_finders import module_finder
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
+from atest.tools import indexing
 
 FUZZY_FINDER = 'FUZZY'
 CACHE_FINDER = 'CACHE'
@@ -85,6 +89,7 @@ class CLITranslator:
       bazel_mode_enabled=False,
       host=False,
       bazel_mode_features: List[bazel_mode.Features] = None,
+      indexing_thread: threading.Thread = None,
   ):
     """CLITranslator constructor
 
@@ -95,10 +100,14 @@ class CLITranslator:
         bazel_mode_enabled: Boolean of args.bazel_mode.
         host: Boolean of args.host.
         bazel_mode_features: List of args.bazel_mode_features.
+        indexing_thread: Thread of indexing.
     """
     self.mod_info = mod_info
     self.root_dir = os.getenv(constants.ANDROID_BUILD_TOP, os.sep)
-    self._bazel_mode = bazel_mode_enabled
+    self._bazel_mode = (
+        bazel_mode_enabled
+        and not rollout_control.deprecate_bazel_mode.is_enabled()
+    )
     self._bazel_mode_features = bazel_mode_features or []
     self._host = host
     self.enable_file_patterns = False
@@ -110,11 +119,31 @@ class CLITranslator:
           'to clean the old cache.)'
       )
     self.fuzzy_search = True
+    self._indexing_thread = indexing_thread
+
+  @functools.cache
+  def _wait_for_index_if_needed(self) -> None:
+    """Checks indexing status and wait for it to complete if necessary."""
+    if (
+        not self._indexing_thread
+        or not self._indexing_thread.is_alive()
+        or indexing.Indices().has_all_indices()
+    ):
+      return
+    start_wait_for_indexing = time.time()
+    print('Waiting for the module indexing to complete.')
+    self._indexing_thread.join()
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.WAIT_FOR_INDEXING_MS,
+        result=int(round((time.time() - start_wait_for_indexing) * 1000)),
+    )
 
   # pylint: disable=too-many-locals
   # pylint: disable=too-many-branches
   # pylint: disable=too-many-statements
-  def _find_test_infos(self, test, tm_test_detail) -> List[test_info.TestInfo]:
+  def _find_test_infos(
+      self, test: str, tm_test_detail: test_mapping.TestDetail
+  ) -> List[test_info.TestInfo]:
     """Return set of TestInfos based on a given test.
 
     Args:
@@ -147,7 +176,23 @@ class CLITranslator:
           )
           for f in find_methods
       ]
+
     for finder in find_methods:
+      # Ideally whether a find method requires indexing should be defined within the
+      # finder class itself. However the current finder class design prevent
+      # us from defining property without a bigger change. Here we use a tuple
+      # to specify the finders that doesn't require indexing and leave the
+      # class redesign work for future work.
+      if finder.finder_info not in (
+          'EXAMPLE',
+          'CACHE',
+          'MODULE',
+          'INTEGRATION',
+          'CONFIG',
+          'SUITE_PLAN',
+      ):
+        self._wait_for_index_if_needed()
+
       # For tests in TEST_MAPPING, find method is only related to
       # test name, so the details can be set after test_info object
       # is created.
