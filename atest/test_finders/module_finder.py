@@ -54,30 +54,35 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     self.module_info = module_info
 
   def _determine_modules_to_test(
-      self, path: str, file_path: str = None
-  ) -> List:
+      self, module_path: str, test_file_path: str = None
+  ) -> set[str]:
     """Determine which module the user is trying to test.
 
     Returns the modules to test. If there are multiple possibilities, will
     ask the user. Otherwise will return the only module found.
 
     Args:
-        path: String path of module to look for.
-        file_path: String path of input file.
+        module_path: String path of module to look for.
+        test_file_path: String path of input file where the test is found.
 
     Returns:
-        A list of the module names.
+        A set of the module names.
     """
     modules_to_test = set()
 
-    if file_path:
+    if test_file_path:
       modules_to_test = self.module_info.get_modules_by_path_in_srcs(
-          path=file_path,
+          path=test_file_path,
           testable_modules_only=True,
       )
 
+    # If a single module path matches contains the path of the given test file
+    # in its MODULE_SRCS, do not continue to extract modules.
+    if len(modules_to_test) == 1:
+      return modules_to_test
+
     modules_to_test |= self.module_info.get_modules_by_path(
-        path=path,
+        path=module_path,
         testable_modules_only=True,
     )
 
@@ -102,7 +107,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     Args:
         test: TestInfo to update with vts10 specific details.
 
-    Return:
+    Returns:
         TestInfo that is ready for the vts10 test runner.
     """
     test.test_runner = self._VTS_TEST_RUNNER
@@ -192,7 +197,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     Args:
         test: TestInfo that has been filled out by a find method.
 
-    Return:
+    Returns:
         TestInfo that has been modified as needed and return None if
         this module can't be found in the module_info.
     """
@@ -232,7 +237,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
       logging.debug(
           'Add %s to build targets...', ', '.join(artifact_map.keys())
       )
-      test.artifacts = [apk for p in artifact_map.values() for apk in p]
+      test.artifacts = []
+      for p in artifact_map.values():
+        test.artifacts += p
       logging.debug('Will install target APK: %s\n', test.artifacts)
       metrics.LocalDetectEvent(
           detect_type=DetectType.FOUND_TARGET_ARTIFACTS,
@@ -287,11 +294,6 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     for module_path in self.module_info.get_paths(module_name):
       mod_dir = module_path.replace('/', '-')
       targets.add(constants.MODULES_IN + mod_dir)
-    # (b/156457698) Force add vts_kernel_ltp_tests as build target if our
-    # test belongs to REQUIRED_LTP_TEST_MODULES due to required_module
-    # option not working for sh_test in soong.
-    if module_name in constants.REQUIRED_LTP_TEST_MODULES:
-      targets.add('vts_kernel_ltp_tests')
     # (b/184567849) Force adding module_name as a build_target. This will
     # allow excluding MODULES-IN-* and prevent from missing build targets.
     if module_name and self.module_info.is_module(module_name):
@@ -340,14 +342,17 @@ class ModuleFinder(test_finder_base.TestFinderBase):
       # Double check if below section is needed.
       if (
           not self.module_info.is_auto_gen_test_config(module_name)
-          and len(test_configs) > 0
+          and test_configs
       ):
         return test_configs
     return [rel_config] if rel_config else []
 
   # pylint: disable=too-many-branches
   # pylint: disable=too-many-locals
-  def _get_test_info_filter(self, path, methods, **kwargs):
+  def _get_test_info_filter(
+      self, path, methods, rel_module_dir=None, class_name=None,
+      is_native_test=False
+  ):
     """Get test info filter.
 
     Args:
@@ -356,20 +361,21 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         rel_module_dir: Optional. A string of the module dir no-absolute to
           root.
         class_name: Optional. A string of the class name.
-        is_native_test: Optional. A boolean variable of whether to search for a
-          native test or not.
+        is_native_test: Optional. A boolean variable of whether to search for
+          a native test or not.
 
     Returns:
         A set of test info filter.
     """
     _, file_name = test_finder_utils.get_dir_path_and_filename(path)
     ti_filter = frozenset()
-    if os.path.isfile(path) and kwargs.get('is_native_test', None):
+    if os.path.isfile(path) and is_native_test:
       class_info = test_finder_utils.get_cc_class_info(path)
       ti_filter = frozenset([
           test_info.TestFilter(
               test_filter_utils.get_cc_filter(
-                  class_info, kwargs.get('class_name', '*'), methods
+                  class_info,
+                  class_name if class_name is not None else '*', methods
               ),
               frozenset(),
           )
@@ -399,14 +405,13 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         )
       ti_filter = frozenset(cc_filters)
     # If input path is a folder and have class_name information.
-    elif not file_name and kwargs.get('class_name', None):
+    elif not file_name and class_name:
       ti_filter = frozenset(
-          [test_info.TestFilter(kwargs.get('class_name', None), methods)]
+          [test_info.TestFilter(class_name, methods)]
       )
     # Path to non-module dir, treat as package.
-    elif not file_name and kwargs.get(
-        'rel_module_dir', None
-    ) != os.path.relpath(path, self.root_dir):
+    elif not file_name and rel_module_dir != os.path.relpath(
+        path, self.root_dir):
       dir_items = [os.path.join(path, f) for f in os.listdir(path)]
       for dir_item in dir_items:
         if constants.JAVA_EXT_RE.match(dir_item):
@@ -577,9 +582,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
       self,
       class_name: str,
       module_name: str = None,
-      rel_config: str = None,
+      rel_config_path: str = None,
       is_native_test: bool = False,
-  ) -> list[test_info.TestInfo]:
+  ) -> list[test_info.TestInfo] | None:
     """Find test files given a class name.
 
     If module_name and rel_config not given it will calculate it determine
@@ -588,7 +593,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     Args:
         class_name: A string of the test's class name.
         module_name: Optional. A string of the module name to use.
-        rel_config: Optional. A string of module dir no-absolute to repo root.
+        rel_config_path: Optional. A string of module dir relative to repo root.
         is_native_test: A boolean variable of whether to search for a native
           test or not.
 
@@ -602,24 +607,28 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     # matched TEST_P to make sure test class is matched.
     if '/' in search_class_name:
       search_class_name = str(search_class_name).split('/')[-1]
-    if rel_config:
-      search_dir = os.path.join(self.root_dir, os.path.dirname(rel_config))
-    else:
-      search_dir = self.root_dir
-    test_paths = test_finder_utils.find_class_file(
-        search_dir, search_class_name, is_native_test, methods
-    )
-    if not test_paths and rel_config:
-      atest_utils.print_and_log_info(
-          'Did not find class (%s) under module path (%s), '
-          'researching from repo root.',
-          class_name,
-          rel_config,
+
+    test_paths = []
+    # Search using the path where the config file is located.
+    if rel_config_path:
+      test_paths = test_finder_utils.find_class_file(
+          os.path.join(self.root_dir, os.path.dirname(rel_config_path)),
+          search_class_name,
+          is_native_test,
+          methods,
       )
+      if not test_paths:
+        atest_utils.print_and_log_info(
+            'Did not find class (%s) under module path (%s), '
+            'researching from repo root.',
+            class_name,
+            rel_config_path,
+        )
+    # Search from the root dir.
+    if not test_paths:
       test_paths = test_finder_utils.find_class_file(
           self.root_dir, search_class_name, is_native_test, methods
       )
-    test_paths = test_paths if test_paths is not None else []
     # If we already have module name, use path in module-info as test_path.
     if not test_paths:
       if not module_name:
@@ -629,6 +638,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
       test_paths = []
       for rel_module_path in module_paths:
         test_paths.append(os.path.join(self.root_dir, rel_module_path))
+
     tinfos = []
     for test_path in test_paths:
       test_filter = self._get_test_info_filter(
@@ -638,13 +648,14 @@ class ModuleFinder(test_finder_base.TestFinderBase):
           is_native_test=is_native_test,
       )
       test_infos = self._get_test_infos(
-          test_path, rel_config, module_name, test_filter
+          test_path, rel_config_path, module_name, test_filter
       )
       # If input include methods, check if tinfo match.
       if test_infos and len(test_infos) > 1 and methods:
         test_infos = self._get_matched_test_infos(test_infos, methods)
       if test_infos:
         tinfos.extend(test_infos)
+
     return tinfos if tinfos else None
 
   def _get_matched_test_infos(self, test_infos, methods):
@@ -773,7 +784,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     Args:
         package: A string of the package name.
         module_name: Optional. A string of the module name.
-        ref_config: Optional. A string of rel path of config.
+        rel_config: Optional. A string of rel path of config.
 
     Returns:
         A list of populated TestInfo namedtuple if found, else None.
@@ -857,7 +868,6 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     """
     logging.debug('Finding test by path: %s', rel_path)
     path, methods = test_filter_utils.split_methods(rel_path)
-    # TODO: See if this can be generalized and shared with methods above
     # create absolute path from cwd and remove symbolic links
     path = os.path.realpath(path)
     if not os.path.exists(path):
@@ -1015,16 +1025,16 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     Args:
         user_input: the target module name for fuzzy searching.
 
-    Return:
+    Returns:
         A list of guessed modules.
     """
     modules_with_ld = self.get_testable_modules_with_ld(
         user_input, ld_range=constants.LD_RANGE
     )
     guessed_modules = []
-    for _distance, _module in modules_with_ld:
-      if _distance <= abs(constants.LD_RANGE):
-        guessed_modules.append(_module)
+    for distance_, module_ in modules_with_ld:
+      if distance_ <= abs(constants.LD_RANGE):
+        guessed_modules.append(module_)
     return guessed_modules
 
   def find_test_by_config_name(self, config_name):

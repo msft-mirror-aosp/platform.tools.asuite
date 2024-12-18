@@ -9,7 +9,6 @@ use crate::tracking::Config;
 use anyhow::{anyhow, bail, Context, Result};
 use fingerprint::{DiffMode, FileMetadata};
 use itertools::Itertools;
-use lazy_static::lazy_static;
 use metrics::MetricSender;
 use rayon::prelude::*;
 use regex::Regex;
@@ -22,7 +21,7 @@ use std::fs;
 use std::fs::File;
 use std::io::{stdin, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
 
 /// Methods that interact with the host, like fingerprinting and calling ninja to get deps.
@@ -200,6 +199,7 @@ pub fn adevice(
         &device.get_installed_apks()?,
         diff_mode,
         &partition_paths,
+        cli.global_options.force,
         stdout,
     )?;
     progress::stop();
@@ -291,6 +291,8 @@ pub fn adevice(
         }
     }
     metrics.display_survey();
+    println!("New android update workflow tool available! go/a-update");
+
     Ok(())
 }
 
@@ -306,6 +308,7 @@ fn get_update_commands(
     installed_packages: &HashSet<String>,
     diff_mode: DiffMode,
     partitions: &[PathBuf],
+    force: bool,
     stdout: &mut impl Write,
 ) -> Result<commands::Commands> {
     // NOTE: The Ninja deps list can be _ahead_of_ the product tree output list.
@@ -345,7 +348,11 @@ fn get_update_commands(
 
     #[allow(clippy::len_zero)]
     if needs_building.len() > 0 {
-        println!("WARNING: Please build needed [unbuilt] modules before updating.");
+        if force {
+            println!("UNSAFE: The above modules should be built, but were not. This may cause the device to crash:\nProceeding due to \"--force\" flag.");
+        } else {
+            bail!("ERROR: Please build the above modules before updating.\nIf you want to continue anyway (which may cause the device to crash), rerun adevice with the \"--force\" flag.");
+        }
     }
 
     // Restrict the host set down to the ones that are in the tracked set and not installed in the data partition.
@@ -516,10 +523,8 @@ fn is_apk_installed(host_path: &Path, installed_packages: &HashSet<String>) -> R
     }
 }
 
-lazy_static! {
-    static ref AAPT_PACKAGE_MATCHER: Regex =
-        Regex::new(r"^package: (.+)$").expect("regex does not compile");
-}
+static AAPT_PACKAGE_MATCHER: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^package: (.+)$").expect("regex does not compile"));
 
 /// Filter aapt2 dump output to parse out the package name for the apk.
 fn package_from_aapt_dump_output(stdout: Vec<u8>) -> Result<String> {
@@ -714,7 +719,9 @@ impl std::fmt::Display for Profiler {
                 format!("Wait For boot completed - {}", self.wait_for_boot_completed.as_secs()),
                 format!("First remount RW - {}", self.first_remount_rw.as_secs()),
                 format!("TOTAL - {}", self.total.as_secs()),
-            ].join("\n\t"))
+            ]
+            .join("\n\t")
+        )
     }
 }
 
@@ -735,6 +742,7 @@ mod tests {
         let product_out = PathBuf::from("");
         let installed_apks = HashSet::<String>::new();
         let partitions = Vec::new();
+        let force = false;
         let mut stdout = Vec::new();
 
         let results = get_update_commands(
@@ -745,6 +753,7 @@ mod tests {
             &installed_apks,
             DiffMode::UsePermissions,
             &partitions,
+            force,
             &mut stdout,
         )?;
         assert_eq!(results.upserts.values().len(), 0);
@@ -758,6 +767,7 @@ mod tests {
         let installed_apks = HashSet::<String>::new();
         let partitions = Vec::new();
         let mut stdout = Vec::new();
+        let force = true;
 
         let results = get_update_commands(
             // Device files
@@ -773,9 +783,44 @@ mod tests {
             &installed_apks,
             DiffMode::UsePermissions,
             &partitions,
+            force,
             &mut stdout,
         )?;
         assert_eq!(results.upserts.values().len(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn host_and_ninja_file_not_on_device_force_false() -> Result<()> {
+        let product_out = PathBuf::from("");
+        let installed_apks = HashSet::<String>::new();
+        let partitions = Vec::new();
+        let mut stdout = Vec::new();
+        let force = false;
+
+        let results = get_update_commands(
+            // Device files
+            &HashMap::new(),
+            // Host files
+            &HashMap::from([
+                (PathBuf::from("system/myfile"), file_metadata("digest1")),
+                (PathBuf::from("system"), dir_metadata()),
+            ]),
+            // Ninja deps
+            &["system".to_string(), "system/myfile".to_string()],
+            product_out,
+            &installed_apks,
+            DiffMode::UsePermissions,
+            &partitions,
+            force,
+            &mut stdout,
+        );
+        assert!(results.is_err());
+        if let Err(e) = results {
+            assert!(e
+                .to_string()
+                .contains("ERROR: Please build the above modules before updating."));
+        }
         Ok(())
     }
 
@@ -923,7 +968,7 @@ mod tests {
         let product_out = PathBuf::from("");
         let installed_apks = HashSet::<String>::new();
         let partitions = Vec::new();
-
+        let force = false;
         let mut device_files: HashMap<PathBuf, FileMetadata> = HashMap::new();
         let mut host_files: HashMap<PathBuf, FileMetadata> = HashMap::new();
         for d in fake_state.device_data {
@@ -948,6 +993,7 @@ mod tests {
             &installed_apks,
             DiffMode::UsePermissions,
             &partitions,
+            force,
             &mut stdout,
         )
     }

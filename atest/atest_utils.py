@@ -20,13 +20,16 @@
 
 from __future__ import print_function
 
+from collections import deque
 from dataclasses import dataclass
 import datetime
 import enum
 import fnmatch
 import hashlib
 import html
-import importlib
+import importlib.resources
+import importlib.util
+import io
 import itertools
 import json
 import logging
@@ -39,9 +42,10 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 from threading import Thread
 import traceback
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, IO, List, Set, Tuple
 import urllib
 import xml.etree.ElementTree as ET
 import zipfile
@@ -53,7 +57,9 @@ from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.tf_proto import test_record_pb2
 
-_BASH_RESET_CODE = '\033[0m\n'
+DEFAULT_OUTPUT_ROLLING_LINES = 6
+_BASH_CLEAR_PREVIOUS_LINE_CODE = '\033[F\033[K'
+_BASH_RESET_CODE = '\033[0m'
 DIST_OUT_DIR = Path(
     os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd()) + '/out/dist/'
 )
@@ -95,8 +101,6 @@ _WILDCARD_CHARS = {'?', '*'}
 
 _WILDCARD_FILTER_RE = re.compile(r'.*[?|*]$')
 _REGULAR_FILTER_RE = re.compile(r'.*\w$')
-# Printed before the html log line. May be used in tests to parse the html path.
-_HTML_LOG_PRINT_PREFIX = 'To access logs, press "ctrl" and click on'
 
 SUGGESTIONS = {
     # (b/177626045) If Atest does not install target application properly.
@@ -269,13 +273,126 @@ def _capture_limited_output(full_log):
   return output
 
 
-# TODO: b/187122993 refine subprocess with 'with-statement' in fixit week.
-def run_limited_output(cmd, env_vars=None):
+def stream_io_output(
+    io_input: IO,
+    max_lines=None,
+    full_output_receiver: IO = None,
+    io_output: IO = None,
+    is_io_output_atty=None,
+):
+  """Stream an IO output with max number of rolling lines to display if set.
+
+  Args:
+      input: The file-like object to read the output from.
+      max_lines: The maximum number of rolling lines to display. If None, all
+        lines will be displayed.
+      full_output_receiver: Optional io to receive the full output.
+      io_output: The file-like object to write the output to.
+      is_io_output_atty: Whether the io_output is a TTY.
+  """
+  if io_output is None:
+    io_output = _original_sys_stdout
+  if is_io_output_atty is None:
+    is_io_output_atty = _has_colors(io_output)
+  if not max_lines or not is_io_output_atty:
+    for line in iter(io_input.readline, ''):
+      if not line:
+        break
+      if full_output_receiver is not None:
+        full_output_receiver.write(
+            line if isinstance(line, str) else line.decode('utf-8')
+        )
+      io_output.write(line)
+      io_output.flush()
+    return
+
+  term_width, _ = get_terminal_size()
+  last_lines = deque(maxlen=max_lines)
+  is_rolling = True
+
+  def reset_output():
+    if is_rolling and last_lines:
+      io_output.write(_BASH_CLEAR_PREVIOUS_LINE_CODE * (len(last_lines) + 2))
+
+  def write_output(new_lines: list[str]):
+    if not is_rolling:
+      return
+    last_lines.extend(new_lines)
+    lines = ['========== Rolling subprocess output ==========']
+    lines.extend(last_lines)
+    lines.append('-----------------------------------------------')
+    io_output.write('\n'.join(lines))
+    io_output.write('\n')
+    io_output.flush()
+
+  original_stdout = sys.stdout
+  original_stderr = sys.stderr
+
+  lock = threading.Lock()
+
+  class SafeStdout:
+
+    def __init__(self):
+      self._buffers = []
+
+    def write(self, buf: str) -> None:
+      if len(buf) == 1 and buf[0] == '\n' and self._buffers:
+        with lock:
+          reset_output()
+          original_stdout.write(''.join(self._buffers))
+          original_stdout.write('\n')
+          original_stdout.flush()
+          write_output([])
+          self._buffers.clear()
+      else:
+        self._buffers.append(buf)
+
+    def flush(self) -> None:
+      original_stdout.flush()
+
+  sys.stdout = SafeStdout()
+  sys.stderr = sys.stdout
+
+  for line in iter(io_input.readline, ''):
+    if not line:
+      break
+    line = line.decode('utf-8') if isinstance(line, bytes) else line
+    if full_output_receiver is not None:
+      full_output_receiver.write(line)
+    line = line.rstrip().replace('\t', '  ')
+    # Split the line if it's longer than the terminal width
+    wrapped_lines = (
+        [line]
+        if len(line) <= term_width
+        else [line[i : i + term_width] for i in range(0, len(line), term_width)]
+    )
+    with lock:
+      reset_output()
+      write_output(wrapped_lines)
+
+  with lock:
+    reset_output()
+    is_rolling = False
+    io_output.write(_BASH_RESET_CODE)
+    io_output.flush()
+
+  sys.stdout = original_stdout
+  sys.stderr = original_stderr
+
+  io_input.close()
+
+
+def run_limited_output(
+    cmd, env_vars=None, shell=False, start_new_session=False
+):
   """Runs a given command and streams the output on a single line in stdout.
 
   Args:
       cmd: A list of strings representing the command to run.
       env_vars: Optional arg. Dict of env vars to set during build.
+      shell: Optional arg. Whether to use shell to run the command.
+      start_new_session: Optional arg. Whether to start a new session for the
+        command.
 
   Raises:
       subprocess.CalledProcessError: When the command exits with a non-0
@@ -283,35 +400,26 @@ def run_limited_output(cmd, env_vars=None):
   """
   # Send stderr to stdout so we only have to deal with a single pipe.
   with subprocess.Popen(
-      cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env_vars
+      cmd,
+      stdout=subprocess.PIPE,
+      stderr=subprocess.STDOUT,
+      env=env_vars,
+      shell=shell,
+      start_new_session=start_new_session,
+      text=True,
   ) as proc:
-    sys.stdout.write('\n')
-    term_width, _ = get_terminal_size()
-    white_space = ' ' * int(term_width)
-    full_output = []
-    while proc.poll() is None:
-      line = proc.stdout.readline().decode('utf-8')
-      # Readline will often return empty strings.
-      if not line:
-        continue
-      full_output.append(line)
-      # Trim the line to the width of the terminal.
-      # Note: Does not handle terminal resizing, which is probably not
-      #       worth checking the width every loop.
-      if len(line) >= term_width:
-        line = line[: term_width - 1]
-      # Clear the last line we outputted.
-      sys.stdout.write('\r%s\r' % white_space)
-      sys.stdout.write('%s' % line.strip())
-      sys.stdout.flush()
-    # Reset stdout (on bash) to remove any custom formatting and newline.
-    sys.stdout.write(_BASH_RESET_CODE)
-    sys.stdout.flush()
-    # Wait for the Popen to finish completely before checking the
-    # returncode.
-    proc.wait()
-    if proc.returncode != 0:
-      raise subprocess.CalledProcessError(proc.returncode, cmd, full_output)
+    full_output_receiver = io.StringIO()
+    stream_io_output(
+        proc.stdout,
+        DEFAULT_OUTPUT_ROLLING_LINES,
+        full_output_receiver,
+        _original_sys_stdout,
+    )
+    returncode = proc.wait()
+    if returncode:
+      raise subprocess.CalledProcessError(
+          returncode, cmd, full_output_receiver.getvalue()
+      )
 
 
 def get_build_out_dir(*joinpaths) -> Path:
@@ -503,7 +611,11 @@ def is_test_mapping(args):
   return all((len(args.tests) == 1, args.tests[0][0] == ':'))
 
 
-@atest_decorator.static_var('cached_has_colors', {})
+def is_atty_terminal() -> bool:
+  """Check if the current process is running in a TTY."""
+  return getattr(_original_sys_stdout, 'isatty', lambda: False)()
+
+
 def _has_colors(stream):
   """Check the output stream is colorful.
 
@@ -513,21 +625,11 @@ def _has_colors(stream):
   Returns:
       True if the file stream can interpreter the ANSI color code.
   """
-  cached_has_colors = _has_colors.cached_has_colors
-  if stream in cached_has_colors:
-    return cached_has_colors[stream]
-  cached_has_colors[stream] = True
   # Following from Python cookbook, #475186
-  if not hasattr(stream, 'isatty'):
-    cached_has_colors[stream] = False
-    return False
-  if not stream.isatty():
-    # Auto color only on TTYs
-    cached_has_colors[stream] = False
-    return False
+  # Auto color only on TTYs
   # curses.tigetnum() cannot be used for telling supported color numbers
   # because it does not come with the prebuilt py3-cmd.
-  return cached_has_colors[stream]
+  return getattr(stream, 'isatty', lambda: False)()
 
 
 def colorize(text, color, bp_color=None):
@@ -596,7 +698,7 @@ def mark_blue(text):
   return colorize(text, constants.BLUE)
 
 
-def colorful_print(text, color, bp_color=None, auto_wrap=True):
+def colorful_print(text, color=None, bp_color=None, auto_wrap=True):
   """Print out the text with color.
 
   Args:
@@ -606,7 +708,7 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
       bp_color: Backgroud color which is an ANSI code shift for colorful print.
       auto_wrap: If True, Text wraps while print.
   """
-  output = colorize(text, color, bp_color)
+  output = colorize(text, color, bp_color) if color else text
   if auto_wrap:
     print(output)
   else:
@@ -614,7 +716,7 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
 
 
 def _print_to_console(
-    prefix: str, color: int, msg: Any, *fmt_args: list[Any]
+    prefix: str, msg: Any, *fmt_args: list[Any], color: int = None
 ) -> None:
   """Print a message to the console.
 
@@ -641,7 +743,7 @@ def print_and_log_error(msg, *fmt_args):
     *fmt_args: Format arguments for the message.
   """
   logging.error(msg, *fmt_args)
-  _print_to_console('Error: ', constants.RED, msg, *fmt_args)
+  _print_to_console('Error: ', msg, *fmt_args, color=constants.RED)
 
 
 def print_and_log_warning(msg, *fmt_args):
@@ -652,7 +754,7 @@ def print_and_log_warning(msg, *fmt_args):
     *fmt_args: Format arguments for the message.
   """
   logging.warning(msg, *fmt_args)
-  _print_to_console('Warning: ', constants.YELLOW, msg, *fmt_args)
+  _print_to_console('Warning: ', msg, *fmt_args, color=constants.MAGENTA)
 
 
 def print_and_log_info(msg, *fmt_args):
@@ -663,7 +765,7 @@ def print_and_log_info(msg, *fmt_args):
     *fmt_args: Format arguments for the message.
   """
   logging.info(msg, *fmt_args)
-  _print_to_console('Info: ', constants.WHITE, msg, *fmt_args)
+  _print_to_console(mark_cyan('Info: '), msg, *fmt_args)
 
 
 def get_terminal_size():
@@ -833,7 +935,7 @@ def update_test_info_cache(test_reference, test_infos, cache_root=None):
   # Save test_info to files.
   try:
     with open(cache_path, 'wb') as test_info_cache_file:
-      logging.debug('Saving cache %s.', cache_path)
+      logging.debug('Saving cache for %s as %s.', test_reference, cache_path)
       pickle.dump(test_infos, test_info_cache_file, protocol=2)
   except (pickle.PicklingError, TypeError, IOError) as err:
     # Won't break anything, just log this error, and collect the exception
@@ -857,7 +959,7 @@ def load_test_info_cache(test_reference, cache_root=None):
 
   cache_file = get_test_info_cache_path(test_reference, cache_root)
   if os.path.isfile(cache_file):
-    logging.debug('Loading cache %s.', cache_file)
+    logging.debug('Loading cache %s from %s.', test_reference, cache_file)
     try:
       with open(cache_file, 'rb') as config_dictionary_file:
         return pickle.load(config_dictionary_file, encoding='utf-8')
@@ -1637,7 +1739,7 @@ def save_build_files_timestamp():
         json.dump(timestamp, _file)
 
 
-def run_multi_proc(func, *args, **kwargs):
+def run_multi_proc(func, *args, **kwargs) -> Process:
   """Start a process with multiprocessing and return Process object.
 
   Args:
@@ -1653,13 +1755,13 @@ def run_multi_proc(func, *args, **kwargs):
   return proc
 
 
-def start_threading(target, *args, **kwargs):
+def start_threading(target, *args, **kwargs) -> Thread:
   """Start a Thread-based parallelism.
 
   Args:
-      func: A string of function name which will be the target name.
+      target: A string of function name which will be the target name.
         args/kwargs: check doc page:
-      https://docs.python.org/3/library/threading.html#threading.Thread
+        https://docs.python.org/3/library/threading.html#threading.Thread
 
   Returns:
       threading.Thread object.
@@ -1712,7 +1814,7 @@ def get_full_annotation_class_name(module_info, class_name):
   If the given keyword(class_name) is "smalltest", this method can search
   among source codes and grep the accurate annotation class name:
 
-      android.test.suitebuilder.annotation.SmallTest
+      androidx.test.filters.SmallTest
 
   Args:
       module_info: A dict of module_info.
@@ -1921,11 +2023,11 @@ def get_manifest_info(manifest: Path) -> Dict[str, Any]:
 
 
 # pylint: disable=broad-except
-def generate_print_result_html(result_file: Path):
+def generate_result_html(result_file: Path) -> Path:
   """Generate a html that collects all log files."""
   result_file = Path(result_file)
-  search_dir = Path(result_file).parent.joinpath('log')
-  result_html = Path(search_dir, 'test_logs.html')
+  search_dir = Path(result_file).parent
+  result_html = Path(result_file.parent, 'local_log_file_list.html')
   try:
     logs = sorted(find_files(str(search_dir), file_name='*', followlinks=True))
     with open(result_html, 'w', encoding='utf-8') as cache:
@@ -1938,15 +2040,14 @@ def generate_print_result_html(result_file: Path):
       for log in logs:
         cache.write(
             f'<p><a href="{urllib.parse.quote(log)}">'
-            f'{html.escape(Path(log).name)}</a></p>'
+            f'{html.escape(Path(log).relative_to(search_dir).as_posix())}</a></p>'
         )
       cache.write('</body></html>')
-    print(
-        f'\n{_HTML_LOG_PRINT_PREFIX}\n{mark_magenta(f"file://{result_html}")}\n'
-    )
     send_tradeded_elapsed_time_metric(search_dir)
+    return result_html
   except Exception as e:
     logging.debug('Did not generate log html for reason: %s', e)
+    return None
 
 
 def send_tradeded_elapsed_time_metric(search_dir: Path):

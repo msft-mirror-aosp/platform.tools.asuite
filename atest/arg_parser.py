@@ -144,7 +144,13 @@ def create_atest_arg_parser():
       '-d',
       '--disable-teardown',
       action='store_true',
-      help='Disable test teardown and cleanup.',
+      help=(
+          'Disable teardown phase implemented using TradeFed interfaces. Note'
+          " if a test contains teardown logic without implementing TradeFed's"
+          ' teardown interface methods or puts its cleanup steps within the'
+          " test phase then setting this flag won't prevent those cleanup steps"
+          ' from being executed.'
+      ),
   )
 
   parser.add_argument(
@@ -510,9 +516,15 @@ def create_atest_arg_parser():
       '--aggregate-metric-filter',
       action='append',
       help=(
-          '(For performance testing) Regular expression that will be used for'
+          '(For performance tests) Regular expression that will be used for'
           ' filtering the aggregated metrics.'
       ),
+  )
+
+  parser.add_argument(
+      '--perf-itr-metrics',
+      action='store_true',
+      help='(For performance tests) Print individual performance metric.',
   )
 
   parser.add_argument(

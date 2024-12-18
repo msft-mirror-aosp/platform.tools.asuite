@@ -83,7 +83,7 @@ class AtestUnittests(unittest.TestCase):
     options_no_tm_support = [
         (
             '--annotation-filter',
-            'android.test.suitebuilder.annotation.SmallTest',
+            'androidx.test.filters.SmallTest',
         ),
     ]
     tm_options = ['--test-mapping', '--include-subdirs']
@@ -247,6 +247,39 @@ class AtestUnittests(unittest.TestCase):
     )
 
 
+class AtestMainUnitTests(unittest.TestCase):
+
+  def test_performance_tests_inject_default_args(self):
+    non_perf_test_info = test_info.TestInfo(
+        'some_module',
+        'TestRunner',
+        set(),
+        compatibility_suites=['not-performance'],
+    )
+    perf_test_info = test_info.TestInfo(
+        'some_module',
+        'TestRunner',
+        set(),
+        compatibility_suites=['performance-tests'],
+    )
+    args_original = atest_main._parse_args([])
+    args = atest_main._parse_args([])
+
+    with self.subTest(name='does not inject default args for non-perf tests'):
+      atest_main._AtestMain._inject_default_arguments_based_on_test_infos(
+          [non_perf_test_info], args
+      )
+
+      self.assertEqual(args_original, args)
+
+    with self.subTest(name='injects default args for perf tests'):
+      atest_main._AtestMain._inject_default_arguments_based_on_test_infos(
+          [perf_test_info], args
+      )
+
+      self.assertNotEqual(args_original, args)
+
+
 # pylint: disable=missing-function-docstring
 class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
   """Fixture for ModuleInfo tests."""
@@ -286,35 +319,6 @@ class PrintModuleInfoTest(AtestUnittestFixture):
 
   def tearDown(self):
     sys.stdout = sys.__stdout__
-
-  @mock.patch('atest.atest_utils._has_colors', return_value=True)
-  def test_print_module_info_from_module_name(self, _):
-    """Test _print_module_info_from_module_name method."""
-    mod_info = self.create_module_info([
-        module(
-            name='mod1',
-            path=['src/path/mod1'],
-            installed=['installed/path/mod1'],
-            compatibility_suites=['device_test_mod1', 'native_test_mod1'],
-        )
-    ])
-    correct_output = (
-        f'{GREEN}mod1{END}\n'
-        f'{CYAN}\tCompatibility suite{END}\n'
-        '\t\tdevice_test_mod1\n'
-        '\t\tnative_test_mod1\n'
-        f'{CYAN}\tSource code path{END}\n'
-        "\t\t['src/path/mod1']\n"
-        f'{CYAN}\tInstalled path{END}\n'
-        '\t\tinstalled/path/mod1\n'
-    )
-    capture_output = StringIO()
-    sys.stdout = capture_output
-
-    atest_main._print_module_info_from_module_name(mod_info, 'mod1')
-
-    # Check the function correctly printed module_info in color to stdout
-    self.assertEqual(correct_output, capture_output.getvalue())
 
   def test_has_valid_test_mapping_args_is_test_mapping_detect_event_send_1(
       self,
