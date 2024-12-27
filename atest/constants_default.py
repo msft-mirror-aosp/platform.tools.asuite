@@ -192,8 +192,10 @@ BOTH_TEST = 'both'
 NO_METRICS_ARG = '--no-metrics'
 EXTERNAL = 'EXTERNAL_RUN'
 INTERNAL = 'INTERNAL_RUN'
+# LINT.IfChange
 INTERNAL_EMAIL = '@google.com'
 INTERNAL_HOSTNAME = ['.google.com', 'c.googlers.com']
+# LINT.ThenChange(/test/robolectric-extensions/clearcut-junit-listener/src/main/java/com/google/asuite/clearcut/junit/listener/EnvironmentInformation.java)
 TOOL_NAME = 'atest'
 SUB_TOOL_NAME = ''
 USER_FROM_TOOL = 'USER_FROM_TOOL'
