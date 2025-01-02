@@ -68,25 +68,63 @@ fi
 CUR_DIR=$(dirname "$0")
 TF_JAR_DIR=$(dirname "$0")
 if [ -f "${CUR_DIR}/tradefed.jar" ]; then
-    TF_PATH="${CUR_DIR}/*"
+    TF_PATH_RAW="${CUR_DIR}/*"
 elif [ ! -z "${ANDROID_HOST_OUT}" ]; then
     # in an Android build env, tradefed.jar should be in
     # $ANDROID_HOST_OUT/tradefed/
     if [ -f "${ANDROID_HOST_OUT}/tradefed/tradefed.jar" ]; then
         # We intentionally pass the asterisk through without shell expansion
-        TF_PATH="${ANDROID_HOST_OUT}/tradefed/*"
+        TF_PATH_RAW="${ANDROID_HOST_OUT}/tradefed/*"
         TF_JAR_DIR="${ANDROID_HOST_OUT}/tradefed/"
     elif [ -f "${ANDROID_HOST_OUT}/framework/tradefed.jar" ]; then
         # in an Android build env which only has tradefed prebuilt,
         # tradefed.jar should be in $ANDROID_HOST_OUT/framework/
-        TF_PATH="${ANDROID_HOST_OUT}/framework/*"
+        TF_PATH_RAW="${ANDROID_HOST_OUT}/framework/*"
         TF_JAR_DIR="${ANDROID_HOST_OUT}/framework/"
     fi
 fi
 
-if [ -z "${TF_PATH}" ]; then
+if [ -z "${TF_PATH_RAW}" ]; then
     >&2 echo "ERROR: Could not find tradefed jar files"
     exit 1
+fi
+
+conflicting_jars=("ats_console_deploy.jar" "ats_olc_server_deploy.jar"
+                  "ats_olc_server_local_mode_deploy.jar" "tradefed-test-framework.jar")
+
+TF_PATH=""
+
+if [[ -n "$FORCE_LOAD_TF_JAR_DIR" &&
+      ( "$FORCE_LOAD_TF_JAR_DIR" == "true" ||
+        "$FORCE_LOAD_TF_JAR_DIR" == "True" ||
+        "$FORCE_LOAD_TF_JAR_DIR" == "1" ||
+        "$FORCE_LOAD_TF_JAR_DIR" == "TRUE" ) ]]; then
+  echo "FORCE_LOAD_TF_JAR_DIR is set to true, keeping loading all TradeFed jars."
+  TF_PATH=$TF_PATH_RAW
+else
+  # Iterate through files matching the pattern
+  for file in $TF_PATH_RAW; do
+    # Extract the filename
+    filename=$(basename "$file")
+
+    # Check if the filename is in the conflicting_jars array
+    is_conflicting=false
+    for jar in "${conflicting_jars[@]}"; do
+      if [[ "$filename" == "$jar" ]]; then
+        is_conflicting=true
+        break
+      fi
+    done
+
+    # If the file is not conflicting, append it to TF_PATH
+    if ! $is_conflicting; then
+      if [[ -n "$TF_PATH" ]]; then
+        TF_PATH="$TF_PATH:$file"
+      else
+        TF_PATH="$file"
+      fi
+    fi
+  done
 fi
 
 # include any host-side test jars from suite
