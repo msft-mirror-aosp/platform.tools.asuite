@@ -31,6 +31,7 @@ import re
 import select
 import shutil
 import socket
+import threading
 import time
 from typing import Any, Dict, List, Set, Tuple
 
@@ -40,6 +41,7 @@ from atest import atest_utils
 from atest import constants
 from atest import module_info
 from atest import result_reporter
+from atest import rollout_control
 from atest.atest_enum import DetectType, ExitCode
 from atest.coverage import coverage
 from atest.logstorage import logstorage_utils
@@ -56,6 +58,9 @@ SOCKET_HOST = '127.0.0.1'
 SOCKET_QUEUE_MAX = 1
 SOCKET_BUFFER = 4096
 SELECT_TIMEOUT = 0.5
+
+# Env key for rolling subprocess output window height.
+_ROLLING_OUTPUT_WINDOW_HEIGHT_ENV_KEY = 'ATEST_ROLLING_OUTPUT_WINDOW_HEIGHT'
 
 # Socket Events of form FIRST_EVENT {JSON_DATA}\nSECOND_EVENT {JSON_DATA}
 # EVENT_RE has groups for the name and the data. "." does not match \n.
@@ -85,6 +90,9 @@ _TF_EXIT_CODE = [
     'NO_DEVICE_ALLOCATED',
     'WRONG_JAVA_VERSION',
 ]
+
+# The environment variable for TF preparer incremental setup.
+_INCREMENTAL_SETUP_KEY = 'TF_PREPARER_INCREMENTAL_SETUP'
 
 
 class Error(Exception):
@@ -229,10 +237,13 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
           )
       )
     if device_test_infos:
+      extra_args_for_device_test = extra_args.copy()
+      if rollout_control.tf_preparer_incremental_setup.is_enabled():
+        extra_args_for_device_test.update({_INCREMENTAL_SETUP_KEY: True})
       invocations.append(
           TestRunnerInvocation(
               test_runner=self,
-              extra_args=extra_args,
+              extra_args=extra_args_for_device_test,
               test_infos=device_test_infos,
           )
       )
@@ -399,12 +410,37 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     run_cmds = self.generate_run_commands(
         test_infos, extra_args, server.getsockname()[1]
     )
+    is_rolling_output = (
+        not extra_args.get(constants.VERBOSE, False)
+        and atest_utils.is_atty_terminal()
+        and rollout_control.rolling_tf_subprocess_output.is_enabled()
+    )
+
     logging.debug('Running test: %s', run_cmds[0])
     subproc = self.run(
         run_cmds[0],
         output_to_stdout=extra_args.get(constants.VERBOSE, False),
         env_vars=self.generate_env_vars(extra_args),
+        rolling_output_lines=is_rolling_output,
     )
+
+    if is_rolling_output:
+      height = os.environ.get(_ROLLING_OUTPUT_WINDOW_HEIGHT_ENV_KEY, None)
+      if height:
+        try:
+          height = int(height)
+        except ValueError:
+          atest_utils.print_and_log_warning(
+              'Invalid rolling output window height: %s', height
+          )
+      threading.Thread(
+          target=atest_utils.stream_io_output,
+          args=(
+              subproc.stdout,
+              height if height else atest_utils.DEFAULT_OUTPUT_ROLLING_LINES,
+          ),
+      ).start()
+
     self.handle_subprocess(
         subproc,
         partial(self._start_monitor, server, subproc, reporter, extra_args),
@@ -1482,6 +1518,7 @@ def extra_args_to_tf_args(
           ),
       ],
       constants.COVERAGE: lambda _: coverage.tf_args(mod_info),
+      _INCREMENTAL_SETUP_KEY: constant_list('--incremental-setup=YES'),
   })
 
   for arg in extra_args:

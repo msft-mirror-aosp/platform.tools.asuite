@@ -122,10 +122,6 @@ class TaskRunner:
 
       print('')
       print('Run Completed Successfully!')
-      print(
-          'Add workflows/tools: go/atool Join http://g/atool-discuss to discuss'
-          ' and stay up to date'
-      )
       print('')
 
   def add_shell_command_task(self, command, fall_back_tasks=None):
