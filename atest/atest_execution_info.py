@@ -26,7 +26,7 @@ import pathlib
 import shutil
 import sys
 import time
-from typing import List
+from typing import Callable, List
 
 from atest import atest_enum
 from atest import atest_utils
@@ -291,6 +291,7 @@ class AtestExecutionInfo:
       args: List[str],
       work_dir: str,
       args_ns: argparse.ArgumentParser,
+      get_exit_code_func: Callable[[], int] = None,
       start_time: float = None,
       repo_out_dir: pathlib.Path = None,
   ):
@@ -300,6 +301,7 @@ class AtestExecutionInfo:
         args: Command line parameters.
         work_dir: The directory for saving information.
         args_ns: An argparse.ArgumentParser class instance holding parsed args.
+        get_exit_code_func: A callable that returns the exit_code value.
         start_time: The execution start time. Can be None.
         repo_out_dir: The repo output directory. Can be None.
 
@@ -310,6 +312,7 @@ class AtestExecutionInfo:
     self.work_dir = work_dir
     self.result_file_obj = None
     self.args_ns = args_ns
+    self.get_exit_code_func = get_exit_code_func
     self.test_result = os.path.join(self.work_dir, _TEST_RESULT_NAME)
     self._proc_usb_speed = None
     logging.debug(
@@ -377,12 +380,16 @@ class AtestExecutionInfo:
       atest_utils.prompt_suggestions(self.test_result)
       html_path = atest_utils.generate_result_html(self.test_result)
       symlink_latest_result(self.work_dir)
-    main_module = sys.modules.get(_MAIN_MODULE_KEY)
-    main_exit_code = (
-        value.code
-        if isinstance(value, SystemExit)
-        else (getattr(main_module, _EXIT_CODE_ATTR, ExitCode.ERROR))
-    )
+
+    if self.get_exit_code_func:
+      main_exit_code = self.get_exit_code_func()
+    else:
+      main_module = sys.modules.get(_MAIN_MODULE_KEY)
+      main_exit_code = (
+          value.code
+          if isinstance(value, SystemExit)
+          else (getattr(main_module, _EXIT_CODE_ATTR, ExitCode.ERROR))
+      )
 
     print()
     if log_path:
@@ -392,7 +399,7 @@ class AtestExecutionInfo:
       print(atest_utils.mark_magenta(f'Log file list: file://{log_link}'))
     bug_report_url = AtestExecutionInfo._create_bug_report_url()
     if bug_report_url:
-      print(atest_utils.mark_magenta(f"Bug report: {bug_report_url}"))
+      print(atest_utils.mark_magenta(f'Bug report: {bug_report_url}'))
     print()
 
     # Do not send stacktrace with send_exit_event when exit code is not
