@@ -708,8 +708,12 @@ class _AtestMain:
 
     self._banner_printer = banner.BannerPrinter.create()
 
+    exit_code = ExitCode.ERROR
     with atest_execution_info.AtestExecutionInfo(
-        final_args, self._results_dir, atest_configs.GLOBAL_ARGS
+        final_args,
+        self._results_dir,
+        atest_configs.GLOBAL_ARGS,
+        lambda: exit_code,
     ):
       setup_metrics_tool_name(atest_configs.GLOBAL_ARGS.no_metrics)
 
