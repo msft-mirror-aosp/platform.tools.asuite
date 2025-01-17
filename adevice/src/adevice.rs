@@ -673,7 +673,6 @@ fn shadow_apk_check(stdout: &mut impl Write, files: &HashMap<PathBuf, PushState>
 /// Return all path components of file_path up to a passed partition.
 /// Given system/bin/logd and partition "system",
 /// return ["system/bin/logd", "system/bin"], not "system" or ""
-
 fn parents(file_path: &str, partitions: &[PathBuf]) -> Vec<PathBuf> {
     PathBuf::from(file_path)
         .ancestors()
