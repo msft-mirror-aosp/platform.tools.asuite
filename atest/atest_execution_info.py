@@ -399,7 +399,7 @@ class AtestExecutionInfo:
       print(atest_utils.mark_magenta(f'Log file list: file://{log_link}'))
     bug_report_url = AtestExecutionInfo._create_bug_report_url()
     if bug_report_url:
-      print(atest_utils.mark_magenta(f'Bug report: {bug_report_url}'))
+      print(atest_utils.mark_magenta(f'Report an issue: {bug_report_url}'))
     print()
 
     # Do not send stacktrace with send_exit_event when exit code is not
