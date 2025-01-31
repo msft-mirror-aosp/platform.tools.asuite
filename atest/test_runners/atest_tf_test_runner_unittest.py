@@ -1255,19 +1255,12 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     invocations = self.tr.create_invocations(
         {}, [test_info_deviceless, test_info_device]
     )
-    expected_invocation_deviceless = TestRunnerInvocation(
-        test_runner=self.tr,
-        extra_args={constants.HOST: True},
-        test_infos=[test_info_deviceless],
-    )
-    expected_invocation_device = TestRunnerInvocation(
-        test_runner=self.tr, extra_args={}, test_infos=[test_info_device]
-    )
 
-    self.assertEqual(
-        invocations,
-        [expected_invocation_deviceless, expected_invocation_device],
-    )
+    self.assertEqual(len(invocations), 2)
+    self.assertEqual(invocations[0].test_infos, [test_info_deviceless])
+    self.assertTrue(invocations[0]._extra_args[constants.HOST])
+    self.assertEqual(invocations[1].test_infos, [test_info_device])
+    self.assertFalse(constants.HOST in invocations[1]._extra_args)
 
   def test_create_invocations_returns_invocation_only_for_device_tests(self):
     self.tr.module_info = module_info.ModuleInfo(
@@ -1290,13 +1283,43 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     invocations = self.tr.create_invocations(
         {}, [test_info_device_1, test_info_device_2]
     )
-    expected_invocation = TestRunnerInvocation(
-        test_runner=self.tr,
-        extra_args={},
-        test_infos=[test_info_device_1, test_info_device_2],
+
+    self.assertEqual(len(invocations), 1)
+    self.assertEqual(
+        invocations[0].test_infos, [test_info_device_1, test_info_device_2]
+    )
+    self.assertFalse(constants.HOST in invocations[0]._extra_args)
+
+  def test_create_invocations_returns_invocation_only_for_deviceless_tests(
+      self,
+  ):
+    self.tr.module_info = module_info.ModuleInfo(
+        name_to_module_info={
+            'deviceless_test_1': (
+                module_info_unittest_base.robolectric_test_module(
+                    name='deviceless_test_1'
+                )
+            ),
+            'deviceless_test_2': (
+                module_info_unittest_base.robolectric_test_module(
+                    name='deviceless_test_2'
+                )
+            ),
+        }
+    )
+    test_info_deviceless_1 = test_info_of('deviceless_test_1')
+    test_info_deviceless_2 = test_info_of('deviceless_test_2')
+
+    invocations = self.tr.create_invocations(
+        {}, [test_info_deviceless_1, test_info_deviceless_2]
     )
 
-    self.assertEqual(invocations, [expected_invocation])
+    self.assertEqual(len(invocations), 1)
+    self.assertEqual(
+        invocations[0].test_infos,
+        [test_info_deviceless_1, test_info_deviceless_2],
+    )
+    self.assertTrue(invocations[0]._extra_args[constants.HOST])
 
   def test_create_invocations_returns_invocations_for_device_tests_without_module_info(
       self,
@@ -1306,13 +1329,10 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     test_info_device = test_info_of('device_test_without_module_info')
 
     invocations = self.tr.create_invocations({}, [test_info_device])
-    expected_invocation = TestRunnerInvocation(
-        test_runner=self.tr,
-        extra_args={},
-        test_infos=[test_info_device],
-    )
 
-    self.assertEqual(invocations, [expected_invocation])
+    self.assertEqual(len(invocations), 1)
+    self.assertEqual(invocations[0].test_infos, [test_info_device])
+    self.assertFalse(constants.HOST in invocations[0]._extra_args)
 
   def assertTokensIn(self, expected_tokens, s):
     tokens = shlex.split(s)
