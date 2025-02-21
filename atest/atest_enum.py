@@ -121,6 +121,10 @@ class DetectType(IntEnum):
   # means the feature is enabled, negative value means disabled.
   ROLLOUT_CONTROLLED_FEATURE_ID = 65
   ROLLOUT_CONTROLLED_FEATURE_ID_OVERRIDE = 66
+  # The count of skipped app installation by opting in incremental setup
+  APP_INSTALLATION_SKIPPED_COUNT = 67
+  # The count of not skipped app installation while opting in incremental setup
+  APP_INSTALLATION_NOT_SKIPPED_COUNT = 68
 
 
 @unique
