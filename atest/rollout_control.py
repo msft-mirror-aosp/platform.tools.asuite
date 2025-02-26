@@ -203,7 +203,7 @@ rolling_tf_subprocess_output = RolloutControlledFeature(
 
 tf_preparer_incremental_setup = RolloutControlledFeature(
     name='TradeFed preparer incremental setup',
-    rollout_percentage=50,
+    rollout_percentage=100,
     env_control_flag='TF_PREPARER_INCREMENTAL_SETUP',
     feature_id=3,
     print_message=(
