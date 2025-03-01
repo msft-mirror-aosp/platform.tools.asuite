@@ -42,11 +42,6 @@ python_defaults {
         "java_test_filter_generator.py",
         "java_test_filter_generator_test.py",
     ],
-    version: {
-        py3: {
-            embedded_launcher: true,
-        },
-    },
 }
 
 // Attributes common to atest binaries.
