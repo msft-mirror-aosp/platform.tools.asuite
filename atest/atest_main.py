@@ -1124,6 +1124,8 @@ class _AtestMain:
         Exit code if failed. None otherwise.
     """
     build_targets = self._get_build_targets()
+    if not build_targets:
+      return None
 
     # Add the -jx as a build target if user specify it.
     if self._args.build_j:
