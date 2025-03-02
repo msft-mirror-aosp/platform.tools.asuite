@@ -23,6 +23,7 @@ import time
 import unittest
 from unittest.mock import patch
 from atest import arg_parser
+from atest import atest_enum
 from atest import atest_execution_info as aei
 from atest import constants
 from atest import result_reporter
@@ -122,6 +123,97 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
       if file.is_file() and file.name.startswith(prefix):
         return True
     return False
+
+
+class SendIncrementalSetupStatTests(fake_filesystem_unittest.TestCase):
+
+  _HOST_LOG_1_CONTENT = (
+      '[ApkChangeDetector] Skipping the installation of SystemUIApp\nInstalling'
+      ' apk android.CtsApp\n[ApkChangeDetector] Skipping the uninstallation of'
+      ' SystemUIApp'
+  )
+
+  _HOST_LOG_2_CONTENT = (
+      '[ApkChangeDetector] Skipping the installation of SysUIRobolectricApp\n'
+      ' Installing apk a.b.c.d  \n [UnrelatedClass] Skipping the installation'
+      ' of SomeClass'
+  )
+
+  def setUp(self):
+    super().setUp()
+    self.setUpPyfakefs()
+    self.fs.create_dir(constants.ATEST_RESULT_ROOT)
+    self._log_path = pathlib.Path('/tmp')
+
+  def tearDown(self):
+    if os.path.exists(str(self._log_path)):
+      self.fs.remove_object(str(self._log_path))
+    super().tearDown()
+
+  @patch('atest.metrics.metrics.LocalDetectEvent')
+  def test_parse_test_log_and_send_app_installation_stats_metrics_get_stats_successful(
+      self,
+      mock_detect_event,
+  ):
+    host_log_path1 = self._log_path / 'host_log_1.txt'
+    host_log_path2 = self._log_path / 'invocation' / 'host_log_2.txt'
+    self.fs.create_file(
+        host_log_path1,
+        contents=self.__class__._HOST_LOG_1_CONTENT,
+        create_missing_dirs=True,
+    )
+    self.fs.create_file(
+        host_log_path2,
+        contents=self.__class__._HOST_LOG_2_CONTENT,
+        create_missing_dirs=True,
+    )
+    expected_calls = [
+        unittest.mock.call(
+            detect_type=atest_enum.DetectType.APP_INSTALLATION_SKIPPED_COUNT,
+            result=2,
+        ),
+        unittest.mock.call(
+            detect_type=atest_enum.DetectType.APP_INSTALLATION_NOT_SKIPPED_COUNT,
+            result=2,
+        ),
+    ]
+
+    aei.parse_test_log_and_send_app_installation_stats_metrics(self._log_path)
+
+    mock_detect_event.assert_has_calls(expected_calls, any_order=True)
+
+  @patch('atest.metrics.metrics.LocalDetectEvent')
+  def test_parse_test_log_and_send_app_installation_stats_metrics_no_host_log(
+      self,
+      mock_detect_event,
+  ):
+    aei.parse_test_log_and_send_app_installation_stats_metrics(self._log_path)
+
+    mock_detect_event.assert_not_called()
+
+  @patch('atest.metrics.metrics.LocalDetectEvent')
+  def test_parse_test_log_and_send_app_installation_stats_metrics_no_info_in_host_log(
+      self,
+      mock_detect_event,
+  ):
+    host_log_path1 = self._log_path / 'host_log_1.txt'
+    host_log_path2 = self._log_path / 'invocation' / 'host_log_2.txt'
+    self.fs.create_file(host_log_path1, contents='', create_missing_dirs=True)
+    self.fs.create_file(host_log_path2, contents='', create_missing_dirs=True)
+    expected_calls = [
+        unittest.mock.call(
+            detect_type=atest_enum.DetectType.APP_INSTALLATION_SKIPPED_COUNT,
+            result=0,
+        ),
+        unittest.mock.call(
+            detect_type=atest_enum.DetectType.APP_INSTALLATION_NOT_SKIPPED_COUNT,
+            result=0,
+        ),
+    ]
+
+    aei.parse_test_log_and_send_app_installation_stats_metrics(self._log_path)
+
+    mock_detect_event.assert_has_calls(expected_calls, any_order=True)
 
 
 # pylint: disable=protected-access
