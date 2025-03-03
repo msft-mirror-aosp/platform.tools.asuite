@@ -279,6 +279,14 @@ class AtestMainUnitTests(unittest.TestCase):
 
       self.assertNotEqual(args_original, args)
 
+  @mock.patch.object(
+      atest_main._AtestMain, '_get_build_targets', return_value=None
+  )
+  def test_run_build_step_exits_normally_when_no_build_target(self, _):
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+
+    self.assertIsNone(pseudo_atest_main._run_build_step())
+
 
 # pylint: disable=missing-function-docstring
 class AtestUnittestFixture(fake_filesystem_unittest.TestCase):

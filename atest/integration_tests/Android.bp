@@ -70,11 +70,6 @@ python_defaults {
     libs: [
         "asuite_integration_test_lib",
     ],
-    version: {
-        py3: {
-            embedded_launcher: true,
-        },
-    },
     test_suites: [
         "general-tests",
     ],
