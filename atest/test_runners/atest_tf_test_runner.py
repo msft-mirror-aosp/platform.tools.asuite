@@ -366,6 +366,13 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
           reporter.test_result_link = (
               constants.RESULT_LINK % inv['invocationId']
           )
+          # TODO(b/400764778): Modify the logic of result_reporter to contain a
+          # mapping of invocations to test result links, and report the mapping
+          # in `ResultReporter.print_summary`.
+          print(
+              'Test Result uploaded to %s'
+              % atest_utils.mark_green(reporter.test_result_link)
+          )
         finally:
           logging.disable(logging.NOTSET)
     return result
