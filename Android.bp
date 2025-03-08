@@ -41,6 +41,20 @@ java_library_host {
     java_version: "11",
 }
 
+java_library_host {
+    name: "asuite_proto_java_lite",
+    srcs: [
+        "atest/proto/*.proto",
+    ],
+    proto: {
+        type: "lite",
+        canonical_path_from_root: false,
+        include_dirs: ["external/protobuf/src"],
+    },
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
+}
+
 python_library_host {
     name: "tradefed-protos-py",
     srcs: [
