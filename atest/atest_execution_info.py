@@ -56,6 +56,10 @@ _RESULT_LEN = 20
 _RESULT_URL_LEN = 35
 _COMMAND_LEN = 50
 _LOGCAT_FMT = '{}/log/invocation_*/{}*device_logcat_test*'
+_APK_CHANGE_DETECTOR_CLASSNAME = 'ApkChangeDetector'
+_APP_INSTALL_SKIP_KEY = 'Skipping the installation of'
+_APP_INSTALL_KEY = 'Installing apk'
+_HOST_LOG_PREFIX = 'host_log_'
 
 _SUMMARY_MAP_TEMPLATE = {
     _STATUS_PASSED_KEY: 0,
@@ -247,6 +251,53 @@ def has_url_results():
   return False
 
 
+def parse_test_log_and_send_app_installation_stats_metrics(
+    log_path: pathlib.Path,
+) -> None:
+  """Parse log and send app installation statistic metrics."""
+  if not log_path:
+    return
+
+  # Attempt to find all host logs
+  absolute_host_log_paths = glob.glob(
+      str(log_path / f'**/{_HOST_LOG_PREFIX}*'), recursive=True
+  )
+
+  if not absolute_host_log_paths:
+    return
+
+  skipped_count = 0
+  not_skipped_count = 0
+  try:
+    for host_log_path in absolute_host_log_paths:
+      if not os.path.isfile(host_log_path):
+        continue
+
+      # Open the host log and parse app installation skip metric
+      with open(f'{host_log_path}', 'r') as host_log_file:
+        for line in host_log_file:
+          if (
+              _APP_INSTALL_SKIP_KEY in line
+              and _APK_CHANGE_DETECTOR_CLASSNAME in line
+          ):
+            skipped_count += 1
+          elif _APP_INSTALL_KEY in line:
+            # TODO(b/394384055): Check classname for unskipped APKs as well.
+            not_skipped_count += 1
+    logging.debug('%d APK(s) skipped installation.', skipped_count)
+    logging.debug('%d APK(s) did not skip installation.', not_skipped_count)
+    metrics.LocalDetectEvent(
+        detect_type=atest_enum.DetectType.APP_INSTALLATION_SKIPPED_COUNT,
+        result=skipped_count,
+    )
+    metrics.LocalDetectEvent(
+        detect_type=atest_enum.DetectType.APP_INSTALLATION_NOT_SKIPPED_COUNT,
+        result=not_skipped_count,
+    )
+  except Exception as e:
+    logging.debug('An error occurred when accessing certain host logs: %s', e)
+
+
 class AtestExecutionInfo:
   """Class that stores the whole test progress information in JSON format.
 
@@ -394,6 +445,7 @@ class AtestExecutionInfo:
     print()
     if log_path:
       print(f'Test logs: {log_path / "log"}')
+      parse_test_log_and_send_app_installation_stats_metrics(log_path)
     log_link = html_path if html_path else log_path
     if log_link:
       print(atest_utils.mark_magenta(f'Log file list: file://{log_link}'))

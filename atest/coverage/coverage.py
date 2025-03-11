@@ -389,7 +389,7 @@ def _generate_lcov_report(out_dir, reports, root_dir=None):
       # TODO(b/361334044): These errors are ignored to continue to generate a
       # flawed result but ultimately need to be resolved, see bug for details.
       '--ignore-errors',
-      'unmapped,range,empty,corrupt',
+      'unmapped,range,empty,corrupt,missing',
   ]
   if root_dir:
     cmd.extend(['-p', root_dir])
