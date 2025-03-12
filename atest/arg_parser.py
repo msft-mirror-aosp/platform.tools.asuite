@@ -256,6 +256,15 @@ def create_atest_arg_parser():
       ),
   )
   parser.add_argument(
+      '--smart-test-selection',
+      default=False,
+      action='store_true',
+      help=(
+          'Automatically select test classes based on correlation with code'
+          ' change, and run them.'
+      ),
+  )
+  parser.add_argument(
       '--use-modules-in',
       help=(
           'Force include MODULES-IN-* as build targets. Hint: This may solve'

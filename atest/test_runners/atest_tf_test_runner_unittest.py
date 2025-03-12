@@ -1290,6 +1290,57 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     )
     self.assertFalse(constants.HOST in invocations[0]._extra_args)
 
+  def test_create_invocations_with_smart_test_selection_returns_multiple_invocations(
+      self,
+  ):
+    tr = atf_tr.AtestTradefedTestRunner(
+        results_dir=uc.TEST_INFO_DIR,
+        extra_args={
+            constants.HOST: False,
+            atf_tr._SMART_TEST_SELECTION: True,
+        },
+    )
+    tr.module_info = module_info.ModuleInfo(
+        name_to_module_info={
+            'device_test_1': (
+                module_info_unittest_base.device_driven_test_module(
+                    name='device_test_1'
+                )
+            ),
+            'device_test_2': (
+                module_info_unittest_base.host_driven_device_test_module(
+                    name='device_test_2'
+                )
+            ),
+            'deviceless_test_1': (
+                module_info_unittest_base.robolectric_test_module(
+                    name='deviceless_test_1'
+                )
+            ),
+            'deviceless_test_2': (
+                module_info_unittest_base.robolectric_test_module(
+                    name='deviceless_test_2'
+                )
+            ),
+        }
+    )
+    test_info_device_1 = test_info_of('device_test_1')
+    test_info_device_2 = test_info_of('device_test_2')
+    test_info_deviceless_1 = test_info_of('deviceless_test_1')
+    test_info_deviceless_2 = test_info_of('deviceless_test_2')
+
+    invocations = tr.create_invocations(
+        {},
+        [
+            test_info_device_1,
+            test_info_device_2,
+            test_info_deviceless_1,
+            test_info_deviceless_2,
+        ],
+    )
+
+    self.assertEqual(len(invocations), 4)
+
   def test_create_invocations_returns_invocation_only_for_deviceless_tests(
       self,
   ):
