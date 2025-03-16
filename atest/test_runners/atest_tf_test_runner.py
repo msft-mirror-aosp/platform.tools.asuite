@@ -94,6 +94,9 @@ _TF_EXIT_CODE = [
 # The environment variable for TF preparer incremental setup.
 _INCREMENTAL_SETUP_KEY = 'TF_PREPARER_INCREMENTAL_SETUP'
 
+# Smart test selection.
+_SMART_TEST_SELECTION = 'smart_test_selection'
+
 
 class Error(Exception):
   """Module-level error."""
@@ -196,6 +199,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     metrics.LocalDetectEvent(
         detect_type=DetectType.IS_MINIMAL_BUILD, result=int(self._minimal_build)
     )
+    self._smart_test_selection = extra_args.get(_SMART_TEST_SELECTION, False)
 
   def requires_device_update(
       self, test_infos: List[test_info.TestInfo]
@@ -225,42 +229,47 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         A list of TestRunnerInvocation instances.
     """
     invocations = []
-    device_test_infos, deviceless_test_infos = self._partition_tests(test_infos)
-    if deviceless_test_infos:
+    device_test_info_lists, deviceless_test_info_lists = self._partition_tests(
+        test_infos
+    )
+    if deviceless_test_info_lists:
       extra_args_for_deviceless_test = extra_args.copy()
       extra_args_for_deviceless_test.update({constants.HOST: True})
-      invocations.append(
-          TestRunnerInvocation(
-              test_runner=self,
-              extra_args=extra_args_for_deviceless_test,
-              test_infos=deviceless_test_infos,
-          )
-      )
-    if device_test_infos:
+      for temp_test_infos in deviceless_test_info_lists:
+        invocations.append(
+            TestRunnerInvocation(
+                test_runner=self,
+                extra_args=extra_args_for_deviceless_test,
+                test_infos=temp_test_infos,
+            )
+        )
+    if device_test_info_lists:
       extra_args_for_device_test = extra_args.copy()
       if rollout_control.tf_preparer_incremental_setup.is_enabled():
         extra_args_for_device_test.update({_INCREMENTAL_SETUP_KEY: True})
-      invocations.append(
-          TestRunnerInvocation(
-              test_runner=self,
-              extra_args=extra_args_for_device_test,
-              test_infos=device_test_infos,
-          )
-      )
+      for temp_test_infos in device_test_info_lists:
+        invocations.append(
+            TestRunnerInvocation(
+                test_runner=self,
+                extra_args=extra_args_for_device_test,
+                test_infos=temp_test_infos,
+            )
+        )
 
     return invocations
 
   def _partition_tests(
       self,
       test_infos: List[test_info.TestInfo],
-  ) -> (List[test_info.TestInfo], List[test_info.TestInfo]):
+  ) -> (List[List[test_info.TestInfo]], List[List[test_info.TestInfo]]):
     """Partition input tests into two lists based on whether it requires device.
 
     Args:
         test_infos: A list of TestInfos.
 
     Returns:
-        Two lists one contains device tests the other contains deviceless tests.
+        Two lists one contains device test info lists the other contains
+        deviceless test info lists.
     """
     device_test_infos = []
     deviceless_test_infos = []
@@ -272,7 +281,15 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
       else:
         deviceless_test_infos.append(info)
 
-    return device_test_infos, deviceless_test_infos
+    return [
+        [info] for info in device_test_infos
+    ] if self._smart_test_selection or not device_test_infos else [
+        device_test_infos
+    ], [
+        [info] for info in deviceless_test_infos
+    ] if self._smart_test_selection or not deviceless_test_infos else [
+        deviceless_test_infos
+    ]
 
   def _try_set_gts_authentication_key(self):
     """Set GTS authentication key if it is available or exists.
