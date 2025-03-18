@@ -94,9 +94,6 @@ _TF_EXIT_CODE = [
 # The environment variable for TF preparer incremental setup.
 _INCREMENTAL_SETUP_KEY = 'TF_PREPARER_INCREMENTAL_SETUP'
 
-# Smart test selection.
-_SMART_TEST_SELECTION = 'smart_test_selection'
-
 
 class Error(Exception):
   """Module-level error."""
@@ -199,7 +196,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     metrics.LocalDetectEvent(
         detect_type=DetectType.IS_MINIMAL_BUILD, result=int(self._minimal_build)
     )
-    self._smart_test_selection = extra_args.get(_SMART_TEST_SELECTION, False)
+    self._smart_test_selection = extra_args.get(
+        constants.SMART_TEST_SELECTION, False
+    )
 
   def requires_device_update(
       self, test_infos: List[test_info.TestInfo]

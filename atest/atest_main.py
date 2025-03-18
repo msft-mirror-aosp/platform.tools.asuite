@@ -300,7 +300,7 @@ def make_test_run_dir() -> str:
   return test_result_dir
 
 
-def get_extra_args(args):
+def get_extra_args(args) -> Dict[str, str]:
   """Get extra args for test runners.
 
   Args:
@@ -344,6 +344,7 @@ def get_extra_args(args):
       'user_type': constants.USER_TYPE,
       'verbose': constants.VERBOSE,
       'use_tf_min_base_template': constants.USE_TF_MIN_BASE_TEMPLATE,
+      'smart_test_selection': constants.SMART_TEST_SELECTION,
   }
   not_match = [k for k in arg_maps if k not in vars(args)]
   if not_match:
