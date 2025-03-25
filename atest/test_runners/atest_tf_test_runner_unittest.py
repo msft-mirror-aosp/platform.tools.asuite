@@ -1297,7 +1297,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         results_dir=uc.TEST_INFO_DIR,
         extra_args={
             constants.HOST: False,
-            atf_tr._SMART_TEST_SELECTION: True,
+            constants.SMART_TEST_SELECTION: True,
         },
     )
     tr.module_info = module_info.ModuleInfo(
