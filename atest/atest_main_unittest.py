@@ -22,6 +22,7 @@ import datetime
 from importlib import reload
 from io import StringIO
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -304,6 +305,28 @@ class AtestMainUnitTests(unittest.TestCase):
     self.assertEqual(
         pseudo_atest_main._check_envs_and_args(),
         ExitCode.INPUT_TEST_REFERENCE_ERROR,
+    )
+
+  @mock.patch(
+      'subprocess.run',
+      return_value=subprocess.CompletedProcess(args=[], returncode=1),
+  )
+  @mock.patch.object(
+      atest_main, '_missing_environment_variables', return_value=False
+  )
+  @mock.patch('os.getenv', return_value='/tmp/my_android_build_root')
+  @mock.patch('os.getcwd', return_value='/tmp/my_android_build_root/tools')
+  def test_check_envs_and_args_smart_test_selection_not_under_a_repo(
+      self, _, __, ___, ____
+  ):
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(
+        argv=['--smart-test-selection']
+    )
+
+    self.assertEqual(
+        pseudo_atest_main._check_envs_and_args(),
+        ExitCode.OUTSIDE_REPO,
     )
 
 

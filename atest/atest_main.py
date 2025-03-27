@@ -787,13 +787,20 @@ class _AtestMain:
     if not _has_valid_test_mapping_args(self._args):
       return ExitCode.INVALID_TM_ARGS
 
-    if self._args.smart_test_selection and self._args.tests:
-      atest_utils.colorful_print(
-          'Smart test selection is specified, please remove the specified test'
-          f' references: {self._args.tests}',
-          constants.RED,
-      )
-      return ExitCode.INPUT_TEST_REFERENCE_ERROR
+    if self._args.smart_test_selection:
+      if self._args.tests:
+        atest_utils.colorful_print(
+            'Smart test selection is specified, please remove the specified'
+            f' test references: {self._args.tests}',
+            constants.RED,
+        )
+        return ExitCode.INPUT_TEST_REFERENCE_ERROR
+      if subprocess.run(['git', 'branch'], capture_output=True).returncode != 0:
+        atest_utils.colorful_print(
+            'Smart test selection must work under a repo',
+            constants.RED,
+        )
+        return ExitCode.OUTSIDE_REPO
 
     # Checks whether ANDROID_SERIAL environment variable is set to an empty string.
     if 'ANDROID_SERIAL' in os.environ and not os.environ['ANDROID_SERIAL']:
