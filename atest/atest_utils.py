@@ -591,7 +591,7 @@ def is_test_mapping(args):
   which means the test value is a test group name in TEST_MAPPING file, e.g.,
   `:postsubmit`.
 
-  If --host-unit-test-only or --smart-testing-local was applied, it doesn't
+  If --host-unit-test-only or --smart-test-selection was applied, it doesn't
   intend to be a test_mapping test.
   If any test mapping options is specified, the atest command must also be
   set to run tests in test mapping files.
@@ -603,7 +603,7 @@ def is_test_mapping(args):
       True if the args indicates atest shall run tests in test mapping. False
       otherwise.
   """
-  if args.host_unit_test_only:
+  if any((args.host_unit_test_only, args.smart_test_selection)):
     return False
   if any((args.test_mapping, args.include_subdirs, not args.tests)):
     return True
