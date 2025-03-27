@@ -32,6 +32,7 @@ from atest import atest_utils
 from atest import constants
 from atest import module_info
 from atest.atest_enum import DetectType
+from atest.atest_enum import ExitCode
 from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.test_finders import test_info
@@ -286,6 +287,24 @@ class AtestMainUnitTests(unittest.TestCase):
     pseudo_atest_main = atest_main._AtestMain(argv=[])
 
     self.assertIsNone(pseudo_atest_main._run_build_step())
+
+  @mock.patch.object(
+      atest_main, '_missing_environment_variables', return_value=False
+  )
+  @mock.patch('os.getenv', return_value='/tmp/my_android_build_root')
+  @mock.patch('os.getcwd', return_value='/tmp/my_android_build_root/tools')
+  def test_check_envs_and_args_smart_test_selection_and_test_refs_specified(
+      self, _, __, ___
+  ):
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(
+        argv=['--smart-test-selection', 'SomeTestModule']
+    )
+
+    self.assertEqual(
+        pseudo_atest_main._check_envs_and_args(),
+        ExitCode.INPUT_TEST_REFERENCE_ERROR,
+    )
 
 
 # pylint: disable=missing-function-docstring

@@ -709,6 +709,14 @@ class _AtestMain:
 
     self._banner_printer = banner.BannerPrinter.create()
 
+    if self._args.smart_test_selection:
+      # TODO(b/396787299): Add the implementation of smart test selection.
+      atest_utils.colorful_print(
+          'Smart test selection has not been supported yet',
+          constants.RED,
+      )
+      sys.exit(ExitCode.FEATURE_NOT_IMPLEMENTED)
+
     exit_code = ExitCode.ERROR
     with atest_execution_info.AtestExecutionInfo(
         final_args,
@@ -778,6 +786,14 @@ class _AtestMain:
       return ExitCode.ENV_NOT_SETUP
     if not _has_valid_test_mapping_args(self._args):
       return ExitCode.INVALID_TM_ARGS
+
+    if self._args.smart_test_selection and self._args.tests:
+      atest_utils.colorful_print(
+          'Smart test selection is specified, please remove the specified test'
+          f' references: {self._args.tests}',
+          constants.RED,
+      )
+      return ExitCode.INPUT_TEST_REFERENCE_ERROR
 
     # Checks whether ANDROID_SERIAL environment variable is set to an empty string.
     if 'ANDROID_SERIAL' in os.environ and not os.environ['ANDROID_SERIAL']:
