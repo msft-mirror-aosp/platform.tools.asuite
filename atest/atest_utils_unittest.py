@@ -352,16 +352,27 @@ class AtestUtilsUnittests(unittest.TestCase):
     want_list = []
     self.assertEqual(want_list, atest_utils._capture_fail_section(test_list))
 
-  def test_is_test_mapping_none_test_mapping_args(self):
+  def test_is_test_mapping_host_unit_test_only_specified(self):
     """Test method is_test_mapping."""
-    non_tm_args = ['--host-unit-test-only']
+    host_unit_test_arg = '--host-unit-test-only'
+    args = arg_parser.create_atest_arg_parser().parse_args([host_unit_test_arg])
 
-    for argument in non_tm_args:
-      args = arg_parser.create_atest_arg_parser().parse_args([argument])
-      self.assertFalse(
-          atest_utils.is_test_mapping(args),
-          'Option %s indicates NOT a test_mapping!' % argument,
-      )
+    self.assertFalse(
+        atest_utils.is_test_mapping(args),
+        'Option %s indicates NOT a test_mapping!' % host_unit_test_arg,
+    )
+
+  def test_is_test_mapping_smart_test_selection_specified(self):
+    """Test method is_test_mapping."""
+    smart_test_selection_arg = '--smart-test-selection'
+    args = arg_parser.create_atest_arg_parser().parse_args(
+        [smart_test_selection_arg]
+    )
+
+    self.assertFalse(
+        atest_utils.is_test_mapping(args),
+        'Option %s indicates NOT a test_mapping!' % smart_test_selection_arg,
+    )
 
   def test_is_test_mapping_test_mapping_args(self):
     """Test method is_test_mapping."""

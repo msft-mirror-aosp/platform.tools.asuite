@@ -751,14 +751,21 @@ class CLITranslator:
     """
     tests = args.tests
     detect_type = DetectType.TEST_WITH_ARGS
-    # Disable fuzzy searching when running with test mapping related args.
-    if not args.tests or atest_utils.is_test_mapping(args):
+
+    # Disable fuzzy searching when running with test mapping or smart test
+    # selection related args.
+    if any((
+        not args.tests,
+        atest_utils.is_test_mapping(args),
+        args.smart_test_selection,
+    )):
       self.fuzzy_search = False
       detect_type = DetectType.TEST_NULL_ARGS
     start = time.time()
-    # Not including host unit tests if user specify --test-mapping.
+    # Not including host unit tests if user specify --test-mapping or
+    # --smart-test-selection.
     host_unit_tests = []
-    if not any((args.tests, args.test_mapping)):
+    if not any((args.tests, args.test_mapping, args.smart_test_selection)):
       logging.debug('Finding Host Unit Tests...')
       host_unit_tests = test_finder_utils.find_host_unit_tests(
           self.mod_info, str(Path(os.getcwd()).relative_to(self.root_dir))
