@@ -623,6 +623,111 @@ class AtestUtilsUnittests(unittest.TestCase):
         atest_utils.get_modified_files(''),
     )
 
+  @mock.patch(
+      'subprocess.check_output',
+      side_effect=[
+          b'11 22 tracked_fp1.java\n33 44 c/tracked_fp2.java',
+          b'55 untracked_fp3.java\n66 a/b/untracked_fp4.py',
+      ],
+  )
+  def test_get_modified_files_with_details(self, _):
+    tracked_changed_file_details1 = atest_utils.ChangedFileDetails(
+        filename='tracked_fp1.java',
+        number_of_lines_inserted=11,
+        number_of_lines_deleted=22,
+    )
+    tracked_changed_file_details2 = atest_utils.ChangedFileDetails(
+        filename='c/tracked_fp2.java',
+        number_of_lines_inserted=33,
+        number_of_lines_deleted=44,
+    )
+    untracked_changed_file_details1 = atest_utils.ChangedFileDetails(
+        filename='untracked_fp3.java',
+        number_of_lines_inserted=55,
+        number_of_lines_deleted=0,
+    )
+    untracked_changed_file_details2 = atest_utils.ChangedFileDetails(
+        filename='a/b/untracked_fp4.py',
+        number_of_lines_inserted=66,
+        number_of_lines_deleted=0,
+    )
+
+    modified_files_with_details = atest_utils.get_modified_files_with_details()
+
+    self.assertSetEqual(
+        modified_files_with_details,
+        {
+            tracked_changed_file_details1,
+            tracked_changed_file_details2,
+            untracked_changed_file_details1,
+            untracked_changed_file_details2,
+        },
+    )
+
+  @mock.patch(
+      'subprocess.check_output',
+      side_effect=[
+          b'11 22 tracked_fp1.java\n33 44 c/tracked_fp2.java',
+          b'',
+      ],
+  )
+  def test_get_modified_files_with_details_only_tracked_changes(self, _):
+    tracked_changed_file_details1 = atest_utils.ChangedFileDetails(
+        filename='tracked_fp1.java',
+        number_of_lines_inserted=11,
+        number_of_lines_deleted=22,
+    )
+    tracked_changed_file_details2 = atest_utils.ChangedFileDetails(
+        filename='c/tracked_fp2.java',
+        number_of_lines_inserted=33,
+        number_of_lines_deleted=44,
+    )
+
+    modified_files_with_details = atest_utils.get_modified_files_with_details()
+
+    self.assertSetEqual(
+        modified_files_with_details,
+        {
+            tracked_changed_file_details1,
+            tracked_changed_file_details2,
+        },
+    )
+
+  @mock.patch(
+      'subprocess.check_output',
+      side_effect=[
+          b'',
+          b'55 untracked_fp3.java\n66 a/b/untracked_fp4.py',
+      ],
+  )
+  def test_get_modified_files_with_details_only_untracked_changes(self, _):
+    untracked_changed_file_details1 = atest_utils.ChangedFileDetails(
+        filename='untracked_fp3.java',
+        number_of_lines_inserted=55,
+        number_of_lines_deleted=0,
+    )
+    untracked_changed_file_details2 = atest_utils.ChangedFileDetails(
+        filename='a/b/untracked_fp4.py',
+        number_of_lines_inserted=66,
+        number_of_lines_deleted=0,
+    )
+
+    modified_files_with_details = atest_utils.get_modified_files_with_details()
+
+    self.assertSetEqual(
+        modified_files_with_details,
+        {
+            untracked_changed_file_details1,
+            untracked_changed_file_details2,
+        },
+    )
+
+  @mock.patch('subprocess.check_output', return_value=b'')
+  def test_get_modified_files_with_details_empty_changes(self, _):
+    modified_files_with_details = atest_utils.get_modified_files_with_details()
+
+    self.assertSetEqual(modified_files_with_details, set())
+
   def test_delimiter(self):
     """Test method delimiter"""
     self.assertEqual('\n===\n\n', atest_utils.delimiter('=', 3, 1, 2))
