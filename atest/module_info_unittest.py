@@ -420,6 +420,25 @@ class ModuleInfoUnittests(unittest.TestCase):
           constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR,
       },
   )
+  def test_get_target_module_by_pkg_module_not_found(self):
+    mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
+    self.assertEqual(
+        '',
+        mod_info.get_target_module_by_pkg(
+            package='module_1',
+            search_from=Path(uc.TEST_DATA_DIR).joinpath(
+                'foo/bar/module_1/test'
+            ),
+        ),
+    )
+
+  @mock.patch.dict(
+      'os.environ',
+      {
+          constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR,
+          constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR,
+      },
+  )
   def test_get_artifact_map(self):
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
     artifacts = {
@@ -780,33 +799,41 @@ class ModuleInfoUnittests(unittest.TestCase):
     )
 
   def test_get_code_under_test_module_name_is_not_found_in_module_info(self):
-    mod_info = create_module_info([
-        module(
-            name='my_module',
-            code_under_test='code_under_test_module',
-        )
-    ])
+    mod_info = create_module_info(
+        [
+            module(
+                name='my_module',
+                code_under_test='code_under_test_module',
+            )
+        ]
+    )
 
     # module_that_is_not_in_module_info is not found in mod_info.
     self.assertEqual(
-        mod_info.get_code_under_test('module_that_is_not_in_module_info'), [],
+        mod_info.get_code_under_test('module_that_is_not_in_module_info'),
+        [],
     )
 
-  def test_get_code_under_test_code_under_test_is_not_defined_in_module_info(self):
+  def test_get_code_under_test_code_under_test_is_not_defined_in_module_info(
+      self,
+  ):
     mod_info = create_module_info([module(name='my_module')])
 
     # my_module is found in mod_info but code_under_test is not defined.
     self.assertEqual(
-        mod_info.get_code_under_test('my_module'), [],
+        mod_info.get_code_under_test('my_module'),
+        [],
     )
 
   def test_get_code_under_test_code_under_test_is_defined_in_module_info(self):
-    mod_info = create_module_info([
-        module(
-            name='my_module',
-            code_under_test='code_under_test_module',
-        )
-    ])
+    mod_info = create_module_info(
+        [
+            module(
+                name='my_module',
+                code_under_test='code_under_test_module',
+            )
+        ]
+    )
 
     self.assertEqual(
         mod_info.get_code_under_test('my_module'),
