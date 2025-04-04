@@ -170,7 +170,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         'atest_tradefed.sh template/atest_device_test_base --template:map'
         ' test=atest --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter HelloWorldTests'
-        ' --include-filter hallo-welt --skip-loading-config-jar'
+        ' --include-filter hello-world --skip-loading-config-jar'
         ' --log-level-display VERBOSE --log-level VERBOSE'
         ' --no-early-device-release'
     )
