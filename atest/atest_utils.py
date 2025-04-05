@@ -91,7 +91,11 @@ _FIND_MODIFIED_FILES_CMDS = (
     'ahead=$(git rev-list --left-right --count $local_branch...$remote_branch '
     "| awk '{{print $1}}');"
     # Get the list of modified files from HEAD to previous $ahead generation.
-    'git diff HEAD~$ahead --name-only'
+    'git diff HEAD~$ahead {}'
+)
+_FIND_UNTRACKED_FILES_CMD = (
+    'for file in $(git ls-files --others --exclude-standard); do wc -l "$file";'
+    ' done'
 )
 _ANDROID_BUILD_EXT = ('.bp', '.mk')
 
@@ -112,6 +116,18 @@ _BUILD_ENV = {}
 CACHE_VERSION = 1
 
 _original_sys_stdout = sys.stdout
+
+
+@dataclass(frozen=True)
+class ChangedFileDetails:
+  """Represents the details of a changed file.
+
+  The details include the filename, the number of inserted and deleted lines.
+  """
+
+  filename: str
+  number_of_lines_inserted: int
+  number_of_lines_deleted: int
 
 
 @dataclass
@@ -1003,6 +1019,8 @@ def clean_test_info_caches(tests, cache_root=None):
         )
 
 
+# TODO(b/407049787): Remove this function once `get_modified_files_with_details`
+# is proved to be robust.
 def get_modified_files(root_dir):
   """Get the git modified files.
 
@@ -1041,7 +1059,9 @@ def get_modified_files(root_dir):
       for change in modified_wo_commit:
         modified_files.add(os.path.normpath('{}/{}'.format(git_path, change)))
       # Find modified files that are committed but not yet merged.
-      find_modified_files = _FIND_MODIFIED_FILES_CMDS.format(git_path)
+      find_modified_files = _FIND_MODIFIED_FILES_CMDS.format(
+          git_path, '--name-only'
+      )
       commit_modified_files = (
           subprocess.check_output(find_modified_files, shell=True)
           .decode()
@@ -1049,6 +1069,52 @@ def get_modified_files(root_dir):
       )
       for line in commit_modified_files:
         modified_files.add(os.path.normpath('{}/{}'.format(git_path, line)))
+  except (OSError, subprocess.CalledProcessError) as err:
+    logging.debug('Exception raised: %s', err)
+  return modified_files
+
+
+def get_modified_files_with_details() -> set[ChangedFileDetails]:
+  """Get the git modified files with change details of the current folder.
+
+  The modified files include all committed changes, uncommitted but tracked
+  changes and untracked changes.
+
+  Returns:
+      A set of modified files altered with changed details since last commit.
+  """
+  modified_files = set()
+  try:
+    find_modified_files = _FIND_MODIFIED_FILES_CMDS.format('.', '--numstat')
+    commit_modified_files = (
+        subprocess.check_output(find_modified_files, shell=True)
+        .decode()
+        .splitlines()
+    )
+    for line in commit_modified_files:
+      splitline = line.split()
+      modified_files.add(
+          ChangedFileDetails(
+              filename=splitline[2],
+              number_of_lines_inserted=int(splitline[0]),
+              number_of_lines_deleted=int(splitline[1]),
+          )
+      )
+
+    untracked_modified_files = (
+        subprocess.check_output(_FIND_UNTRACKED_FILES_CMD, shell=True)
+        .decode()
+        .splitlines()
+    )
+    for line in untracked_modified_files:
+      splitline = line.split()
+      modified_files.add(
+          ChangedFileDetails(
+              filename=splitline[1],
+              number_of_lines_inserted=int(splitline[0]),
+              number_of_lines_deleted=0,
+          )
+      )
   except (OSError, subprocess.CalledProcessError) as err:
     logging.debug('Exception raised: %s', err)
   return modified_files

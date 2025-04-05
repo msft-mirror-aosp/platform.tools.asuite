@@ -784,7 +784,7 @@ class ModuleInfo:
         if xml_info.get('persistent'):
           logging.debug('%s is a persistent app.', package)
           continue
-        for _m in self.path_to_module_info.get(rel_dir):
+        for _m in self.path_to_module_info.get(rel_dir, []):
           possible_modules.append(_m)
     if possible_modules:
       for mod in possible_modules:
@@ -1551,7 +1551,7 @@ def _filter_modules_by_suite(
 ) -> Set[str]:
   """Return modules of the given suite name."""
   if suite:
-    return suite_to_modules.get(suite)
+    return suite_to_modules.get(suite, set())
 
   return {mod for mod_set in suite_to_modules.values() for mod in mod_set}
 
