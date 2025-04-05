@@ -215,7 +215,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         ' test=atest --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter'
         ' VtsHalCameraProviderV2_4TargetTest --atest-include-filter'
-        ' VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest.configureInjectionStreamsAvailableOutputs/0_internal_0'
+        ' VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest#configureInjectionStreamsAvailableOutputs/0_internal_0'
         ' --skip-loading-config-jar --log-level-display VERBOSE --log-level'
         ' VERBOSE --no-early-device-release'
     )
