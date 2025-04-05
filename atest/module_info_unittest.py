@@ -251,6 +251,23 @@ class ModuleInfoUnittests(unittest.TestCase):
     self.assertEqual(actual_test_suite_modules, expected_test_suite_modules)
     self.assertEqual(actual_null_suite_modules, expected_null_suite_modules)
 
+  def test_get_testable_modules_failed_to_find_suite(self):
+    """Test get_testable_modules."""
+    mod_info = create_module_info(
+        modules=[
+            test_module(name='Module1', compatibility_suites=['test-suite']),
+            test_module(name='Module2', compatibility_suites=['test-suite']),
+            test_module(name='Module3'),
+            non_test_module(name='Dep1'),
+        ]
+    )
+
+    actual_all_testable_modules = mod_info.get_testable_modules(
+        'suite-not-exist'
+    )
+
+    self.assertSetEqual(actual_all_testable_modules, set())
+
   @mock.patch.dict(
       'os.environ',
       {

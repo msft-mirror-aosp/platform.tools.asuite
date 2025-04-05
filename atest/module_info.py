@@ -1551,7 +1551,7 @@ def _filter_modules_by_suite(
 ) -> Set[str]:
   """Return modules of the given suite name."""
   if suite:
-    return suite_to_modules.get(suite)
+    return suite_to_modules.get(suite, set())
 
   return {mod for mod_set in suite_to_modules.values() for mod in mod_set}
 
