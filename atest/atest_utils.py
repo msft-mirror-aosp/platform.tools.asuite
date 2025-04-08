@@ -2003,7 +2003,7 @@ def get_bp_content(filename: Path, module_type: str) -> Dict:
   build_file = Path(filename)
   if not any((build_file.suffix == '.bp', build_file.is_file())):
     return {}
-  start_from = re.compile(f'^{module_type}\s*\{{')
+  start_from = re.compile(rf'^{module_type}\s*\{{')
   end_with = re.compile(r'^\}$')
   context_re = re.compile(
       r'\s*(?P<key>(name|manifest|instrumentation_for))\s*:'
