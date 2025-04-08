@@ -712,14 +712,6 @@ class _AtestMain:
 
     self._banner_printer = banner.BannerPrinter.create()
 
-    if self._args.smart_test_selection:
-      # TODO(b/396787299): Add the implementation of smart test selection.
-      atest_utils.colorful_print(
-          'Smart test selection has not been supported yet',
-          constants.RED,
-      )
-      sys.exit(ExitCode.FEATURE_NOT_IMPLEMENTED)
-
     exit_code = ExitCode.ERROR
     with atest_execution_info.AtestExecutionInfo(
         final_args,
