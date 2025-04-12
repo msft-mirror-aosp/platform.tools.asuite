@@ -396,3 +396,6 @@ SHARD_NUM = 2
 
 # Smart test selection keyword.
 SMART_TEST_SELECTION = 'smart_test_selection'
+
+# Smart test selection X20 root path.
+SMART_TEST_SELECTION_ROOT_PATH = ''
