@@ -189,6 +189,36 @@ class AtestUnittests(unittest.TestCase):
     atest_main._validate_exec_mode(parsed_args, test_infos)
     self.assertFalse(parsed_args.host)
 
+  @mock.patch.object(atest_utils, 'get_adb_devices')
+  @mock.patch.object(metrics_utils, 'send_exit_event')
+  def test_validate_exec_mode_no_system_exit_with_smart_test_selection(
+      self, _send_exit, _devs
+  ):
+    """Test _validate_exec_mode."""
+    _devs.return_value = ['127.0.0.1:34556']
+    parsed_args = atest_main._parse_args(['--smart-test-selection'])
+    host_test_info = test_info.TestInfo(
+        'mod',
+        '',
+        set(),
+        data={},
+        module_class=['NATIVE_TESTS'],
+        install_locations=set(['host']),
+    )
+    device_test_info = test_info.TestInfo(
+        'mod',
+        '',
+        set(),
+        data={},
+        module_class=['NATIVE_TESTS'],
+        install_locations=set(['device']),
+    )
+    test_infos = [device_test_info, host_test_info]
+
+    atest_main._validate_exec_mode(parsed_args, test_infos)
+
+    self.assertFalse(parsed_args.host)
+
   def test_make_test_run_dir(self):
     """Test make_test_run_dir."""
     tmp_dir = tempfile.mkdtemp()

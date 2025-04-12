@@ -375,8 +375,10 @@ def _validate_exec_mode(args, test_infos: list[TestInfo], host_tests=None):
   """
   all_device_modes = {x.get_supported_exec_mode() for x in test_infos}
   err_msg = None
+  device_only_test_detected = constants.DEVICE_TEST in all_device_modes
+  host_only_test_detected = constants.DEVICELESS_TEST in all_device_modes
   # In the case of '$atest <device-only> --host', exit.
-  if (host_tests or args.host) and constants.DEVICE_TEST in all_device_modes:
+  if (host_tests or args.host) and device_only_test_detected:
     device_only_tests = [
         x.test_name
         for x in test_infos
@@ -390,11 +392,12 @@ def _validate_exec_mode(args, test_infos: list[TestInfo], host_tests=None):
   # In the case of '$atest <host-only> <device-only> --host' or
   # '$atest <host-only> <device-only>', exit.
   if (
-      constants.DEVICELESS_TEST in all_device_modes
-      and constants.DEVICE_TEST in all_device_modes
+      host_only_test_detected
+      and device_only_test_detected
+      and not args.smart_test_selection
   ):
     err_msg = 'There are host-only and device-only tests in command.'
-  if host_tests is False and constants.DEVICELESS_TEST in all_device_modes:
+  if host_tests is False and host_only_test_detected:
     err_msg = 'There are host-only tests in command.'
   if err_msg:
     atest_utils.print_and_log_error(err_msg)
@@ -406,9 +409,9 @@ def _validate_exec_mode(args, test_infos: list[TestInfo], host_tests=None):
     _validate_adb_devices(args, test_infos)
   # In the case of '$atest <host-only>', we add --host to run on host-side.
   # The option should only be overridden if `host_tests` is not set.
-  if not args.host and host_tests is None:
+  if not args.host and host_tests is None and not device_only_test_detected:
     logging.debug('Appending "--host" for a deviceless test...')
-    args.host = bool(constants.DEVICELESS_TEST in all_device_modes)
+    args.host = host_only_test_detected
 
 
 def _validate_adb_devices(args, test_infos):
