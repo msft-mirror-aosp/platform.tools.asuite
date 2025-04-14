@@ -427,5 +427,129 @@ class AtestExecutionInfoUnittests(unittest.TestCase):
     return test_info._replace(**kwargs)
 
 
+class RenameInvocationPathnamesTest(fake_filesystem_unittest.TestCase):
+
+  def setUp(self):
+    self.setUpPyfakefs()
+    self.fs.create_dir(pathlib.Path('/logs'))
+
+  def test_append_test_info_to_invocation_pathnames_inv_paths_successfully_renamed(
+      self,
+  ):
+    log_path = pathlib.Path('/logs')
+    inv_path1 = log_path / 'log/stub/local_atest/inv_1'
+    self.fs.create_dir(inv_path1)
+    host_log_path1 = inv_path1 / 'host_log_test1.txt'
+    self.fs.create_file(
+        host_log_path1,
+        contents="""
+        Running tests with filter --some-filter filter_value --atest-include-filter TestAModule:com.package.TestAClass --some-other-filter other_filter_value
+        Creating temp file at /logs/log/stub/local_atest/inv_1
+        """,
+    )
+    inv_path2 = log_path / 'log/stub/local_atest/inv_2'
+    self.fs.create_dir(inv_path2)
+    inv_path3 = log_path / 'log/stub/local_atest/inv_3'
+    self.fs.create_dir(inv_path3)
+    host_log_path2 = inv_path2 / 'host_log_test2.txt'
+    self.fs.create_file(
+        host_log_path2,
+        contents="""
+        Running tests with filter --some-filter filter_value --atest-include-filter TestBModule:com.package.TestBClass#testBMethod --some-other-filter other_filter_value
+        Creating temp file at /logs/log/stub/local_atest/inv_2
+        Creating temp file at /logs/log/stub/local_atest/inv_3
+        """,
+    )
+    inv_path4 = log_path / 'log/stub/local_atest/inv_4'
+    self.fs.create_dir(inv_path4)
+    self.fs.create_dir(
+        log_path
+        / 'log/stub/local_atest/inv_4__TestCModule_com.package.TestCClass'
+    )
+    host_log_path4 = inv_path4 / 'host_log_test4.txt'
+    self.fs.create_file(
+        host_log_path4,
+        contents="""
+        Running tests with filter --some-filter filter_value --atest-include-filter TestCModule:com.package.TestCClass --some-other-filter other_filter_value --include-filter Cts*Test?MyModule
+        Creating temp file at /logs/log/stub/local_atest/inv_4
+        """,
+    )
+
+    aei.append_test_info_to_invocation_pathnames(log_path)
+
+    self.assertFalse(os.path.exists('/logs/log/stub/local_atest/inv_1'))
+    self.assertFalse(os.path.exists('/logs/log/stub/local_atest/inv_2'))
+    self.assertTrue(os.path.exists('/logs/log/stub/local_atest/inv_3'))
+    self.assertFalse(os.path.exists('/logs/log/stub/local_atest/inv_4'))
+    self.assertTrue(
+        os.path.exists(
+            '/logs/log/stub/local_atest/inv_1__TestAModule_com.package.TestAClass'
+        )
+    )
+    self.assertTrue(
+        os.path.exists(
+            '/logs/log/stub/local_atest/inv_2__TestBModule_com.package.TestBClass_testBMethod'
+        )
+    )
+    self.assertFalse(
+        os.path.exists(
+            '/logs/log/stub/local_atest/inv_3__TestBModule_com.package.TestBClass_testBMethod'
+        )
+    )
+    self.assertTrue(
+        os.path.exists(
+            '/logs/log/stub/local_atest/inv_4__TestCModule_com.package.TestCClass/host_log_test4.txt'
+        )
+    )
+
+  def test_append_test_info_to_invocation_pathnames_inv_paths_no_rename_due_to_no_test_filter(
+      self,
+  ):
+    log_path = pathlib.Path('/logs')
+    inv_path1 = log_path / 'log/stub/local_atest/inv_1'
+    self.fs.create_dir(inv_path1)
+    host_log_path1 = inv_path1 / 'host_log_test1.txt'
+    self.fs.create_file(
+        host_log_path1,
+        contents="""
+        Running tests with filter --some-filter filter_value --include-filter TestAModule:com.package.TestAClass --some-other-filter other_filter_value
+        Creating temp file at /logs/log/stub/local_atest/inv_1
+        """,
+    )
+
+    aei.append_test_info_to_invocation_pathnames(log_path)
+
+    self.assertTrue(os.path.exists('/logs/log/stub/local_atest/inv_1'))
+    self.assertFalse(
+        os.path.exists(
+            '/logs/log/stub/local_atest/inv_1__TestAModule_com.package.TestAClass'
+        )
+    )
+
+  def test_append_test_info_to_invocation_pathnames_inv_paths_no_rename_due_to_no_inv_path(
+      self,
+  ):
+    log_path = pathlib.Path('/logs')
+    inv_path1 = log_path / 'log/stub/local_atest/inv_1'
+    self.fs.create_dir(inv_path1)
+    host_log_path1 = inv_path1 / 'host_log_test1.txt'
+    self.fs.create_file(
+        host_log_path1,
+        contents="""
+        Running tests with filter --some-filter filter_value --atest-include-filter TestAModule:com.package.TestAClass --some-other-filter other_filter_value
+        Creating super awesome log at /logs/log/stub/local_atest/inv_1
+        """,
+    )
+
+    aei.append_test_info_to_invocation_pathnames(log_path)
+
+    self.assertTrue(os.path.exists('/logs/log/stub/local_atest/inv_1'))
+    self.assertFalse(
+        os.path.exists(
+            '/logs/log/stub/local_atest/inv_1__TestAModule_com.package.TestAClass'
+        )
+    )
+
+
 if __name__ == '__main__':
   unittest.main()
