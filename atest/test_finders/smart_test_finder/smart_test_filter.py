@@ -26,6 +26,26 @@ from atest import constants
 
 _NUM_MILLISECONDS_IN_MINUTES = 60000
 
+# Opted-out test modules with reasons of crash or failure.
+_OPTED_OUT_TEST_MODULES_WITH_REASONS = {
+    'MtsLibcoreBouncyCastleTestCases': 'b/407985613',
+    'aconfig_storage_file.test.cpp': 'b/408059183',
+    'aconfig_storage_file.test.java': 'b/408059183',
+    'aconfig_storage_read_api.test.cpp': 'b/408059183',
+    'aconfig.test.cpp': 'b/408059183',
+    'aconfig.test.java': 'b/408059183',
+    'LauncherIronwoodIntegrationTests': 'b/409376364',
+    'rustBinderTestService': 'b/409368039',
+    'llvmlibc_tests': 'b/409370336',
+    'CellBroadcastReceiverMTS': 'b/409371134',
+    'DocumentsUIGoogleTests': 'b/409371134',
+    'VibratorHalCs40l26TestSuite': 'b/409372845',
+    'CtsWifiTestCases': 'No wifi support',
+    'CtsTetheringTest': 'No wifi support',
+    'CtsWifiBroadcastsHostTestCases': 'No wifi support',
+    'MtsWifiTestCases': 'No wifi support',
+}
+
 
 @dataclass(frozen=True)
 class TestClassInfo:
@@ -88,6 +108,14 @@ def get_selected_test_classes(
           test.test_id,
       )
       continue
+    if test.module in _OPTED_OUT_TEST_MODULES_WITH_REASONS:
+      logging.debug(
+          'Module %s is currently opted out from smart test selection,'
+          ' skipping',
+          test.module,
+      )
+      continue
+
     if test_class_info.pass_rate < 0.95:
       logging.debug('Test %s is flaky, skipping', test.test_id)
       continue

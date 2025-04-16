@@ -36,7 +36,8 @@ some_branch7,some_target7,TestG,g_id,0.98,5
 some_branch5,some_target5,TestNotSelectedDueToTimeLimit,e_id,0.99,20000
 some_branch8,some_target8,TestNotSelectedDueToTimeLimit2,h_id,0.98,5
 some_branch2,some_target2,TestWithoutModule,j_id,0.99,500
-some_branch2,some_target2,TestWithoutTestClass,k_id,0.99,500"""
+some_branch2,some_target2,TestWithoutTestClass,k_id,0.99,500
+some_branch9,some_target9,TestWithOptedOutTests,l_id,1,2"""
 
 
 # pylint: disable=protected-access
@@ -175,6 +176,17 @@ class SmartTestFilterUnittests(fake_filesystem_unittest.TestCase):
             module='SomeTestModule',
             test_class='testSomeClass',
             score=0.949,
+        ),
+        # This test is not selected because the test module is in the opted-out
+        # list.
+        smart_test_filter.TestClassInfo(
+            test_id='l_id',
+            atp_test_name='TestWithOptedOutTests',
+            branch='some_branch9',
+            target='some_target9',
+            module='aconfig.test.cpp',
+            test_class='testGClass',
+            score=1,
         ),
     ]
     expected_selected_tests = [
