@@ -128,3 +128,36 @@ def create_query(
 
   json_query = json_format.MessageToJson(dg_input)
   return json_query
+
+
+# TODO(b/410945183): Remove this function once the bug is fixed.
+def create_queries(
+    change_info: local_info_collector.ChangeInfo,
+    tests: List[atp_test_selector.AtpTestInfo],
+) -> List[str]:
+  """Create queries for the relevance score between selected tests and local change info."""
+  dg_checks = _get_decision_graph_checks(tests)
+  queries = []
+
+  for dg_check in dg_checks:
+    dg_input = decision_graph_pb2.DecisionGraphInput(
+        input=[
+            decision_graph_pb2.StageInput(
+                stage=decision_graph_pb2.Stage(
+                    id=_STAGE_ID_FOR_SMART_TEST_SELECTION,
+                    name=_STAGE_NAME_FOR_SMART_TEST_SELECTION,
+                ),
+                input=[
+                    decision_graph_pb2.StageOutput(
+                        checks=[dg_check],
+                        private_context=_get_private_context(change_info),
+                    )
+                ],
+            )
+        ]
+    )
+    dg_input.graph.name = 'smart_test_selection_graph'
+    dg_input.graph.stages.extend([_STAGE_NODE])
+    queries.append(json_format.MessageToJson(dg_input))
+
+  return queries
