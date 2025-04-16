@@ -256,7 +256,7 @@ class AtpTestSelectorFileSystemUnittests(fake_filesystem_unittest.TestCase):
           constants.ANDROID_TARGET_PRODUCT: 'unmatched_device_product',
       },
   )
-  def test_get_selected_atp_tests_return_host_tests_only_if_no_matched_device(
+  def test_get_selected_atp_tests_return_empty_list_only_if_no_matched_device(
       self,
   ):
     input_change_info = local_info_collector.ChangeInfo(
@@ -266,21 +266,12 @@ class AtpTestSelectorFileSystemUnittests(fake_filesystem_unittest.TestCase):
         user_key='some_user',
         changed_files=set(),
     )
-    expected_selected_atp_tests = [
-        atp_test_selector.AtpTestInfo(
-            name='v2/android-virtual-infra/test_mapping/presubmit-host',
-            target='aosp_cf_x86_64_phone-trunk_staging-userdebug',
-            branch='git_main',
-        ),
-    ]
 
     actual_selected_atp_tests = atp_test_selector.get_selected_atp_tests(
         input_change_info
     )
 
-    self.assertCountEqual(
-        actual_selected_atp_tests, expected_selected_atp_tests
-    )
+    self.assertCountEqual(actual_selected_atp_tests, [])
 
   def test_get_selected_atp_tests_test_plan_not_selected_if_branch_not_git_main(
       self,

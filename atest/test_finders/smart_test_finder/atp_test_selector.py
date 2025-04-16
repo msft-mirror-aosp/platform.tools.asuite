@@ -34,14 +34,12 @@ from atest.test_finders.smart_test_finder import local_info_collector
 _DEVICE_PRODUCT_REGEX = re.compile('device product:(?P<product>[^\s]+)')
 _DEVICE_REGEX = re.compile('device:(?P<device>[^\s]+)')
 
-_ENABLED_HOST_ATP_TEST_PLANS = [
-    'v2/android-virtual-infra/test_mapping/presubmit-host',
-]
 _ENABLED_ATP_TEST_PLANS = [
     'v2/android-platinum/suite/test-mapping-platinum-presubmit',
     'v2/android-platinum/suite/test-mapping-platinum-presubmit-sysui-1',
     'v2/android-platinum/suite/test-mapping-platinum-presubmit-sysui-2',
     'v2/android-virtual-infra/test_mapping/presubmit-avd',
+    'v2/android-virtual-infra/test_mapping/presubmit-host',
     'v2/android-virtual-infra/test_mapping/presubmit-large-avd',
 ]
 
@@ -248,12 +246,13 @@ def get_selected_atp_tests(change_info: local_info_collector.ChangeInfo):
   matched_device = get_matched_device()
   if not matched_device:
     atest_utils.print_and_log_warning(
-        'No matched device connected, only host tests will run.'
+        'No matched device connected, and no ATP tests are selected.'
     )
+    return []
 
   selected_atp_tests = []
   for test in candidate_tests:
-    if test.name in _ENABLED_HOST_ATP_TEST_PLANS or (
+    if (
         test.name in _ENABLED_ATP_TEST_PLANS
         and matched_device
         and matched_device.product
