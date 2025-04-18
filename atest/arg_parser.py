@@ -17,10 +17,15 @@
 """Atest Argument Parser class for atest."""
 
 import argparse
-
 from atest import bazel_mode
 from atest import constants
+from atest import perf_module
 from atest.atest_utils import BuildOutputMode
+
+_PERF_MODULE_ARG = '--perf'
+_EXTRA_MODULE_MAP = {
+    _PERF_MODULE_ARG: perf_module,
+}
 
 
 def _output_mode_msg() -> str:
@@ -537,6 +542,15 @@ def create_atest_arg_parser():
   )
 
   parser.add_argument(
+      _PERF_MODULE_ARG,
+      action='store_true',
+      help=(
+          '(For performance tests) Enable performance test mode. This option'
+          ' enables some performance-related arguments and logic in atest.'
+      ),
+  )
+
+  parser.add_argument(
       '--no-checking-device',
       action='store_true',
       help='Do NOT check device availability. (even it is a device test)',
@@ -573,6 +587,25 @@ def create_atest_arg_parser():
   )
 
   return parser
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+  """Parses the command line arguments."""
+  parser = create_atest_arg_parser()
+
+  for arg, module in _EXTRA_MODULE_MAP.items():
+    if arg in argv:
+      module.add_arguments(parser)
+
+  parsed_args = parser.parse_args(argv)
+  if not parsed_args.custom_args:
+    parsed_args.custom_args = []
+
+  for arg, module in _EXTRA_MODULE_MAP.items():
+    if arg in argv:
+      module.process_parsed_args(parsed_args)
+
+  return parsed_args
 
 
 _HELP_DESCRIPTION = """NAME

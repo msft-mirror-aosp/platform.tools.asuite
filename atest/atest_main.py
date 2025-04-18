@@ -207,8 +207,7 @@ def _parse_args(argv: List[str]) -> argparse.Namespace:
   if CUSTOM_ARG_FLAG in argv:
     custom_args_index = argv.index(CUSTOM_ARG_FLAG)
     pruned_argv = argv[:custom_args_index]
-  args = arg_parser.create_atest_arg_parser().parse_args(pruned_argv)
-  args.custom_args = []
+  args = arg_parser.parse_args(pruned_argv)
   if custom_args_index is not None:
     for arg in argv[custom_args_index + 1 :]:
       logging.debug('Quoting regex argument %s', arg)
