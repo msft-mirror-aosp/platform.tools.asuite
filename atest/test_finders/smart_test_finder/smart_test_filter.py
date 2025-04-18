@@ -46,7 +46,6 @@ _OPTED_OUT_TEST_MODULES_WITH_REASONS = {
     'MtsWifiTestCases': 'No wifi support',
 }
 
-
 @dataclass(frozen=True)
 class TestClassInfo:
   test_id: str
@@ -98,6 +97,12 @@ def get_selected_test_classes(
   # Sort the candidate tests first by non-increasing score, then by
   # non-decreasing module name.
   for test in sorted(candidate_tests, key=lambda t: (-t.score, t.module)):
+    logging.debug(
+        'checking test %s:%s with score: %s',
+        test.module,
+        test.test_class,
+        test.score,
+    )
     if test.test_id not in test_class_history:
       logging.debug('No history of %s found, skipping', test.test_id)
       continue

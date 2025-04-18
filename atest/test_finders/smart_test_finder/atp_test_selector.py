@@ -236,10 +236,7 @@ def get_matched_device() -> DeviceInfo:
 def get_selected_atp_tests(change_info: local_info_collector.ChangeInfo):
   """Based on changed file details, get selected ATP tests."""
   candidate_tests = _get_candidate_atp_tests(change_info)
-  logging.info(
-      f'Selected candidate tests based on file change info ({change_info}):'
-      f' {candidate_tests}'
-  )
+  logging.info('Candidate ATP tests: %s', candidate_tests)
   if not candidate_tests:
     return []
 
