@@ -44,6 +44,7 @@ from atest.metrics import metrics_utils
 from atest.test_finders import module_finder
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
+from atest.test_finders.smart_test_finder import smart_test_finder
 from atest.tools import indexing
 
 FUZZY_FINDER = 'FUZZY'
@@ -787,6 +788,8 @@ class CLITranslator:
     # Process tests which might contain wildcard symbols in advance.
     if atest_utils.has_wildcard(tests):
       tests = self._extract_testable_modules_by_wildcard(tests)
+    if args.smart_test_selection:
+      tests = smart_test_finder.get_smartly_selected_tests()
     test_infos = self._get_test_infos(tests, test_details_list)
     if host_unit_tests:
       host_unit_test_details = [

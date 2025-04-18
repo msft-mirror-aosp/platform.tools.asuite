@@ -50,9 +50,9 @@ _OPTED_OUT_TEST_MODULES_WITH_REASONS = {
 @dataclass(frozen=True)
 class TestClassInfo:
   test_id: str
-  atp_test_name: str
-  branch: str
-  target: str
+  atp_test_name: str = ''
+  branch: str = ''
+  target: str = ''
   run_time: float = -1
   pass_rate: float = 0.0
   module: str = ''

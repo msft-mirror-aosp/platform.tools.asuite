@@ -16,19 +16,30 @@
 
 import json
 import logging
+import time
+from typing import Any
+from typing import Dict
 from typing import List
 import uuid
+from atest import atest_utils
 from atest.proto import common_pb2
 from atest.proto import decision_graph_pb2
 from atest.test_finders.smart_test_finder import atp_test_selector
 from atest.test_finders.smart_test_finder import local_info_collector
+from atest.test_finders.smart_test_finder import smart_test_filter
 from google.protobuf import json_format
+from googleapiclient import http
+from googleapiclient.discovery import build
+import httplib2
 
 
 _DEFAULT_MAX_TIMEOUT = 600
 _STAGE_ID_FOR_SMART_TEST_SELECTION = 'local_smart_test_selection'
 _STAGE_NAME_FOR_SMART_TEST_SELECTION = (
     f'{_STAGE_ID_FOR_SMART_TEST_SELECTION}_stage'
+)
+_DISCOVERY_SERVICE_URL = (
+    'https://decisiongraph-pa.googleapis.com/$discovery/rest?version=v1'
 )
 _STAGE_NODE = decision_graph_pb2.StageNode(
     stage=decision_graph_pb2.Stage(
@@ -161,3 +172,110 @@ def create_queries(
     queries.append(json_format.MessageToJson(dg_input))
 
   return queries
+
+
+class TestRelevanceClient:
+  """The client to calculate test relevance scores."""
+
+  def __init__(self, max_retry_count=5):
+    """Init BuildClient class."""
+    self._max_retry_count = max_retry_count
+    try:
+      with open(atp_test_selector._get_constants_path(), 'r') as file:
+        data = json.load(file)
+        developer_key = data['developer_key']
+        http = httplib2.Http(timeout=_DEFAULT_MAX_TIMEOUT)
+        self.client = build(
+            serviceName='decisiongraph-pa',
+            version='v1',
+            cache_discovery=False,
+            discoveryServiceUrl=_DISCOVERY_SERVICE_URL,
+            http=http,
+            developerKey=developer_key,
+        )
+    except Exception as err:
+      atest_utils.print_and_log_error(
+          'Error occurred during smart test selection: %s', err
+      )
+
+  # def get_tests_with_relevance_score(
+  #     self,
+  #     change_info: local_info_collector.ChangeInfo,
+  #     atp_tests: List[atp_test_selector.AtpTestInfo],
+  # ) -> Dict[str, Any]:
+  #   """Get test classes with relevance scores."""
+  #   query = create_query(change_info, atp_tests)
+  #   logging.info(query)
+  #   return self.client.v1().rundecisiongraph(body=json.loads(query)).execute()
+
+  # TODO(b/410945183): Replace this function with the one above once the bug is fixed.
+  def get_tests_with_relevance_score_query_by_query(
+      self,
+      change_info: local_info_collector.ChangeInfo,
+      atp_tests: List[atp_test_selector.AtpTestInfo],
+  ) -> List[Dict[str, Any]]:
+    """Get test classes with relevance scores query by query."""
+    for try_id in range(self._max_retry_count + 1):
+      try:
+        dg_outputs = []
+        for query in create_queries(change_info, atp_tests):
+          logging.info(query)
+          dg_outputs.append(
+              self.client.v1()
+              .rundecisiongraph(body=json.loads(query))
+              .execute()
+          )
+        return dg_outputs
+      except Exception as err:
+        if try_id < self._max_retry_count:
+          seconds_to_be_waited = 2**try_id
+          atest_utils.print_and_log_warning(
+              'Error occurred when querying test relevance API: %s, will retry'
+              ' after %s seconds',
+              err,
+              seconds_to_be_waited,
+          )
+          time.sleep(seconds_to_be_waited)
+        else:
+          atest_utils.print_and_log_warning(
+              'Error occurred when querying test relevance API: %s',
+              err,
+          )
+          return []
+
+
+def get_test_class_infos_from_decision_graph_output(
+    dg_output: Dict[str, Any],
+) -> List[smart_test_filter.TestClassInfo]:
+  """Convert decision graph output to test class infos."""
+  if not dg_output:
+    return []
+
+  test_classes = []
+  for stage_output in dg_output.get('outputs', []):
+    for check in stage_output.get('checks', []):
+      check_identifier = check.get('identifier')
+      if not check_identifier:
+        continue
+      ants_test = check_identifier.get('antsTest')
+      if not ants_test:
+        continue
+      test_id = ants_test.get('testIdentifierId')
+      if not test_id:
+        continue
+
+      test_identifier = ants_test.get('testIdentifier')
+      if not test_identifier:
+        continue
+      module = test_identifier.get('module', '')
+      test_class = test_identifier.get('testClass', '')
+      score = check.get('reason', {}).get('relevanceScore', 0)
+      test_classes.append(
+          smart_test_filter.TestClassInfo(
+              test_id=test_id,
+              module=module,
+              test_class=test_class,
+              score=score,
+          )
+      )
+  return test_classes
