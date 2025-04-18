@@ -50,14 +50,16 @@ class DetectType(IntEnum):
   MODULE_INFO_INIT_TIME = 19  # Deprecated. Use MODULE_INFO_INIT_MS instead.
   MODULE_MERGE_MS = 20
   NATIVE_TEST_NOT_FOUND = 21
-  BAZEL_WORKSPACE_GENERATE_TIME = 22
+  BAZEL_WORKSPACE_GENERATE_TIME = 22  # Deprecated. Bazel mode has been removed.
   MODULE_LOAD_MS = 23
   MODULE_INFO_INIT_MS = 24
   INIT_AND_FIND_MS = 25
   FOUND_INSTRUMENTATION_TEST = 26
   FOUND_TARGET_ARTIFACTS = 27
   FIND_TEST_IN_DEPS = 28
-  FULL_GENERATE_BAZEL_WORKSPACE_TIME = 29
+  FULL_GENERATE_BAZEL_WORKSPACE_TIME = (
+      29  # Deprecated. Bazel mode has been removed.
+  )
   # Below detect types are used for determine build conditions:
   # 1. *_CLEAN_OUT: when out/ dir is empty or does not exist.
   # 2. *_BPMK_CHANGE: when any Android.bp/Android.mk has changed.

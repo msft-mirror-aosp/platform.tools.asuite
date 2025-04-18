@@ -33,7 +33,6 @@ from typing import List, Set
 
 from atest import atest_error
 from atest import atest_utils
-from atest import bazel_mode
 from atest import constants
 from atest import rollout_control
 from atest import test_finder_handler
@@ -87,9 +86,7 @@ class CLITranslator:
       self,
       mod_info=None,
       print_cache_msg=True,
-      bazel_mode_enabled=False,
       host=False,
-      bazel_mode_features: List[bazel_mode.Features] = None,
       indexing_thread: threading.Thread = None,
   ):
     """CLITranslator constructor
@@ -98,18 +95,11 @@ class CLITranslator:
         mod_info: ModuleInfo class that has cached module-info.json.
         print_cache_msg: Boolean whether printing clear cache message or not.
           True will print message while False won't print.
-        bazel_mode_enabled: Boolean of args.bazel_mode.
         host: Boolean of args.host.
-        bazel_mode_features: List of args.bazel_mode_features.
         indexing_thread: Thread of indexing.
     """
     self.mod_info = mod_info
     self.root_dir = os.getenv(constants.ANDROID_BUILD_TOP, os.sep)
-    self._bazel_mode = (
-        bazel_mode_enabled
-        and not rollout_control.deprecate_bazel_mode.is_enabled()
-    )
-    self._bazel_mode_features = bazel_mode_features or []
     self._host = host
     self.enable_file_patterns = False
     self.msg = ''
@@ -167,16 +157,6 @@ class CLITranslator:
     find_methods = test_finder_handler.get_find_methods_for_test(
         self.mod_info, test
     )
-    if self._bazel_mode:
-      find_methods = [
-          bazel_mode.create_new_finder(
-              self.mod_info,
-              f,
-              host=self._host,
-              enabled_features=self._bazel_mode_features,
-          )
-          for f in find_methods
-      ]
 
     for finder in find_methods:
       # Ideally whether a find method requires indexing should be defined within the

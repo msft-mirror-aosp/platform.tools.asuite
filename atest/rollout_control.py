@@ -182,13 +182,6 @@ class RolloutControlledFeature:
     return is_enabled
 
 
-deprecate_bazel_mode = RolloutControlledFeature(
-    name='Deprecate Bazel Mode',
-    rollout_percentage=100,
-    env_control_flag='DEPRECATE_BAZEL_MODE',
-    feature_id=1,
-)
-
 rolling_tf_subprocess_output = RolloutControlledFeature(
     name='Rolling TradeFed subprocess output',
     rollout_percentage=100,

@@ -17,7 +17,7 @@
 """Atest Argument Parser class for atest."""
 
 import argparse
-from atest import bazel_mode
+
 from atest import constants
 from atest import perf_module
 from atest.atest_utils import BuildOutputMode
@@ -121,28 +121,6 @@ def create_atest_arg_parser():
       const=constants.BUILD_STEP,
       help='Run a build.',
   )
-  parser.add_argument(
-      '--bazel-mode',
-      default=True,
-      action='store_true',
-      help='Run tests using Bazel (default: True).',
-  )
-  parser.add_argument(
-      '--no-bazel-mode',
-      dest='bazel_mode',
-      action='store_false',
-      help='Run tests without using Bazel.',
-  )
-  parser.add_argument(
-      '--bazel-arg',
-      nargs='*',
-      action='append',
-      help=(
-          'Forward a flag to Bazel for tests executed with Bazel; see'
-          ' --bazel-mode.'
-      ),
-  )
-  bazel_mode.add_parser_arguments(parser, dest='bazel_mode_features')
 
   parser.add_argument(
       '-d',
