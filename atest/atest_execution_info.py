@@ -23,6 +23,7 @@ import json
 import logging
 import os
 import pathlib
+import re
 import shutil
 import sys
 import time
@@ -68,6 +69,13 @@ _SUMMARY_MAP_TEMPLATE = {
 }
 
 PREPARE_END_TIME = None
+
+_INCLUDE_FILTER_REGEX = re.compile(
+    r'--atest-include-filter (?P<include_filter>[^\s]+)'
+)
+_INVOCATION_FOLDER_REGEX = re.compile(
+    r'Creating temp file at (?P<inv_folder>[^\s]+)'
+)
 
 
 def preparation_time(start_time):
@@ -298,6 +306,62 @@ def parse_test_log_and_send_app_installation_stats_metrics(
     logging.debug('An error occurred when accessing certain host logs: %s', e)
 
 
+def append_test_info_to_invocation_pathnames(
+    log_path: pathlib.Path,
+) -> None:
+  """Append test info to invocation paths for a better readability."""
+  if not log_path:
+    return
+
+  # Attempt to find all host logs
+  absolute_host_log_paths = list(log_path.glob(f'**/{_HOST_LOG_PREFIX}*'))
+
+  if not absolute_host_log_paths:
+    return
+
+  try:
+    for host_log_path in absolute_host_log_paths:
+      if not host_log_path.is_file():
+        continue
+
+      # Open the host log and parse test filter and invocation folder names.
+      with open(f'{host_log_path}', 'r') as host_log_file:
+        test_filter = ''
+        invocation_folder_name = ''
+        for line in host_log_file:
+          if not test_filter:
+            include_filters = []
+            for match in _INCLUDE_FILTER_REGEX.finditer(line):
+              single_test_filter = (
+                  match.group('include_filter')
+                  .replace(':', '_')
+                  .replace('#', '_')
+                  .replace('?', '_')
+                  .replace('*', '_')
+              )
+              include_filters.append(single_test_filter)
+            if include_filters:
+              test_filter = '_'.join(include_filters)
+          if not invocation_folder_name:
+            match = _INVOCATION_FOLDER_REGEX.search(line)
+            if match:
+              invocation_folder_name = match.group('inv_folder')
+
+          if invocation_folder_name and test_filter:
+            break
+
+        if invocation_folder_name and test_filter:
+          new_inv_pathname = f'{invocation_folder_name}__{test_filter}'
+          logging.debug(
+              'Renaming %s to %s',
+              invocation_folder_name,
+              new_inv_pathname,
+          )
+          pathlib.Path(invocation_folder_name).replace(new_inv_pathname)
+  except Exception as e:
+    logging.debug('An error occurred when accessing certain host log: %s', e)
+
+
 class AtestExecutionInfo:
   """Class that stores the whole test progress information in JSON format.
 
@@ -360,6 +424,7 @@ class AtestExecutionInfo:
            A json format string.
     """
     self.args = args
+    self.smart_test_selection = '--smart-test-selection' in args
     self.work_dir = work_dir
     self.result_file_obj = None
     self.args_ns = args_ns
@@ -421,17 +486,6 @@ class AtestExecutionInfo:
         'verbose.log',
     )
 
-    html_path = None
-
-    if self.result_file_obj and not has_non_test_options(self.args_ns):
-      self.result_file_obj.write(
-          AtestExecutionInfo._generate_execution_detail(self.args)
-      )
-      self.result_file_obj.close()
-      atest_utils.prompt_suggestions(self.test_result)
-      html_path = atest_utils.generate_result_html(self.test_result)
-      symlink_latest_result(self.work_dir)
-
     if self.get_exit_code_func:
       main_exit_code = self.get_exit_code_func()
     else:
@@ -446,6 +500,19 @@ class AtestExecutionInfo:
     if log_path:
       print(f'Test logs: {log_path / "log"}')
       parse_test_log_and_send_app_installation_stats_metrics(log_path)
+      if self.smart_test_selection:
+        append_test_info_to_invocation_pathnames(log_path)
+
+    html_path = None
+    if self.result_file_obj and not has_non_test_options(self.args_ns):
+      self.result_file_obj.write(
+          AtestExecutionInfo._generate_execution_detail(self.args)
+      )
+      self.result_file_obj.close()
+      atest_utils.prompt_suggestions(self.test_result)
+      html_path = atest_utils.generate_result_html(self.test_result)
+      symlink_latest_result(self.work_dir)
+
     log_link = html_path if html_path else log_path
     if log_link:
       print(atest_utils.mark_magenta(f'Log file list: file://{log_link}'))
