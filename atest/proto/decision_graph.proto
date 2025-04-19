@@ -467,6 +467,7 @@ message AnTSTest {
   optional BuildDescriptor build_descriptor = 2;
   optional TestDefinition test_definition = 3;
   optional TestIdentifier test_identifier = 4;
+  optional string test_identifier_id = 5;
 }
 
 // A Check is a continuous integration entity (ex. build / test) which is
