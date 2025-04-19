@@ -22,9 +22,8 @@ from atest import constants
 from atest import perf_module
 from atest.atest_utils import BuildOutputMode
 
-_PERF_MODULE_ARG = '--perf'
 _EXTRA_MODULE_MAP = {
-    _PERF_MODULE_ARG: perf_module,
+    perf_module.PERF_MODULE_ARG_NAME: perf_module,
 }
 
 
@@ -527,30 +526,6 @@ def create_atest_arg_parser():
   )
 
   parser.add_argument(
-      '--aggregate-metric-filter',
-      action='append',
-      help=(
-          '(For performance tests) Regular expression that will be used for'
-          ' filtering the aggregated metrics.'
-      ),
-  )
-
-  parser.add_argument(
-      '--perf-itr-metrics',
-      action='store_true',
-      help='(For performance tests) Print individual performance metric.',
-  )
-
-  parser.add_argument(
-      _PERF_MODULE_ARG,
-      action='store_true',
-      help=(
-          '(For performance tests) Enable performance test mode. This option'
-          ' enables some performance-related arguments and logic in atest.'
-      ),
-  )
-
-  parser.add_argument(
       '--no-checking-device',
       action='store_true',
       help='Do NOT check device availability. (even it is a device test)',
@@ -573,6 +548,8 @@ def create_atest_arg_parser():
       default=False,
       help='Run tests using atest_local_min.xml as the TF base templates.',
   )
+
+  perf_module.add_global_arguments(parser)
 
   # This arg actually doesn't consume anything, it's primarily used for
   # the help description and creating custom_args in the NameSpace object.
