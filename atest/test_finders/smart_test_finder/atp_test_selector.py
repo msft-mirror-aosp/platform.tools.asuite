@@ -14,9 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import namedtuple
+"""Provides utils to select ATP test plans based on local change infos."""
+
+import collections
 import csv
-from dataclasses import dataclass
+import dataclasses
 import functools
 import json
 import logging
@@ -31,8 +33,8 @@ from atest import constants
 from atest.test_finders.smart_test_finder import local_info_collector
 
 
-_DEVICE_PRODUCT_REGEX = re.compile('device product:(?P<product>[^\s]+)')
-_DEVICE_REGEX = re.compile('device:(?P<device>[^\s]+)')
+_DEVICE_PRODUCT_REGEX = re.compile(r'device product:(?P<product>[^\s]+)')
+_DEVICE_REGEX = re.compile(r'device:(?P<device>[^\s]+)')
 
 _ENABLED_ATP_TEST_PLANS = [
     'v2/android-platinum/suite/test-mapping-platinum-presubmit',
@@ -67,7 +69,7 @@ def _get_supported_device_targets() -> List[str]:
     with open(_get_constants_path(), 'r') as file:
       data = json.load(file)
       return data['supported_device_target']
-  except Exception as err:
+  except (FileNotFoundError, json.JSONDecodeError) as err:
     atest_utils.print_and_log_warning(
         'Failed to get supported device targets: %s', err
     )
@@ -95,7 +97,7 @@ def _get_compatible_matrix() -> Dict[str, List[str]]:
   }
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class DeviceInfo:
   """Presents device info: serial, product and device."""
 
@@ -105,7 +107,9 @@ class DeviceInfo:
 
 
 # Presents the information of an ATP test.
-AtpTestInfo = namedtuple('AtpTestInfo', ['name', 'target', 'branch'])
+AtpTestInfo = collections.namedtuple(
+    'AtpTestInfo', ['name', 'target', 'branch']
+)
 
 
 def _get_filtered_test_names_from_lookup_table(names: str) -> List[str]:
@@ -148,7 +152,6 @@ def _get_all_connected_devices() -> List[DeviceInfo]:
   """Return all connected devices."""
   # TODO(b/408251250): Switch to the new method to find connected devices.
   command = 'adb devices -l'
-  list_result = []
   try:
     command_run_result = subprocess.check_output(
         command,
@@ -189,9 +192,12 @@ def get_matched_device() -> DeviceInfo:
   If the env var ANDROID_SERIAL is set, then both the match of serial and
   product is enforced. If ANDROID_SERIAL is not set, then only the match of
   product is enforced.
+
+  Returns:
+      The name of matched device.
   """
   all_devices = _get_all_connected_devices()
-  logging.info(f'All connected devices: {all_devices}')
+  logging.info('All connected devices: %s', all_devices)
   if not all_devices:
     # No device connected
     return None

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""The top-most module to automatically select tests based on local change infos."""
 
 import logging
 from typing import List

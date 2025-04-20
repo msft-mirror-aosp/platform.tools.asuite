@@ -20,7 +20,6 @@
 
 import pathlib
 import unittest
-from unittest import mock
 from atest import constants
 from atest.test_finders.smart_test_finder import smart_test_filter
 from pyfakefs import fake_filesystem_unittest
@@ -42,9 +41,10 @@ some_branch9,some_target9,TestWithOptedOutTests,l_id,1,2"""
 
 # pylint: disable=protected-access
 class SmartTestFilterUnittests(fake_filesystem_unittest.TestCase):
-  """Unit tests for smart_test_filter.py"""
+  """Unit tests for smart_test_filter.py."""
 
   def setUp(self):
+    super().setUp()
     self.setUpPyfakefs()
 
     self.fake_lookup_table_path = str(

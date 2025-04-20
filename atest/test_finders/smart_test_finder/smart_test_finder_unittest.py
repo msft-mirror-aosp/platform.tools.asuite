@@ -19,7 +19,6 @@
 # pylint: disable=invalid-name
 
 import pathlib
-from typing import List
 import unittest
 from unittest import mock
 from atest import atest_utils
@@ -103,6 +102,7 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
   """Unit tests for smart_test_finder.py with filesystem access."""
 
   def setUp(self):
+    super().setUp()
     self.setUpPyfakefs()
 
     self.fake_lookup_table_path = str(
@@ -308,7 +308,7 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
     mock_client.get_tests_with_relevance_score_query_by_query.side_effect = (
         TimeoutError()
     )
-    with self.assertRaises(TimeoutError) as context:
+    with self.assertRaises(TimeoutError):
       smart_test_finder.get_smartly_selected_tests(time_limit_in_minutes=1)
 
 

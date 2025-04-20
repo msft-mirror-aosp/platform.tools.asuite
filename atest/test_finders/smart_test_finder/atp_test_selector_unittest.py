@@ -18,12 +18,9 @@
 
 # pylint: disable=invalid-name
 
-import pathlib
 import subprocess
-import tempfile
 import unittest
 from unittest import mock
-from atest import atest_utils
 from atest import constants
 from atest.test_finders.smart_test_finder import atp_test_selector
 from atest.test_finders.smart_test_finder import local_info_collector
@@ -57,7 +54,7 @@ Project/Name4,aosp_cf_x86_64_only_phone-trunk_staging-userdebug,aosp-main,"[""v2
 
 # pylint: disable=protected-access
 class AtpTestSelectorUnittests(unittest.TestCase):
-  """Unit tests for atp_test_selector.py"""
+  """Unit tests for atp_test_selector.py."""
 
   @mock.patch('subprocess.check_output', return_value=_FAKE_ADB_OUTPUT)
   @mock.patch.dict(
@@ -165,6 +162,7 @@ class AtpTestSelectorFileSystemUnittests(fake_filesystem_unittest.TestCase):
   """Unit tests for atp_test_selector.py with file access."""
 
   def setUp(self):
+    super().setUp()
     self.setUpPyfakefs()
 
     self.fake_constants_path = atp_test_selector._get_constants_path()
