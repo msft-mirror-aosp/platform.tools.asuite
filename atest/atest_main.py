@@ -64,6 +64,7 @@ from atest.metrics import metrics_base
 from atest.metrics import metrics_utils
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
+from atest.test_finders.smart_test_finder import smart_test_finder
 from atest.test_finders.test_info import TestInfo
 from atest.test_runner_invocation import TestRunnerInvocation
 from atest.tools import indexing
@@ -101,6 +102,7 @@ EXIT_CODES_BEFORE_TEST = [
 _RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
 # Log prefix for dry-run run command. May be used in integration tests.
 _DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
+_SMART_TEST_SELECTION_FLAG = '--smart-test-selection'
 
 
 @dataclasses.dataclass
@@ -697,6 +699,11 @@ class _AtestMain:
         sys.exit(ExitCode.EXIT_BEFORE_MAIN)
     else:
       metrics.LocalDetectEvent(detect_type=DetectType.ATEST_CONFIG, result=0)
+
+    if _SMART_TEST_SELECTION_FLAG in final_args:
+      if CUSTOM_ARG_FLAG not in final_args:
+        final_args.append(CUSTOM_ARG_FLAG)
+      final_args.extend(smart_test_finder.SMART_TEST_SELECTION_CUSTOM_ARGS)
 
     self._args = _parse_args(final_args)
     atest_configs.GLOBAL_ARGS = self._args
