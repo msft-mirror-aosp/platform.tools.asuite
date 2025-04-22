@@ -60,6 +60,48 @@ HelloWorldTests: Passed: 2, Failed: 0
 WmTests: Passed: 0, Failed: 0 (Completed With ERRORS)
 
 1 test failed
+
+If `class_level_report` is specified, the summary is aggregated by test classes.
+The above example will be like:
+
+Running Tests ...
+
+CtsAnimationTestCases:android.animation.cts.EvaluatorTest.UnitTests
+-------------------------------------------------------------------
+
+android.animation.cts.EvaluatorTest.UnitTests (7 Tests)
+[1/7] android.animation.cts.EvaluatorTest#testRectEvaluator: PASSED (153ms)
+[2/7] android.animation.cts.EvaluatorTest#testIntArrayEvaluator: PASSED (0ms)
+[3/7] android.animation.cts.EvaluatorTest#testIntEvaluator: PASSED (0ms)
+[4/7] android.animation.cts.EvaluatorTest#testFloatArrayEvaluator: PASSED (1ms)
+[5/7] android.animation.cts.EvaluatorTest#testPointFEvaluator: PASSED (1ms)
+[6/7] android.animation.cts.EvaluatorTest#testArgbEvaluator: PASSED (0ms)
+[7/7] android.animation.cts.EvaluatorTest#testFloatEvaluator: PASSED (1ms)
+
+HelloWorldTests:android.test.example.helloworld.UnitTests
+---------------------------------------------------------
+
+android.test.example.helloworld.UnitTests(2 Tests)
+[1/2] android.test.example.helloworld.HelloWorldTest#testHalloWelt: PASSED (0ms)
+[2/2] android.test.example.helloworld.HelloWorldTest#testHelloWorld: PASSED
+(1ms)
+
+WmTests:com.android.tradefed.targetprep.UnitTests
+-------------------------------------------------
+
+com.android.tradefed.targetprep.UnitTests (1 Test)
+RUNNER ERROR: com.android.tradefed.targetprep.TargetSetupError:
+Failed to install WmTests.apk on 127.0.0.1:54373. Reason:
+    error message ...
+
+
+Summary
+-------
+CtsAnimationTestCases:android.animation.cts.EvaluatorTest.UnitTests: Passed: 7,
+Failed: 0
+HelloWorldTests:android.test.example.helloworld.UnitTests: Passed: 2, Failed: 0
+WmTests:com.android.tradefed.targetprep.UnitTests: Passed: 0, Failed: 0
+(Completed With ERRORS)
 """
 
 from __future__ import print_function
@@ -298,6 +340,7 @@ class ResultReporter:
       wait_for_debugger=False,
       args=None,
       test_infos=None,
+      class_level_report=False,
   ):
     """Init ResultReporter.
 
@@ -313,6 +356,7 @@ class ResultReporter:
     self.silent = silent
     self.rerun_options = ''
     self.collect_only = collect_only
+    self.class_level_report = class_level_report
     self.test_result_link = None
     self.device_count = 0
     self.wait_for_debugger = wait_for_debugger
@@ -332,10 +376,11 @@ class ResultReporter:
       self.runners[test.runner_name] = OrderedDict()
     assert self.runners[test.runner_name] != FAILURE_FLAG
     self.all_test_results.append(test)
-    if test.group_name not in self.runners[test.runner_name]:
-      self.runners[test.runner_name][test.group_name] = RunStat()
+    group_name = self._get_group_name(test)
+    if group_name not in self.runners[test.runner_name]:
+      self.runners[test.runner_name][group_name] = RunStat()
       self._print_group_title(test)
-    self._update_stats(test, self.runners[test.runner_name][test.group_name])
+    self._update_stats(test, self.runners[test.runner_name][group_name])
     self._print_result(test)
 
   def runner_failure(self, runner_name, failure_msg):
@@ -402,7 +447,9 @@ class ResultReporter:
         name = group_name if group_name else runner_name
         test_run_name = (
             self.all_test_results[-1].test_run_name
-            if self.all_test_results[-1].test_run_name != name
+            # If `name` contains all information in `test_run_name`, do not
+            # attach the test run name.
+            if self.all_test_results[-1].test_run_name not in name
             else None
         )
         summary = self.process_summary(name, stats, test_run_name=test_run_name)
@@ -747,7 +794,7 @@ class ResultReporter:
     """
     if self.silent:
       return
-    title = test.group_name or test.runner_name
+    title = self._get_group_name(test) or test.runner_name
     underline = '-' * (len(title))
     print('\n%s\n%s' % (title, underline))
 
@@ -809,3 +856,15 @@ class ResultReporter:
       if test.status == test_runner_base.FAILED_STATUS:
         print(f'\nSTACKTRACE:\n{test.details}')
     self.pre_test = test
+
+  def _get_group_name(self, test):
+    """Given a single test result, get its group name to use in the reporter."""
+    if not self.class_level_report:
+      return test.group_name
+    module_name = test.group_name if test.group_name else ''
+    test_class, test_method = (
+        test.test_name.split('#') if test.test_name else ['', '']
+    )
+    if not test_class:
+      return module_name
+    return f'{module_name}:{test_class}'
