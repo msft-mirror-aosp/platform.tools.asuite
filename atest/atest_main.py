@@ -1594,12 +1594,21 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
 
   def execute(self) -> ExitCode:
 
-    reporter = result_reporter.ResultReporter(
-        collect_only=self.extra_args.get(constants.COLLECT_TESTS_ONLY),
-        wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
-        args=self._args,
-        test_infos=self._test_infos,
-    )
+    if self._args.smart_test_selection:
+      reporter = result_reporter.ResultReporter(
+          collect_only=self.extra_args.get(constants.COLLECT_TESTS_ONLY),
+          wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
+          args=self._args,
+          test_infos=self._test_infos,
+          class_level_report=True,
+      )
+    else:
+      reporter = result_reporter.ResultReporter(
+          collect_only=self.extra_args.get(constants.COLLECT_TESTS_ONLY),
+          wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
+          args=self._args,
+          test_infos=self._test_infos,
+      )
     reporter.print_starting_text()
 
     exit_code = ExitCode.SUCCESS
