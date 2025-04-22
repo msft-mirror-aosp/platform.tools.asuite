@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Provides utils to filter out some selected test classes."""
+
 import csv
-from dataclasses import dataclass
+import dataclasses
 import functools
 import logging
 import pathlib
@@ -46,7 +48,8 @@ _OPTED_OUT_TEST_MODULES_WITH_REASONS = {
     'MtsWifiTestCases': 'No wifi support',
 }
 
-@dataclass(frozen=True)
+
+@dataclasses.dataclass(frozen=True)
 class TestClassInfo:
   test_id: str
   atp_test_name: str = ''

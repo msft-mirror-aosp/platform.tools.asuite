@@ -14,10 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass
+"""Provides utils to obtain local change infos (project, branch, changed files, etc.)"""
+
+import dataclasses
 import getpass
 import logging
-import os
 import re
 import subprocess
 from xml.etree import ElementTree
@@ -27,15 +28,17 @@ from atest import atest_utils
 _PROJECT_KEY = 'project'
 _BRANCH_KEY = 'branch'
 _REMOTE_HOSTNAME_KEY = 'remote_hostname'
-_MATCH_PROJECT_REGEX = re.compile(f'^Project: (?P<{_PROJECT_KEY}>[^\s]+)')
-_MATCH_BRANCH_REGEX = re.compile(f'^Manifest branch: (?P<{_BRANCH_KEY}>[^\s]+)')
+_MATCH_PROJECT_REGEX = re.compile(rf'^Project: (?P<{_PROJECT_KEY}>[^\s]+)')
+_MATCH_BRANCH_REGEX = re.compile(
+    rf'^Manifest branch: (?P<{_BRANCH_KEY}>[^\s]+)'
+)
 _ANDROID_BUILD_TOP_KEY = 'ANDROID_BUILD_TOP'
 _MATCH_REMOTE_HOSTNAME_REGEX = re.compile(
-    f'sso:\/\/(?P<{_REMOTE_HOSTNAME_KEY}>[^\/]+)\/'
+    rf'sso://(?P<{_REMOTE_HOSTNAME_KEY}>[^/]+)/'
 )
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class ChangeInfo:
   """Information of local changes against the remote HEAD.
 
@@ -66,9 +69,11 @@ def get_local_change_info() -> ChangeInfo:
 def _get_remote_hostname() -> str:
   """Get remote hostname.
 
-  Remote hostnames are names extracted from the domain name
-  'sso://{remote-hostname}/'.
+  Returns:
+      Remote hostnames extracted from the domain name
+      'sso://{remote-hostname}/'.
   """
+  manifest_default_path = ''
   try:
     manifest_default_path = atest_utils.get_build_top(
         '.repo/manifests/default.xml'
@@ -76,18 +81,22 @@ def _get_remote_hostname() -> str:
     manifest = ElementTree.parse(str(manifest_default_path))
     root = manifest.getroot()
     default = root.find('default')
-    for element in root.findall('remote'):
-      if element.attrib['name'] == default.attrib['remote']:
-        match_remote_hostname = _MATCH_REMOTE_HOSTNAME_REGEX.match(
-            element.attrib['review']
-        )
-        if match_remote_hostname:
-          return match_remote_hostname.group(_REMOTE_HOSTNAME_KEY)
-  except (OSError, ElementTree.ParseError) as err:
-    logging.debug(
-        'Failed to parse the XML file for remote hostname: %s',
-        manifest_default_path,
-    )
+    if default is not None:
+      for element in root.findall('remote'):
+        if element.attrib['name'] == default.attrib['remote']:
+          match_remote_hostname = _MATCH_REMOTE_HOSTNAME_REGEX.match(
+              element.attrib['review']
+          )
+          if match_remote_hostname:
+            return match_remote_hostname.group(_REMOTE_HOSTNAME_KEY)
+  except (OSError, ElementTree.ParseError):
+    if manifest_default_path:
+      logging.debug(
+          'Failed to parse the XML file for remote hostname: %s',
+          manifest_default_path,
+      )
+    else:
+      logging.debug('Failed to get the build top for remote hostname.')
   return ''
 
 

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""The top-most module to automatically select tests based on local change infos."""
 
 import logging
 from typing import List
@@ -24,6 +25,57 @@ from atest.test_finders.smart_test_finder import atp_test_selector
 from atest.test_finders.smart_test_finder import local_info_collector
 from atest.test_finders.smart_test_finder import smart_test_filter
 from atest.test_finders.smart_test_finder import test_relevance_client
+
+
+# TODO(b/412399270): Remove this constant when the issue is fixed.
+# Custom args for smart test selection
+SMART_TEST_SELECTION_CUSTOM_ARGS = [
+    '--test-arg',
+    'com.android.tradefed.testtype.AndroidJUnitTest:shell-timeout:600000',
+    '--test-arg',
+    'com.android.tradefed.testtype.AndroidJUnitTest:test-timeout:600000',
+    '--test-arg',
+    'com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.platform.test.annotations.FlakyTest',
+    '--test-arg',
+    'com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.support.test.filters.FlakyTest',
+    '--test-arg',
+    'com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.test.FlakyTest',
+    '--test-arg',
+    'com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:androidx.test.filters.FlakyTest',
+    '--test-arg',
+    'com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:org.junit.Ignore',
+    '--test-arg',
+    'com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.support.test.filters.RequiresDevice',
+    '--test-arg',
+    'com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:androidx.test.filters.RequiresDevice',
+    '--test-arg',
+    'com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.platform.test.annotations.RequiresDevice',
+    '--test-arg',
+    'com.android.compatibility.testtype.LibcoreTest:exclude-annotation:android.support.test.filters.RequiresDevice',
+    '--test-arg',
+    'com.android.compatibility.testtype.LibcoreTest:exclude-annotation:androidx.test.filters.RequiresDevice',
+    '--test-arg',
+    'com.android.compatibility.testtype.LibcoreTest:exclude-annotation:android.platform.test.annotations.RequiresDevice',
+    '--test-arg',
+    'com.android.tradefed.testtype.HostTest:exclude-annotation:android.platform.test.annotations.RequiresDevice',
+    '--test-arg',
+    'com.android.compatibility.common.tradefed.testtype.JarHostTest:exclude-annotation:android.platform.test.annotations.RequiresDevice',
+    '--exclude-filter',
+    (
+        'CtsAppSecurityHostTestCases'
+        ' android.appsecurity.cts.ExternalStorageHostTest#testMediaLegacy28'
+    ),
+    '--exclude-filter',
+    (
+        'CtsQuickAccessWalletTestCases'
+        ' android.quickaccesswallet.cts.QuickAccessWalletClientTest#testAddListener_sendEvent_success'
+    ),
+    '--exclude-filter',
+    (
+        'CtsGraphicsTestCases'
+        ' android.graphics.cts.FrameRateOverrideTest#testAppBackpressure'
+    ),
+]
 
 
 def get_smartly_selected_tests(

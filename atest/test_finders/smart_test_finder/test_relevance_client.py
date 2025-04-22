@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Provides classes and utils to invoke test relevance API for relevance score calculation."""
+
 import json
 import logging
 import time
@@ -28,8 +30,8 @@ from atest.test_finders.smart_test_finder import atp_test_selector
 from atest.test_finders.smart_test_finder import local_info_collector
 from atest.test_finders.smart_test_finder import smart_test_filter
 from google.protobuf import json_format
-from googleapiclient import http
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 import httplib2
 
 
@@ -193,7 +195,7 @@ class TestRelevanceClient:
             http=http,
             developerKey=developer_key,
         )
-    except Exception as err:
+    except (FileNotFoundError, HttpError) as err:
       atest_utils.print_and_log_error(
           'Error occurred during smart test selection: %s', err
       )
@@ -208,7 +210,8 @@ class TestRelevanceClient:
   #   logging.info(query)
   #   return self.client.v1().rundecisiongraph(body=json.loads(query)).execute()
 
-  # TODO(b/410945183): Replace this function with the one above once the bug is fixed.
+  # TODO(b/410945183): Replace this function with the one above once the bug is
+  # fixed.
   def get_tests_with_relevance_score_query_by_query(
       self,
       change_info: local_info_collector.ChangeInfo,
@@ -226,6 +229,8 @@ class TestRelevanceClient:
               .execute()
           )
         return dg_outputs
+      # pylint: disable=broad-exception-caught
+      # `RpcError` is not accessible in Android.
       except Exception as err:
         if try_id < self._max_retry_count:
           seconds_to_be_waited = 2**try_id
