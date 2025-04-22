@@ -35,7 +35,7 @@ from googleapiclient.errors import HttpError
 import httplib2
 
 
-_DEFAULT_MAX_TIMEOUT = 600
+_DEFAULT_MAX_TIMEOUT = 300
 _STAGE_ID_FOR_SMART_TEST_SELECTION = 'local_smart_test_selection'
 _STAGE_NAME_FOR_SMART_TEST_SELECTION = (
     f'{_STAGE_ID_FOR_SMART_TEST_SELECTION}_stage'
