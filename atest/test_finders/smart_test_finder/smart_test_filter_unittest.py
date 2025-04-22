@@ -246,6 +246,84 @@ class SmartTestFilterUnittests(fake_filesystem_unittest.TestCase):
     # instead of `assertCountEqual`.
     self.assertEqual(actual_selected_tests, expected_selected_tests)
 
+  def test_get_selected_test_classes_selected_test_is_stable(self):
+    candidate_tests = [
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestBModule',
+            test_class='testAClass0',
+            score=1,
+        ),
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestAModule',
+            test_class='testAClass3',
+            score=1,
+        ),
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestAModule',
+            test_class='testAClass2',
+            score=1,
+        ),
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestAModule',
+            test_class='testAClass1',
+            score=1,
+        ),
+    ]
+    expected_selected_tests = [
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestAModule',
+            test_class='testAClass1',
+            score=1,
+        ),
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestAModule',
+            test_class='testAClass2',
+            score=1,
+        ),
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestAModule',
+            test_class='testAClass3',
+            score=1,
+        ),
+    ]
+
+    actual_selected_tests = smart_test_filter.get_selected_test_classes(
+        candidate_tests,
+        time_limit_min=0.6,
+    )
+
+    # Since this function guarantees order, so directly use `assertEqual`
+    # instead of `assertCountEqual`.
+    self.assertEqual(actual_selected_tests, expected_selected_tests)
+
 
 if __name__ == '__main__':
   unittest.main()

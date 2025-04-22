@@ -88,7 +88,7 @@ def _get_test_class_history() -> Dict[str, TestClassInfo]:
 
 
 def get_selected_test_classes(
-    candidate_tests: List[TestClassInfo], time_limit_min: int
+    candidate_tests: List[TestClassInfo], time_limit_min: float
 ) -> List[TestClassInfo]:
   """Get filtered test classes based on history and time limit to execute."""
   results = []
@@ -96,9 +96,14 @@ def get_selected_test_classes(
   blocked_test = _get_blocked_tests()
   total_test_time = 0.0
 
+  # TODO(b/412692700): When test time is stably available by the majority of
+  # tests in the lookup table, we need to switch to a better sorting strategy,
+  # which sorts by non-increasing score, then by non-decreasing run time.
   # Sort the candidate tests first by non-increasing score, then by
-  # non-decreasing module name.
-  for test in sorted(candidate_tests, key=lambda t: (-t.score, t.module)):
+  # non-decreasing module name, then by non-decreasing test class name.
+  for test in sorted(
+      candidate_tests, key=lambda t: (-t.score, t.module, t.test_class)
+  ):
     logging.debug(
         'checking test %s:%s with score: %s',
         test.module,
