@@ -32,6 +32,8 @@ from atest.test_finders.smart_test_finder import test_relevance_client
 from google.protobuf import json_format
 from pyfakefs import fake_filesystem_unittest
 
+_FAKE_BLOCKLIST_CONTENT = """module,reason
+BlockedModule, test_reaon"""
 
 _FAKE_LOOKUP_TABLE_CONTENT = """branch,target,test_name,test_id,postsubmit_pass_rate,test_run_duration_ms_past7days
 some_branch,some_target,TestA,a_id,0.99,10000
@@ -113,6 +115,14 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
         self.fake_lookup_table_path,
         contents=_FAKE_LOOKUP_TABLE_CONTENT,
     )
+    self.fake_blocklist_path = str(
+        pathlib.Path(constants.SMART_TEST_SELECTION_ROOT_PATH)
+        / 'lookup_tables/blocklist.csv'
+    )
+    self.fs.create_file(
+        self.fake_blocklist_path,
+        contents=_FAKE_BLOCKLIST_CONTENT,
+    )
 
   # TODO(b/410945183): Change this test once the bug is fixed.
   @mock.patch('uuid.uuid4', side_effect=['001-002-003', '002-003-004'])
@@ -139,6 +149,18 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
                 target='some_target',
                 module='TestAModule',
                 test_class='testAClass',
+                score=1,
+            )
+        ),
+        # This test is not selected because it is blocked.
+        _get_decision_graph_check(
+            smart_test_filter.TestClassInfo(
+                test_id='blocked_id',
+                atp_test_name='SomeTest',
+                branch='some_branch',
+                target='some_target',
+                module='BlockedModule',
+                test_class='testClass',
                 score=1,
             )
         ),
