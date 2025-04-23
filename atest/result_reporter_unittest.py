@@ -290,6 +290,26 @@ class ResultReporterUnittests(unittest.TestCase):
     self.assertTrue('someTestRunner2' in self.rr.runners)
     mock_title.assert_called_with(RESULT_PASSED_TEST_RUNNER_2_NO_MODULE)
 
+  @mock.patch.object(result_reporter.ResultReporter, '_print_group_title')
+  @mock.patch.object(result_reporter.ResultReporter, '_update_stats')
+  @mock.patch.object(result_reporter.ResultReporter, '_print_result')
+  def test_process_test_result_class_level_report(
+      self, mock_print, mock_update, mock_title
+  ):
+    """Test process_test_result method reported by class level."""
+    reporter = result_reporter.ResultReporter(class_level_report=True)
+
+    reporter.process_test_result(RESULT_PASSED_TEST)
+
+    self.assertTrue('someTestRunner' in reporter.runners)
+    group = reporter.runners['someTestRunner'].get(
+        'someTestModule:someClassName'
+    )
+    self.assertIsNotNone(group)
+    mock_title.assert_called_with(RESULT_PASSED_TEST)
+    mock_update.assert_called_with(RESULT_PASSED_TEST, group)
+    mock_print.assert_called_with(RESULT_PASSED_TEST)
+
   def test_print_result_run_name(self):
     """Test print run name function in print_result method."""
     try:

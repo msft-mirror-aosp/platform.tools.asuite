@@ -517,6 +517,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                           collect_only=extra_args.get(
                               constants.COLLECT_TESTS_ONLY
                           ),
+                          class_level_report=self._smart_test_selection,
                       ),
                       self.NAME,
                   ),

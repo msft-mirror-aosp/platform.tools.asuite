@@ -125,9 +125,16 @@ def get_smartly_selected_tests(
   final_selected_tests = []
   atest_utils.colorful_print('\nSelected tests to run:', constants.CYAN)
   for selected_test_class in selected_test_classes:
-    selected_test_class_str = (
-        f'{selected_test_class.module}:{selected_test_class.test_class}'
-    )
+    # Remove this once b/411508650 is fixed.
+    if selected_test_class.module.startswith('art-run-test'):
+      selected_test_class_str = selected_test_class.module
+    # Remove this once b/412668377 is fixed.
+    elif selected_test_class.module == selected_test_class.test_class:
+      selected_test_class_str = selected_test_class.module
+    else:
+      selected_test_class_str = (
+          f'{selected_test_class.module}:{selected_test_class.test_class}'
+      )
     atest_utils.colorful_print(
         f'\t{selected_test_class_str}:{selected_test_class.score}',
         constants.CYAN,
