@@ -62,18 +62,18 @@ SMART_TEST_SELECTION_CUSTOM_ARGS = [
     'com.android.compatibility.common.tradefed.testtype.JarHostTest:exclude-annotation:android.platform.test.annotations.RequiresDevice',
     '--exclude-filter',
     (
-        'CtsAppSecurityHostTestCases'
-        ' android.appsecurity.cts.ExternalStorageHostTest#testMediaLegacy28'
+        "'CtsAppSecurityHostTestCases\\"
+        " android.appsecurity.cts.ExternalStorageHostTest#testMediaLegacy28'"
     ),
     '--exclude-filter',
     (
-        'CtsQuickAccessWalletTestCases'
-        ' android.quickaccesswallet.cts.QuickAccessWalletClientTest#testAddListener_sendEvent_success'
+        "'CtsQuickAccessWalletTestCases\\"
+        " android.quickaccesswallet.cts.QuickAccessWalletClientTest#testAddListener_sendEvent_success'"
     ),
     '--exclude-filter',
     (
-        'CtsGraphicsTestCases'
-        ' android.graphics.cts.FrameRateOverrideTest#testAppBackpressure'
+        "'CtsGraphicsTestCases\\"
+        " android.graphics.cts.FrameRateOverrideTest#testAppBackpressure'"
     ),
 ]
 
