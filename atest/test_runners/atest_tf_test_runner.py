@@ -1562,6 +1562,7 @@ def extra_args_to_tf_args(
         constants.BUILD_TARGET,
         constants.DRY_RUN,
         constants.DEVICE_ONLY,
+        constants.SMART_TEST_SELECTION,
     ):
       continue
     unsupported_args.append(arg)
