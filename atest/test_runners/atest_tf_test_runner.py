@@ -518,6 +518,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                               constants.COLLECT_TESTS_ONLY
                           ),
                           class_level_report=self._smart_test_selection,
+                          runner_errors_as_warnings=self._smart_test_selection,
                       ),
                       self.NAME,
                   ),
