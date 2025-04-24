@@ -424,7 +424,7 @@ class AtestExecutionInfo:
            A json format string.
     """
     self.args = args
-    self.smart_test_selection = '--smart-test-selection' in args
+    self.smart_test_selection = '--sts' in args
     self.work_dir = work_dir
     self.result_file_obj = None
     self.args_ns = args_ns

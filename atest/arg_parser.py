@@ -256,8 +256,9 @@ def create_atest_arg_parser():
       ),
   )
   parser.add_argument(
-      '--smart-test-selection',
+      '--sts',
       default=False,
+      dest='smart_test_selection',
       action='store_true',
       help=(
           'Automatically select test classes based on correlation with code'

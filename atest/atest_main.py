@@ -102,7 +102,7 @@ EXIT_CODES_BEFORE_TEST = [
 _RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
 # Log prefix for dry-run run command. May be used in integration tests.
 _DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
-_SMART_TEST_SELECTION_FLAG = '--smart-test-selection'
+_SMART_TEST_SELECTION_FLAG = '--sts'
 
 
 @dataclasses.dataclass
