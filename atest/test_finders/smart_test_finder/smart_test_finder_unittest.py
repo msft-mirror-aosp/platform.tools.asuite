@@ -252,8 +252,8 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
                 score=0.95,
             )
         ),
-        # TestF is selected and ranked right after TestD, because it has the
-        # third highest relevance score.
+        # TestF is selected and ranked right after TestG, because it has the
+        # fourth highest relevance score.
         _get_decision_graph_check(
             smart_test_filter.TestClassInfo(
                 test_id='f_id',
@@ -265,8 +265,8 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
                 score=0.96,
             )
         ),
-        # TestG is selected and ranked right after TestF, because it has the
-        # fourth highest relevance score of all valid tests.
+        # TestG is selected and ranked right after TestD, because it has the
+        # third highest relevance score of all valid tests.
         _get_decision_graph_check(
             smart_test_filter.TestClassInfo(
                 test_id='g_id',
