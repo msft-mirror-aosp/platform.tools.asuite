@@ -116,8 +116,8 @@ import zipfile
 from atest import atest_configs
 from atest import atest_utils as au
 from atest import constants
-from atest import perf_module
 from atest.atest_enum import ExitCode
+from atest.crystalball import metric_printer
 from atest.test_runners import test_runner_base
 
 UNSUPPORTED_FLAG = 'UNSUPPORTED_RUNNER'
@@ -147,7 +147,7 @@ class RunStat:
     self.failed = failed
     self.ignored = ignored
     self.assumption_failed = assumption_failed
-    self.perf_info = perf_module.PerfInfo()
+    self.perf_info = metric_printer.PerfInfo()
     # Run errors are not for particular tests, they are runner errors.
     self.run_errors = run_errors
 
@@ -420,7 +420,7 @@ class ResultReporter:
         print('-' * len(message))
         self.print_failed_tests()
 
-    perf_module.PerfInfo.print_perf_test_metrics(
+    metric_printer.PerfInfo.print_perf_test_metrics(
         self._test_infos, self.log_path, self._args
     )
     # TODO(b/174535786) Error handling while uploading test results has
@@ -640,7 +640,7 @@ class ResultReporter:
       else:
         print(': {} {}'.format(au.colorize(test.status, color), test.test_time))
       if test.status == test_runner_base.PASSED_STATUS:
-        perf_module.PerfInfo.print_banchmark_result(test)
+        metric_printer.PerfInfo.print_banchmark_result(test)
       if test.status == test_runner_base.FAILED_STATUS:
         print(f'\nSTACKTRACE:\n{test.details}')
     self.pre_test = test

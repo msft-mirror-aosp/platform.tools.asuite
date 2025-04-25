@@ -40,11 +40,11 @@ from atest import atest_error
 from atest import atest_utils
 from atest import constants
 from atest import module_info
-from atest import perf_module
 from atest import result_reporter
 from atest import rollout_control
 from atest.atest_enum import DetectType, ExitCode
 from atest.coverage import coverage
+from atest.crystalball import perf_mode
 from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
 from atest.test_finders import test_finder_utils
@@ -336,8 +336,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     upload_start = time.time()
     invocation_properties = {'atest_run_id': metrics.get_run_id()}
 
-    if perf_module.is_perf_test(args=extra_args, test_infos=test_infos):
-      perf_module.set_invocation_properties(invocation_properties)
+    if perf_mode.is_perf_test(args=extra_args, test_infos=test_infos):
+      perf_mode.set_invocation_properties(invocation_properties)
 
     creds, inv = (
         logstorage_utils.do_upload_flow(extra_args, invocation_properties)
@@ -907,8 +907,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         A list that contains the string of atest tradefed run command.
         Only one command is returned.
     """
-    if perf_module.is_perf_test(test_infos=test_infos):
-      self.run_cmd_dict['template'] = perf_module.PERF_TEST_TEMPLATE
+    if perf_mode.is_perf_test(test_infos=test_infos):
+      self.run_cmd_dict['template'] = perf_mode.PERF_TEST_TEMPLATE
     elif extra_args.get(constants.USE_TF_MIN_BASE_TEMPLATE):
       self.run_cmd_dict['template'] = self._TF_LOCAL_MIN
     else:

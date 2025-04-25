@@ -53,12 +53,12 @@ from atest import cli_translator
 from atest import constants
 from atest import device_update
 from atest import module_info
-from atest import perf_module
 from atest import result_reporter
 from atest import test_runner_handler
 from atest.atest_enum import DetectType
 from atest.atest_enum import ExitCode
 from atest.coverage import coverage
+from atest.crystalball import perf_mode
 from atest.metrics import metrics
 from atest.metrics import metrics_base
 from atest.metrics import metrics_utils
@@ -1010,8 +1010,8 @@ class _AtestMain:
   def _inject_default_arguments_based_on_test_infos(
       test_infos: list[test_info.TestInfo], args: argparse.Namespace
   ) -> None:
-    if perf_module.is_perf_test(test_infos=test_infos):
-      perf_module.set_default_argument_values(args)
+    if perf_mode.is_perf_test(test_infos=test_infos):
+      perf_mode.set_default_argument_values(args)
 
   def _handle_list_modules(self) -> int:
     """Print the testable modules for a given suite.
