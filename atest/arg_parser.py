@@ -17,10 +17,14 @@
 """Atest Argument Parser class for atest."""
 
 import argparse
-
 from atest import bazel_mode
 from atest import constants
+from atest import perf_module
 from atest.atest_utils import BuildOutputMode
+
+_EXTRA_MODULE_MAP = {
+    perf_module.PERF_MODULE_ARG_NAME: perf_module,
+}
 
 
 def _output_mode_msg() -> str:
@@ -523,21 +527,6 @@ def create_atest_arg_parser():
   )
 
   parser.add_argument(
-      '--aggregate-metric-filter',
-      action='append',
-      help=(
-          '(For performance tests) Regular expression that will be used for'
-          ' filtering the aggregated metrics.'
-      ),
-  )
-
-  parser.add_argument(
-      '--perf-itr-metrics',
-      action='store_true',
-      help='(For performance tests) Print individual performance metric.',
-  )
-
-  parser.add_argument(
       '--no-checking-device',
       action='store_true',
       help='Do NOT check device availability. (even it is a device test)',
@@ -561,6 +550,8 @@ def create_atest_arg_parser():
       help='Run tests using atest_local_min.xml as the TF base templates.',
   )
 
+  perf_module.add_global_arguments(parser)
+
   # This arg actually doesn't consume anything, it's primarily used for
   # the help description and creating custom_args in the NameSpace object.
   parser.add_argument(
@@ -574,6 +565,25 @@ def create_atest_arg_parser():
   )
 
   return parser
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+  """Parses the command line arguments."""
+  parser = create_atest_arg_parser()
+
+  for arg, module in _EXTRA_MODULE_MAP.items():
+    if arg in argv:
+      module.add_arguments(parser)
+
+  parsed_args = parser.parse_args(argv)
+  if not parsed_args.custom_args:
+    parsed_args.custom_args = []
+
+  for arg, module in _EXTRA_MODULE_MAP.items():
+    if arg in argv:
+      module.process_parsed_args(parsed_args)
+
+  return parsed_args
 
 
 _HELP_DESCRIPTION = """NAME
