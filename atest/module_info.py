@@ -772,7 +772,7 @@ class ModuleInfo:
         break
       for name in os.listdir(pth):
         if pth.joinpath(name).is_file():
-          match = re.match('.*AndroidManifest.*\.xml$', name)
+          match = re.match(r'.*AndroidManifest.*\.xml$', name)
           if match:
             xmls.append(os.path.join(pth, name))
     possible_modules = []
