@@ -331,7 +331,22 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
         TimeoutError()
     )
     with self.assertRaises(TimeoutError):
-      smart_test_finder.get_smartly_selected_tests(time_limit_in_minutes=1)
+      smart_test_finder.get_smartly_selected_tests()
+
+  @mock.patch.object(local_info_collector, 'get_local_change_info')
+  def test_get_smartly_selected_tests_return_no_tests_with_no_changes(
+      self, mock_local_info_collector
+  ):
+    CHANGE_INFO_WITH_NO_CHANGED_FILES = local_info_collector.ChangeInfo(
+        project='fake_project',
+        branch='fake_branch',
+        remote_hostname='stuff-to-be-selected',
+        changed_files=[],
+        user_key='fake_user',
+    )
+    mock_local_info_collector.return_value = CHANGE_INFO_WITH_NO_CHANGED_FILES
+    results = smart_test_finder.get_smartly_selected_tests()
+    self.assertEqual(results, [])
 
 
 if __name__ == '__main__':
