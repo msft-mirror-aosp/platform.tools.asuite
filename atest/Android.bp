@@ -48,9 +48,6 @@ python_defaults {
 python_defaults {
     name: "atest_binary_defaults",
     defaults: ["atest_defaults"],
-    data: [
-        "bazel/resources/**/*",
-    ],
     exclude_srcs: [
         "integration_tests/*.py",
         "*_unittest.py",

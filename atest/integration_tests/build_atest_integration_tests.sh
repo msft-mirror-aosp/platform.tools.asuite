@@ -90,9 +90,8 @@ fi
 export REMOTE_AVD=true
 
 # Use the versioned Python binaries in prebuilts/ for a reproducible
-# build with minimal reliance on host tools. Add build/bazel/bin to PATH since
-# atest needs 'b'
-export PATH=${PWD}/prebuilts/build-tools/path/linux-x86:${PWD}/build/bazel/bin:${PWD}/out/host/linux-x86/bin/:${PATH}
+# build with minimal reliance on host tools.
+export PATH=${PWD}/prebuilts/build-tools/path/linux-x86:${PWD}/out/host/linux-x86/bin/:${PATH}
 
 # Use the versioned Java binaries in prebuilds/ for a reproducible
 # build with minimal reliance on host tools.

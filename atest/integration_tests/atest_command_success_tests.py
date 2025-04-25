@@ -32,13 +32,13 @@ class CommandSuccessTests(atest_integration_test.AtestTestCase):
   def test_csuite_harness_tests(self):
     """Test if csuite-harness-tests command runs successfully."""
     self._verify_atest_command_success(
-        'csuite-harness-tests --no-bazel-mode --host', is_device_required=False
+        'csuite-harness-tests --host', is_device_required=False
     )
 
   def test_csuite_cli_test(self):
     """Test if csuite_cli_test command runs successfully."""
     self._verify_atest_command_success(
-        'csuite_cli_test --no-bazel-mode --host', is_device_required=False
+        'csuite_cli_test --host', is_device_required=False
     )
 
   def _verify_atest_command_success(
