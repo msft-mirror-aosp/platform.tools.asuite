@@ -84,6 +84,10 @@ def get_smartly_selected_tests(
   """Given a time limit, smartly select tests to run."""
   local_change_info = local_info_collector.get_local_change_info()
   logging.info('Local change info: %s', local_change_info)
+  if not local_change_info.changed_files:
+    atest_utils.print_and_log_warning('No local change detected, exiting...')
+    return []
+
   selected_atp_tests = atp_test_selector.get_selected_atp_tests(
       local_change_info
   )
