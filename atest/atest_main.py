@@ -1608,6 +1608,7 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
           args=self._args,
           test_infos=self._test_infos,
           class_level_report=True,
+          runner_errors_as_warnings=True,
       )
     else:
       reporter = result_reporter.ResultReporter(

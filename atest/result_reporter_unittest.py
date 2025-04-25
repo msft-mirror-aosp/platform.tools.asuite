@@ -509,6 +509,24 @@ class ResultReporterUnittests(unittest.TestCase):
     self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
     self.assertNotEqual(0, self.rr.print_summary())
 
+  @patch.object(
+      atest_configs,
+      'GLOBAL_ARGS',
+      arg_parser.create_atest_arg_parser().parse_args([]),
+  )
+  def test_print_summary_ret_val_err_stat_with_run_error_downgraded(self):
+    """Test print_summary method's return value."""
+    reporter = result_reporter.ResultReporter(runner_errors_as_warnings=True)
+    # PASS Case
+    reporter.process_test_result(RESULT_PASSED_TEST)
+    self.assertEqual(0, reporter.print_summary())
+    # PASS Case + Fail Case
+    reporter.process_test_result(RESULT_RUN_FAILURE)
+    self.assertEqual(0, reporter.print_summary())
+    # PASS Case + Fail Case + PASS Case
+    reporter.process_test_result(RESULT_PASSED_TEST_MODULE_2)
+    self.assertEqual(0, reporter.print_summary())
+
   def test_collect_tests_only_no_throw(self):
     rr = result_reporter.ResultReporter(collect_only=True)
     rr.process_test_result(RESULT_PASSED_TEST)

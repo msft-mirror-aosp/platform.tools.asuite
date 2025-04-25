@@ -184,7 +184,9 @@ class EventHandler:
     if not self.reporter.silent:
       self.reporter.set_current_iteration_summary(self.run_num)
       self.reporter = result_reporter.ResultReporter(
-          silent=False, class_level_report=self.reporter.class_level_report
+          silent=False,
+          class_level_report=self.reporter.class_level_report,
+          runner_errors_as_warnings=self.reporter.runner_errors_as_warnings,
       )
 
   def _module_ended(self, event_data):

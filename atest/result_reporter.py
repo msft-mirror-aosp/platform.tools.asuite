@@ -341,6 +341,7 @@ class ResultReporter:
       args=None,
       test_infos=None,
       class_level_report=False,
+      runner_errors_as_warnings=False,
   ):
     """Init ResultReporter.
 
@@ -357,6 +358,7 @@ class ResultReporter:
     self.rerun_options = ''
     self.collect_only = collect_only
     self.class_level_report = class_level_report
+    self.runner_errors_as_warnings = runner_errors_as_warnings
     self.test_result_link = None
     self.device_count = 0
     self.wait_for_debugger = wait_for_debugger
@@ -506,6 +508,7 @@ class ResultReporter:
       print(self.get_iterations_summary())
 
     failed_sum = len(self.failed_tests)
+    has_run_errors = False
     for runner_name, groups in self.runners.items():
       if groups == UNSUPPORTED_FLAG:
         print(
@@ -521,9 +524,12 @@ class ResultReporter:
       for group_name, stats in groups.items():
         name = group_name if group_name else runner_name
         summary = self.process_summary(name, stats)
-        if stats.failed > 0 or stats.run_errors:
+        if stats.failed > 0:
           tests_ret = ExitCode.TEST_FAILURE
-          if stats.run_errors:
+        if stats.run_errors:
+          has_run_errors = True
+          if not self.runner_errors_as_warnings:
+            tests_ret = ExitCode.TEST_FAILURE
             failed_sum += 1 if not stats.failed else 0
         if not ITER_SUMMARY:
           print(summary)
@@ -532,7 +538,14 @@ class ResultReporter:
     print()
     if not UNSUPPORTED_FLAG in self.runners.values():
       if tests_ret == ExitCode.SUCCESS:
-        print(au.mark_green('All tests passed!'))
+        if has_run_errors:
+          print(
+              au.mark_yellow(
+                  'All tests passed (With some incomplete tests ignored).'
+              )
+          )
+        else:
+          print(au.mark_green('All tests passed!'))
       else:
         message = '%d %s failed' % (
             failed_sum,
@@ -698,7 +711,12 @@ class ResultReporter:
     if stats.failed > 0:
       failed_label = au.mark_red(failed_label)
     if stats.run_errors:
-      error_label = au.mark_red('(Completed With ERRORS)')
+      if self.runner_errors_as_warnings:
+        error_label = au.mark_yellow(
+            '(Incomplete probably due to infra issues)'
+        )
+      else:
+        error_label = au.mark_red('(Completed With ERRORS)')
       # Only extract host_log_content if test name is tradefed
       # Import here to prevent circular-import error.
       from atest.test_runners import atest_tf_test_runner
