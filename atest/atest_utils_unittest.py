@@ -609,14 +609,25 @@ class AtestUtilsUnittests(unittest.TestCase):
     """Test method get_modified_files"""
     mock_co.side_effect = [
         x.encode('utf-8')
-        for x in ['/a/b/', '\n', 'test_fp1.java\nc/test_fp2.java']
+        # The four return values correspond to:
+        # 1. Get Git paths
+        # 2. Get uncommitted changes
+        # 3. Get remote branch
+        # 4. Get committed changes.
+        for x in ['/a/b/', '\n', 'm/main', 'test_fp1.java\nc/test_fp2.java']
     ]
     self.assertEqual(
         {'/a/b/test_fp1.java', '/a/b/c/test_fp2.java'},
         atest_utils.get_modified_files(''),
     )
     mock_co.side_effect = [
-        x.encode('utf-8') for x in ['/a/b/', 'test_fp4', '/test_fp3.java']
+        x.encode('utf-8')
+        # The four return values correspond to:
+        # 1. Get Git paths
+        # 2. Get uncommitted changes
+        # 3. Get remote branch
+        # 4. Get committed changes.
+        for x in ['/a/b/', 'test_fp4', 'm/main', '/test_fp3.java']
     ]
     self.assertEqual(
         {'/a/b/test_fp4', '/a/b/test_fp3.java'},
@@ -625,7 +636,13 @@ class AtestUtilsUnittests(unittest.TestCase):
 
   @mock.patch(
       'subprocess.check_output',
+      # The three return values correspond to:
+      # 1. Get remote branch, but failed (assuming goog/HEAD -> goog/main
+      # format), so we default to use `goog/main`.
+      # 2. Get committed changes.
+      # 3. Get uncommitted changes
       side_effect=[
+          b'',
           b'11 22 tracked_fp1.java\n33 44 c/tracked_fp2.java',
           b'55 untracked_fp3.java\n66 a/b/untracked_fp4.py',
       ],
@@ -666,7 +683,13 @@ class AtestUtilsUnittests(unittest.TestCase):
 
   @mock.patch(
       'subprocess.check_output',
+      # The three return values correspond to:
+      # 1. Get remote branch, assuming goog/HEAD -> goog/main format, and
+      #    succeeded
+      # 2. Get committed changes.
+      # 3. Get uncommitted changes
       side_effect=[
+          b'goog/main',
           b'11 22 tracked_fp1.java\n33 44 c/tracked_fp2.java',
           b'',
       ],
@@ -695,7 +718,13 @@ class AtestUtilsUnittests(unittest.TestCase):
 
   @mock.patch(
       'subprocess.check_output',
+      # The three return values correspond to:
+      # 1. Get remote branch, but failed (assuming goog/HEAD -> goog/main
+      # format), so we default to use `goog/main`.
+      # 2. Get committed changes.
+      # 3. Get uncommitted changes
       side_effect=[
+          b'',
           b'',
           b'55 untracked_fp3.java\n66 a/b/untracked_fp4.py',
       ],
