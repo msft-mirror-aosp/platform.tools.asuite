@@ -142,7 +142,7 @@ def get_selected_test_classes(
     ):
       results.append(test)
       total_test_time += test_class_info.run_time
-    else:
+    elif results:
       break
 
   return results

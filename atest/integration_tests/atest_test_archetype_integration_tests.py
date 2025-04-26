@@ -28,7 +28,7 @@ class DevicelessJavaTestHostTest(atest_integration_test.AtestTestCase):
   def test_passed_failed_counts(self):
     _run_and_verify(
         self,
-        atest_command=self._TARGET_NAME + ' --no-bazel-mode --host',
+        atest_command=self._TARGET_NAME + ' --host',
         is_device_required=False,
         verifiers=_create_pass_fail_ignore_verifiers(
             expected_passed_count=2,
@@ -45,7 +45,7 @@ class DevicelessPythonTestHostTest(atest_integration_test.AtestTestCase):
   def test_passed_failed_counts(self):
     _run_and_verify(
         self,
-        atest_command=self._TARGET_NAME + ' --no-bazel-mode --host',
+        atest_command=self._TARGET_NAME + ' --host',
         is_device_required=False,
         verifiers=_create_pass_fail_ignore_verifiers(
             expected_passed_count=2,

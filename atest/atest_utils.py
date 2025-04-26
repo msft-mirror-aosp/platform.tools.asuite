@@ -902,10 +902,9 @@ def get_cache_root():
   # do this because this directory is periodically cleaned and don't have to
   # worry about the files growing without bound. The files are also much
   # smaller than typical build output and less of an issue. Use build out to
-  # save caches which is next to atest_bazel_workspace which is easy for user
-  # to manually clean up if need. Use product out folder's base name as part
-  # of directory because of there may be different module-info in the same
-  # branch but different lunch target.
+  # save caches which is easy for user to manually clean up if need. Use product
+  # out folder's base name as part of directory because of there may be
+  # different module-info in the same branch but different lunch target.
   return os.path.join(
       get_build_out_dir(),
       'atest_cache',
@@ -2003,7 +2002,7 @@ def get_bp_content(filename: Path, module_type: str) -> Dict:
   build_file = Path(filename)
   if not any((build_file.suffix == '.bp', build_file.is_file())):
     return {}
-  start_from = re.compile(f'^{module_type}\s*\{{')
+  start_from = re.compile(rf'^{module_type}\s*\{{')
   end_with = re.compile(r'^\}$')
   context_re = re.compile(
       r'\s*(?P<key>(name|manifest|instrumentation_for))\s*:'

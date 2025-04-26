@@ -364,7 +364,7 @@ class AtestUtilsUnittests(unittest.TestCase):
 
   def test_is_test_mapping_smart_test_selection_specified(self):
     """Test method is_test_mapping."""
-    smart_test_selection_arg = '--smart-test-selection'
+    smart_test_selection_arg = '--sts'
     args = arg_parser.create_atest_arg_parser().parse_args(
         [smart_test_selection_arg]
     )

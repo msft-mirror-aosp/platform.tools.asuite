@@ -196,7 +196,7 @@ class AtestUnittests(unittest.TestCase):
   ):
     """Test _validate_exec_mode."""
     _devs.return_value = ['127.0.0.1:34556']
-    parsed_args = atest_main._parse_args(['--smart-test-selection'])
+    parsed_args = atest_main._parse_args(['--sts'])
     host_test_info = test_info.TestInfo(
         'mod',
         '',
@@ -329,7 +329,7 @@ class AtestMainUnitTests(unittest.TestCase):
   ):
     pseudo_atest_main = atest_main._AtestMain(argv=[])
     pseudo_atest_main._args = atest_main._parse_args(
-        argv=['--smart-test-selection', 'SomeTestModule']
+        argv=['--sts', 'SomeTestModule']
     )
 
     self.assertEqual(
@@ -350,9 +350,7 @@ class AtestMainUnitTests(unittest.TestCase):
       self, _, __, ___, ____
   ):
     pseudo_atest_main = atest_main._AtestMain(argv=[])
-    pseudo_atest_main._args = atest_main._parse_args(
-        argv=['--smart-test-selection']
-    )
+    pseudo_atest_main._args = atest_main._parse_args(argv=['--sts'])
 
     self.assertEqual(
         pseudo_atest_main._check_envs_and_args(),

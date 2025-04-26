@@ -48,12 +48,12 @@ from atest import atest_configs
 from atest import atest_execution_info
 from atest import atest_utils
 from atest import banner
-from atest import bazel_mode
 from atest import bug_detector
 from atest import cli_translator
 from atest import constants
 from atest import device_update
 from atest import module_info
+from atest import perf_module
 from atest import result_reporter
 from atest import test_runner_handler
 from atest.atest_enum import DetectType
@@ -102,7 +102,7 @@ EXIT_CODES_BEFORE_TEST = [
 _RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
 # Log prefix for dry-run run command. May be used in integration tests.
 _DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
-_SMART_TEST_SELECTION_FLAG = '--smart-test-selection'
+_SMART_TEST_SELECTION_FLAG = '--sts'
 
 
 @dataclasses.dataclass
@@ -209,8 +209,7 @@ def _parse_args(argv: List[str]) -> argparse.Namespace:
   if CUSTOM_ARG_FLAG in argv:
     custom_args_index = argv.index(CUSTOM_ARG_FLAG)
     pruned_argv = argv[:custom_args_index]
-  args = arg_parser.create_atest_arg_parser().parse_args(pruned_argv)
-  args.custom_args = []
+  args = arg_parser.parse_args(pruned_argv)
   if custom_args_index is not None:
     for arg in argv[custom_args_index + 1 :]:
       logging.debug('Quoting regex argument %s', arg)
@@ -322,7 +321,6 @@ def get_extra_args(args) -> Dict[str, str]:
   arg_maps = {
       'all_abi': constants.ALL_ABI,
       'annotation_filter': constants.ANNOTATION_FILTER,
-      'bazel_arg': constants.BAZEL_ARG,
       'collect_tests_only': constants.COLLECT_TESTS_ONLY,
       'experimental_coverage': constants.COVERAGE,
       'custom_args': constants.CUSTOM_ARGS,
@@ -334,7 +332,6 @@ def get_extra_args(args) -> Dict[str, str]:
       'instant': constants.INSTANT,
       'iterations': constants.ITERATIONS,
       'request_upload_result': constants.REQUEST_UPLOAD_RESULT,
-      'bazel_mode_features': constants.BAZEL_MODE_FEATURES,
       'rerun_until_failure': constants.RERUN_UNTIL_FAILURE,
       'retry_any_failure': constants.RETRY_ANY_FAILURE,
       'serial': constants.SERIAL,
@@ -429,12 +426,6 @@ def _validate_adb_devices(args, test_infos):
   if not parse_steps(args).test:
     return
   if args.no_checking_device:
-    return
-  # No need to check local device availability if the device test is running
-  # remotely.
-  if args.bazel_mode_features and (
-      bazel_mode.Features.EXPERIMENTAL_REMOTE_AVD in args.bazel_mode_features
-  ):
     return
   all_device_modes = {x.get_supported_exec_mode() for x in test_infos}
   device_tests = [
@@ -982,9 +973,7 @@ class _AtestMain:
     translator = cli_translator.CLITranslator(
         mod_info=self._mod_info,
         print_cache_msg=not self._args.clear_cache,
-        bazel_mode_enabled=self._args.bazel_mode,
         host=self._args.host,
-        bazel_mode_features=self._args.bazel_mode_features,
         indexing_thread=indexing_thread,
     )
 
@@ -1021,11 +1010,8 @@ class _AtestMain:
   def _inject_default_arguments_based_on_test_infos(
       test_infos: list[test_info.TestInfo], args: argparse.Namespace
   ) -> None:
-    if any(
-        'performance-tests' in info.compatibility_suites for info in test_infos
-    ):
-      if not args.disable_upload_result:
-        args.request_upload_result = True
+    if perf_module.is_perf_test(test_infos=test_infos):
+      perf_module.set_default_argument_values(args)
 
   def _handle_list_modules(self) -> int:
     """Print the testable modules for a given suite.
@@ -1241,17 +1227,6 @@ class _AtestMain:
         hostname=platform.node(),
     )
 
-  def _disable_bazel_mode_if_unsupported(self) -> None:
-    if (
-        atest_utils.is_test_mapping(self._args)
-        or self._args.experimental_coverage
-    ):
-      logging.debug('Running test mapping or coverage, disabling bazel mode.')
-      atest_utils.colorful_print(
-          'Not running using bazel-mode.', constants.YELLOW
-      )
-      self._args.bazel_mode = False
-
   def _run_all_steps(self) -> int:
     """Executes the atest script.
 
@@ -1274,8 +1249,6 @@ class _AtestMain:
 
     if self._args.list_modules:
       return self._handle_list_modules()
-
-    self._disable_bazel_mode_if_unsupported()
 
     if self._args.dry_run:
       return self._handle_dry_run()
@@ -1608,6 +1581,7 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
           args=self._args,
           test_infos=self._test_infos,
           class_level_report=True,
+          runner_errors_as_warnings=True,
       )
     else:
       reporter = result_reporter.ResultReporter(

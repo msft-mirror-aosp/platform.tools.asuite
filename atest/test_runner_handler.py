@@ -22,7 +22,6 @@ import itertools
 from typing import Any, Dict, List
 
 from atest import atest_error
-from atest import bazel_mode
 from atest import module_info
 from atest.test_finders import test_info
 from atest.test_runner_invocation import TestRunnerInvocation
@@ -47,7 +46,6 @@ _TEST_RUNNERS = {
     vts_tf_test_runner.VtsTradefedTestRunner.NAME: (
         vts_tf_test_runner.VtsTradefedTestRunner
     ),
-    bazel_mode.BazelTestRunner.NAME: bazel_mode.BazelTestRunner,
 }
 
 

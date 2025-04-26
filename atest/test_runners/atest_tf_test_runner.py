@@ -40,6 +40,7 @@ from atest import atest_error
 from atest import atest_utils
 from atest import constants
 from atest import module_info
+from atest import perf_module
 from atest import result_reporter
 from atest import rollout_control
 from atest.atest_enum import DetectType, ExitCode
@@ -335,14 +336,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     upload_start = time.time()
     invocation_properties = {'atest_run_id': metrics.get_run_id()}
 
-    # Set crystalball_ingest property if there are performance tests.
-    is_perf_tests = False
-    for info in test_infos:
-      if 'performance-tests' in info.compatibility_suites:
-        is_perf_tests = True
-        break
-    if is_perf_tests:
-      invocation_properties['crystalball_ingest'] = 'yes'
+    if perf_module.is_perf_test(args=extra_args, test_infos=test_infos):
+      perf_module.set_invocation_properties(invocation_properties)
 
     creds, inv = (
         logstorage_utils.do_upload_flow(extra_args, invocation_properties)
@@ -518,6 +513,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                               constants.COLLECT_TESTS_ONLY
                           ),
                           class_level_report=self._smart_test_selection,
+                          runner_errors_as_warnings=self._smart_test_selection,
                       ),
                       self.NAME,
                   ),
@@ -911,10 +907,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         A list that contains the string of atest tradefed run command.
         Only one command is returned.
     """
-    if any(
-        'performance-tests' in info.compatibility_suites for info in test_infos
-    ):
-      self.run_cmd_dict['template'] = 'template/performance-tests-base'
+    if perf_module.is_perf_test(test_infos=test_infos):
+      self.run_cmd_dict['template'] = perf_module.PERF_TEST_TEMPLATE
     elif extra_args.get(constants.USE_TF_MIN_BASE_TEMPLATE):
       self.run_cmd_dict['template'] = self._TF_LOCAL_MIN
     else:
