@@ -19,7 +19,6 @@
 # pylint: disable=invalid-name
 
 import pathlib
-from typing import List
 import unittest
 from unittest import mock
 from atest import atest_utils
@@ -33,6 +32,8 @@ from atest.test_finders.smart_test_finder import test_relevance_client
 from google.protobuf import json_format
 from pyfakefs import fake_filesystem_unittest
 
+_FAKE_BLOCKLIST_CONTENT = """module,reason
+BlockedModule, test_reaon"""
 
 _FAKE_LOOKUP_TABLE_CONTENT = """branch,target,test_name,test_id,postsubmit_pass_rate,test_run_duration_ms_past7days
 some_branch,some_target,TestA,a_id,0.99,10000
@@ -103,6 +104,7 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
   """Unit tests for smart_test_finder.py with filesystem access."""
 
   def setUp(self):
+    super().setUp()
     self.setUpPyfakefs()
 
     self.fake_lookup_table_path = str(
@@ -112,6 +114,14 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
     self.fs.create_file(
         self.fake_lookup_table_path,
         contents=_FAKE_LOOKUP_TABLE_CONTENT,
+    )
+    self.fake_blocklist_path = str(
+        pathlib.Path(constants.SMART_TEST_SELECTION_ROOT_PATH)
+        / 'lookup_tables/blocklist.csv'
+    )
+    self.fs.create_file(
+        self.fake_blocklist_path,
+        contents=_FAKE_BLOCKLIST_CONTENT,
     )
 
   # TODO(b/410945183): Change this test once the bug is fixed.
@@ -139,6 +149,18 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
                 target='some_target',
                 module='TestAModule',
                 test_class='testAClass',
+                score=1,
+            )
+        ),
+        # This test is not selected because it is blocked.
+        _get_decision_graph_check(
+            smart_test_filter.TestClassInfo(
+                test_id='blocked_id',
+                atp_test_name='SomeTest',
+                branch='some_branch',
+                target='some_target',
+                module='BlockedModule',
+                test_class='testClass',
                 score=1,
             )
         ),
@@ -230,8 +252,8 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
                 score=0.95,
             )
         ),
-        # TestF is selected and ranked right after TestD, because it has the
-        # third highest relevance score.
+        # TestF is selected and ranked right after TestG, because it has the
+        # fourth highest relevance score.
         _get_decision_graph_check(
             smart_test_filter.TestClassInfo(
                 test_id='f_id',
@@ -239,12 +261,12 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
                 branch='some_branch6',
                 target='some_target6',
                 module='TestFModule',
-                test_class='testFClass',
+                test_class='TestFModule',
                 score=0.96,
             )
         ),
-        # TestG is selected and ranked right after TestF, because it has the
-        # fourth highest relevance score of all valid tests.
+        # TestG is selected and ranked right after TestD, because it has the
+        # third highest relevance score of all valid tests.
         _get_decision_graph_check(
             smart_test_filter.TestClassInfo(
                 test_id='g_id',
@@ -294,7 +316,7 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
             'TestAModule:testAClass',
             'TestDModule:testDClass',
             'TestGModule:testGClass',
-            'TestFModule:testFClass',
+            'TestFModule',
         ],
     )
 
@@ -308,8 +330,23 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
     mock_client.get_tests_with_relevance_score_query_by_query.side_effect = (
         TimeoutError()
     )
-    with self.assertRaises(TimeoutError) as context:
-      smart_test_finder.get_smartly_selected_tests(time_limit_in_minutes=1)
+    with self.assertRaises(TimeoutError):
+      smart_test_finder.get_smartly_selected_tests()
+
+  @mock.patch.object(local_info_collector, 'get_local_change_info')
+  def test_get_smartly_selected_tests_return_no_tests_with_no_changes(
+      self, mock_local_info_collector
+  ):
+    CHANGE_INFO_WITH_NO_CHANGED_FILES = local_info_collector.ChangeInfo(
+        project='fake_project',
+        branch='fake_branch',
+        remote_hostname='stuff-to-be-selected',
+        changed_files=[],
+        user_key='fake_user',
+    )
+    mock_local_info_collector.return_value = CHANGE_INFO_WITH_NO_CHANGED_FILES
+    results = smart_test_finder.get_smartly_selected_tests()
+    self.assertEqual(results, [])
 
 
 if __name__ == '__main__':

@@ -20,11 +20,12 @@
 
 import pathlib
 import unittest
-from unittest import mock
 from atest import constants
 from atest.test_finders.smart_test_finder import smart_test_filter
 from pyfakefs import fake_filesystem_unittest
 
+_FAKE_BLOCKLIST_CONTENT = """module,reason
+BlockedModule, test_reaon"""
 
 _FAKE_LOOKUP_TABLE_CONTENT = """branch,target,test_name,test_id,postsubmit_pass_rate,test_run_duration_ms_past7days
 some_branch,some_target,TestA,a_id,0.99,10000
@@ -42,9 +43,10 @@ some_branch9,some_target9,TestWithOptedOutTests,l_id,1,2"""
 
 # pylint: disable=protected-access
 class SmartTestFilterUnittests(fake_filesystem_unittest.TestCase):
-  """Unit tests for smart_test_filter.py"""
+  """Unit tests for smart_test_filter.py."""
 
   def setUp(self):
+    super().setUp()
     self.setUpPyfakefs()
 
     self.fake_lookup_table_path = str(
@@ -54,6 +56,14 @@ class SmartTestFilterUnittests(fake_filesystem_unittest.TestCase):
     self.fs.create_file(
         self.fake_lookup_table_path,
         contents=_FAKE_LOOKUP_TABLE_CONTENT,
+    )
+    self.fake_blocklist_path = str(
+        pathlib.Path(constants.SMART_TEST_SELECTION_ROOT_PATH)
+        / 'lookup_tables/blocklist.csv'
+    )
+    self.fs.create_file(
+        self.fake_blocklist_path,
+        contents=_FAKE_BLOCKLIST_CONTENT,
     )
 
   def test_get_selected_test_classes(self):
@@ -67,6 +77,16 @@ class SmartTestFilterUnittests(fake_filesystem_unittest.TestCase):
             target='some_target',
             module='TestAModule',
             test_class='testAClass',
+            score=1,
+        ),
+        # This test is not selected because it is blocked.
+        smart_test_filter.TestClassInfo(
+            test_id='blocked_id',
+            atp_test_name='SomeTest',
+            branch='some_branch',
+            target='some_target',
+            module='BlockedModule',
+            test_class='testClass',
             score=1,
         ),
         # This test is not selected because of no history in the lookup table.
@@ -143,8 +163,8 @@ class SmartTestFilterUnittests(fake_filesystem_unittest.TestCase):
             test_class='testEClass',
             score=0.95,
         ),
-        # TestF is selected and ranked right after TestD, because it has the
-        # third highest relevance score.
+        # TestF is selected and ranked right after TestG, because it has the
+        # fourth highest relevance score.
         smart_test_filter.TestClassInfo(
             test_id='f_id',
             atp_test_name='TestF',
@@ -154,8 +174,8 @@ class SmartTestFilterUnittests(fake_filesystem_unittest.TestCase):
             test_class='testFClass',
             score=0.96,
         ),
-        # TestG is selected and ranked right after TestF, because it has the
-        # fourth highest relevance score of all valid tests.
+        # TestG is selected and ranked right after TestD, because it has the
+        # third highest relevance score of all valid tests.
         smart_test_filter.TestClassInfo(
             test_id='g_id',
             atp_test_name='TestG',
@@ -176,17 +196,6 @@ class SmartTestFilterUnittests(fake_filesystem_unittest.TestCase):
             module='SomeTestModule',
             test_class='testSomeClass',
             score=0.949,
-        ),
-        # This test is not selected because the test module is in the opted-out
-        # list.
-        smart_test_filter.TestClassInfo(
-            test_id='l_id',
-            atp_test_name='TestWithOptedOutTests',
-            branch='some_branch9',
-            target='some_target9',
-            module='aconfig.test.cpp',
-            test_class='testGClass',
-            score=1,
         ),
     ]
     expected_selected_tests = [
@@ -231,6 +240,151 @@ class SmartTestFilterUnittests(fake_filesystem_unittest.TestCase):
     actual_selected_tests = smart_test_filter.get_selected_test_classes(
         candidate_tests,
         time_limit_min=1,
+    )
+
+    # Since this function guarantees order, so directly use `assertEqual`
+    # instead of `assertCountEqual`.
+    self.assertEqual(actual_selected_tests, expected_selected_tests)
+
+  def test_get_selected_test_classes_with_very_small_time_limit(self):
+    candidate_tests = [
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestAModule',
+            test_class='testAClass',
+            score=1,
+        ),
+        smart_test_filter.TestClassInfo(
+            test_id='d_id',
+            atp_test_name='TestD',
+            branch='some_branch4',
+            target='some_target4',
+            module='TestDModule',
+            test_class='testDClass',
+            score=0.98,
+        ),
+        smart_test_filter.TestClassInfo(
+            test_id='e_id',
+            atp_test_name='TestNotSelectedDueToTimeLimit',
+            branch='some_branch5',
+            target='some_target5',
+            module='TestEModule',
+            test_class='testEClass',
+            score=0.95,
+        ),
+        smart_test_filter.TestClassInfo(
+            test_id='f_id',
+            atp_test_name='TestF',
+            branch='some_branch6',
+            target='some_target6',
+            module='testFModule',
+            test_class='testFClass',
+            score=0.96,
+        ),
+        smart_test_filter.TestClassInfo(
+            test_id='g_id',
+            atp_test_name='TestG',
+            branch='some_branch7',
+            target='some_target7',
+            module='TestGModule',
+            test_class='testGClass',
+            score=0.97,
+        ),
+    ]
+    expected_selected_tests = [
+        smart_test_filter.TestClassInfo(
+            test_id='g_id',
+            atp_test_name='TestG',
+            branch='some_branch7',
+            target='some_target7',
+            module='TestGModule',
+            test_class='testGClass',
+            score=0.97,
+        ),
+    ]
+
+    actual_selected_tests = smart_test_filter.get_selected_test_classes(
+        candidate_tests,
+        time_limit_min=0.0001,  # 6 ms
+    )
+
+    self.assertEqual(actual_selected_tests, expected_selected_tests)
+
+  def test_get_selected_test_classes_selected_test_is_stable(self):
+    candidate_tests = [
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestBModule',
+            test_class='testAClass0',
+            score=1,
+        ),
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestAModule',
+            test_class='testAClass3',
+            score=1,
+        ),
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestAModule',
+            test_class='testAClass2',
+            score=1,
+        ),
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestAModule',
+            test_class='testAClass1',
+            score=1,
+        ),
+    ]
+    expected_selected_tests = [
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestAModule',
+            test_class='testAClass1',
+            score=1,
+        ),
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestAModule',
+            test_class='testAClass2',
+            score=1,
+        ),
+        smart_test_filter.TestClassInfo(
+            test_id='a_id',
+            atp_test_name='TestA',
+            branch='some_branch',
+            target='some_target',
+            module='TestAModule',
+            test_class='testAClass3',
+            score=1,
+        ),
+    ]
+
+    actual_selected_tests = smart_test_filter.get_selected_test_classes(
+        candidate_tests,
+        time_limit_min=0.6,
     )
 
     # Since this function guarantees order, so directly use `assertEqual`

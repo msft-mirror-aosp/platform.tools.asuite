@@ -23,7 +23,6 @@ import subprocess
 import tempfile
 import unittest
 from unittest import mock
-from xml.etree import ElementTree
 from atest import atest_utils
 from atest.test_finders.smart_test_finder import local_info_collector
 from pyfakefs import fake_filesystem_unittest
@@ -68,6 +67,7 @@ class LocalInfoCollectorFileSystemUnittests(fake_filesystem_unittest.TestCase):
   """Unit tests for local_info_collector.py with file access."""
 
   def setUp(self):
+    super().setUp()
     self.setUpPyfakefs()
     self.mock_getuser = self.enterContext(
         mock.patch('getpass.getuser', return_value='fake_user')

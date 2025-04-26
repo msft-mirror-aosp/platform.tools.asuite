@@ -83,10 +83,13 @@ BUILD_TOP_HASH = hashlib.md5(
 _DEFAULT_TERMINAL_WIDTH = 80
 _DEFAULT_TERMINAL_HEIGHT = 25
 _BUILD_CMD = 'build/soong/soong_ui.bash'
+_GET_REMOTE_BRANCH_WITH_GOOG_HEAD_CMD = (
+    "cd {}; git branch -r | grep '\\->' | awk '{{print $1}}'"
+)
 _FIND_MODIFIED_FILES_CMDS = (
     'cd {};'
     'local_branch=$(git rev-parse --abbrev-ref HEAD);'
-    "remote_branch=$(git branch -r | grep '\\->' | awk '{{print $1}}');"
+    'remote_branch={}'
     # Get the number of commits from local branch to remote branch.
     'ahead=$(git rev-list --left-right --count $local_branch...$remote_branch '
     "| awk '{{print $1}}');"
@@ -902,10 +905,9 @@ def get_cache_root():
   # do this because this directory is periodically cleaned and don't have to
   # worry about the files growing without bound. The files are also much
   # smaller than typical build output and less of an issue. Use build out to
-  # save caches which is next to atest_bazel_workspace which is easy for user
-  # to manually clean up if need. Use product out folder's base name as part
-  # of directory because of there may be different module-info in the same
-  # branch but different lunch target.
+  # save caches which is easy for user to manually clean up if need. Use product
+  # out folder's base name as part of directory because of there may be
+  # different module-info in the same branch but different lunch target.
   return os.path.join(
       get_build_out_dir(),
       'atest_cache',
@@ -1019,6 +1021,22 @@ def clean_test_info_caches(tests, cache_root=None):
         )
 
 
+def _get_remote_branch(git_path: str) -> str:
+  """Gets the remote branch."""
+  remote_branch_lines = (
+      subprocess.check_output(
+          _GET_REMOTE_BRANCH_WITH_GOOG_HEAD_CMD.format(git_path), shell=True
+      )
+      .decode()
+      .splitlines()
+  )
+  if not remote_branch_lines:
+    # TODO(b/413705656): This is hardcoded for `git_main` only. Try to find a
+    # programmatic way if remote HEAD information is not in `git branch -r`.
+    return 'goog/main'
+  return remote_branch_lines[0]
+
+
 # TODO(b/407049787): Remove this function once `get_modified_files_with_details`
 # is proved to be robust.
 def get_modified_files(root_dir):
@@ -1059,8 +1077,9 @@ def get_modified_files(root_dir):
       for change in modified_wo_commit:
         modified_files.add(os.path.normpath('{}/{}'.format(git_path, change)))
       # Find modified files that are committed but not yet merged.
+      remote_branch = _get_remote_branch(git_path)
       find_modified_files = _FIND_MODIFIED_FILES_CMDS.format(
-          git_path, '--name-only'
+          git_path, remote_branch, '--name-only'
       )
       commit_modified_files = (
           subprocess.check_output(find_modified_files, shell=True)
@@ -1085,7 +1104,10 @@ def get_modified_files_with_details() -> set[ChangedFileDetails]:
   """
   modified_files = set()
   try:
-    find_modified_files = _FIND_MODIFIED_FILES_CMDS.format('.', '--numstat')
+    remote_branch = _get_remote_branch('.')
+    find_modified_files = _FIND_MODIFIED_FILES_CMDS.format(
+        '.', remote_branch, '--numstat'
+    )
     commit_modified_files = (
         subprocess.check_output(find_modified_files, shell=True)
         .decode()
@@ -2003,7 +2025,7 @@ def get_bp_content(filename: Path, module_type: str) -> Dict:
   build_file = Path(filename)
   if not any((build_file.suffix == '.bp', build_file.is_file())):
     return {}
-  start_from = re.compile(f'^{module_type}\s*\{{')
+  start_from = re.compile(rf'^{module_type}\s*\{{')
   end_with = re.compile(r'^\}$')
   context_re = re.compile(
       r'\s*(?P<key>(name|manifest|instrumentation_for))\s*:'

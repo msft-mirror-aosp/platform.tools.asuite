@@ -56,7 +56,7 @@ _EXPECTED_QUERY = """{
           "address": "blade:moneyball-test-relevance-prod",
           "prepare": false,
           "maxDuration": {
-            "seconds": "600"
+            "seconds": "300"
           },
           "blocking": "BLOCKING"
         }
@@ -153,7 +153,7 @@ _EXPECTED_QUERY_WITH_SINGLE_CHECK1 = """{
           "address": "blade:moneyball-test-relevance-prod",
           "prepare": false,
           "maxDuration": {
-            "seconds": "600"
+            "seconds": "300"
           },
           "blocking": "BLOCKING"
         }
@@ -236,7 +236,7 @@ _EXPECTED_QUERY_WITH_SINGLE_CHECK2 = """{
           "address": "blade:moneyball-test-relevance-prod",
           "prepare": false,
           "maxDuration": {
-            "seconds": "600"
+            "seconds": "300"
           },
           "blocking": "BLOCKING"
         }
