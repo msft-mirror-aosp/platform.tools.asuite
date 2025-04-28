@@ -127,6 +127,8 @@ class DetectType(IntEnum):
   APP_INSTALLATION_SKIPPED_COUNT = 67
   # The count of not skipped app installation while opting in incremental setup
   APP_INSTALLATION_NOT_SKIPPED_COUNT = 68
+  # The number of run errors during the test run
+  RUN_ERROR_COUNT = 69
 
 
 @unique

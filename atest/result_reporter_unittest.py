@@ -25,6 +25,7 @@ from unittest.mock import patch
 
 from atest import arg_parser
 from atest import atest_configs
+from atest import atest_enum
 from atest import result_reporter
 from atest.test_finders import test_info
 from atest.test_runners import test_runner_base
@@ -90,6 +91,20 @@ RESULT_RUN_FAILURE = test_runner_base.TestResult(
     runner_name='someTestRunner',
     group_name='someTestModule',
     test_name='someClassName#sostName',
+    status=test_runner_base.ERROR_STATUS,
+    details='someRunFailureReason',
+    test_count=1,
+    test_time='',
+    runner_total=None,
+    group_total=2,
+    additional_info={},
+    test_run_name='com.android.UnitTests',
+)
+
+RESULT_RUN_FAILURE_2 = test_runner_base.TestResult(
+    runner_name='someTestRunner',
+    group_name='someTestModule2',
+    test_name='someClassName2#sostName2',
     status=test_runner_base.ERROR_STATUS,
     details='someRunFailureReason',
     test_count=1,
@@ -370,12 +385,13 @@ class ResultReporterUnittests(unittest.TestCase):
     self.rr._update_stats(RESULT_ASSUMPTION_FAILED_TEST, group)
     self.assertEqual(group.assumption_failed, 2)
 
+  @patch('atest.metrics.metrics.LocalDetectEvent')
   @patch.object(
       atest_configs,
       'GLOBAL_ARGS',
       arg_parser.create_atest_arg_parser().parse_args([]),
   )
-  def test_print_summary_ret_val(self):
+  def test_print_summary_ret_val(self, mock_detect_event):
     """Test print_summary method's return value."""
     # PASS Case
     self.rr.process_test_result(RESULT_PASSED_TEST)
@@ -386,6 +402,7 @@ class ResultReporterUnittests(unittest.TestCase):
     # PASS Case + Fail Case + PASS Case
     self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
     self.assertNotEqual(0, self.rr.print_summary())
+    mock_detect_event.assert_not_called()
 
   @patch.object(
       atest_configs,
@@ -403,6 +420,29 @@ class ResultReporterUnittests(unittest.TestCase):
     # PASS Case + Fail Case + PASS Case
     self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
     self.assertNotEqual(0, self.rr.print_summary())
+
+  @patch('atest.metrics.metrics.LocalDetectEvent')
+  @patch.object(
+      atest_configs,
+      'GLOBAL_ARGS',
+      arg_parser.create_atest_arg_parser().parse_args([]),
+  )
+  def test_print_summary_ret_val_err_stat2(self, mock_detect_event):
+    """Test print_summary method's return value."""
+    # PASS Case
+    self.rr.process_test_result(RESULT_PASSED_TEST)
+    # PASS Case + Run Error Case
+    self.rr.process_test_result(RESULT_RUN_FAILURE)
+    # PASS Case + Run Error Case + PASS Case
+    self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
+    # PASS Case + Run Error Case + PASS Case + Run Error Case
+    self.rr.process_test_result(RESULT_RUN_FAILURE_2)
+
+    self.assertNotEqual(0, self.rr.print_summary())
+    mock_detect_event.assert_called_with(
+        detect_type=atest_enum.DetectType.RUN_ERROR_COUNT,
+        result=2,
+    )
 
   @patch.object(
       atest_configs,
