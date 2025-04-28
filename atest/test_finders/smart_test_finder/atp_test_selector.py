@@ -234,8 +234,12 @@ def get_matched_device() -> DeviceInfo:
     if device.product == target_product:
       return device
   atest_utils.print_and_log_warning(
-      'Can not find a device that matches the lunch target.'
+      f'Can not find a device that matches the lunch target {target_product}.'
+      ' Available devices are:'
   )
+  for device in all_devices:
+    atest_utils.print_and_log_warning(f'{device}')
+
   return None
 
 
