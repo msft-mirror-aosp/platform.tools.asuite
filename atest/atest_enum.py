@@ -129,6 +129,8 @@ class DetectType(IntEnum):
   APP_INSTALLATION_NOT_SKIPPED_COUNT = 68
   # The number of run errors during the test run
   RUN_ERROR_COUNT = 69
+  # Whether no test run issue occurred during the Atest invocation
+  HAS_NO_TEST_RUN_ISSUE = 70
 
 
 @unique
