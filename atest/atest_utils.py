@@ -1113,13 +1113,14 @@ def get_modified_files_with_details() -> set[ChangedFileDetails]:
         .decode()
         .splitlines()
     )
+    logging.debug('commit_modified_files: %s', commit_modified_files)
     for line in commit_modified_files:
       splitline = line.split()
       modified_files.add(
           ChangedFileDetails(
               filename=splitline[2],
-              number_of_lines_inserted=int(splitline[0]),
-              number_of_lines_deleted=int(splitline[1]),
+              number_of_lines_inserted=_get_number_lines_changed(splitline[0]),
+              number_of_lines_deleted=_get_number_lines_changed(splitline[1]),
           )
       )
 
@@ -1129,17 +1130,29 @@ def get_modified_files_with_details() -> set[ChangedFileDetails]:
         .splitlines()
     )
     for line in untracked_modified_files:
+      logging.debug('untracked_modified_files: %s', untracked_modified_files)
       splitline = line.split()
       modified_files.add(
           ChangedFileDetails(
               filename=splitline[1],
-              number_of_lines_inserted=int(splitline[0]),
+              number_of_lines_inserted=_get_number_lines_changed(splitline[0]),
               number_of_lines_deleted=0,
           )
       )
   except (OSError, subprocess.CalledProcessError) as err:
     logging.debug('Exception raised: %s', err)
   return modified_files
+
+
+def _get_number_lines_changed(file_change_info: str) -> int:
+  number_of_lines_changed = 0
+
+  try:
+    number_of_lines_changed = int(file_change_info)
+  except ValueError:
+    logging.debug('failed to get the num of lines changed.')
+
+  return number_of_lines_changed
 
 
 def delimiter(char, length=_DEFAULT_TERMINAL_WIDTH, prenl=0, postnl=0):
