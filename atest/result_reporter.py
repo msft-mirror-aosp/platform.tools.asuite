@@ -114,10 +114,12 @@ import re
 import zipfile
 
 from atest import atest_configs
+from atest import atest_enum
 from atest import atest_utils as au
 from atest import constants
 from atest.atest_enum import ExitCode
 from atest.crystalball import metric_printer
+from atest.metrics import metrics
 from atest.test_runners import test_runner_base
 
 UNSUPPORTED_FLAG = 'UNSUPPORTED_RUNNER'
@@ -373,7 +375,7 @@ class ResultReporter:
       print(self.get_iterations_summary())
 
     failed_sum = len(self.failed_tests)
-    has_run_errors = False
+    run_error_count = 0
     for runner_name, groups in self.runners.items():
       if groups == UNSUPPORTED_FLAG:
         print(
@@ -392,18 +394,24 @@ class ResultReporter:
         if stats.failed > 0:
           tests_ret = ExitCode.TEST_FAILURE
         if stats.run_errors:
-          has_run_errors = True
+          run_error_count += 1
           if not self.runner_errors_as_warnings:
             tests_ret = ExitCode.TEST_FAILURE
             failed_sum += 1 if not stats.failed else 0
         if not ITER_SUMMARY:
           print(summary)
 
+    if run_error_count > 0:
+      metrics.LocalDetectEvent(
+          detect_type=atest_enum.DetectType.RUN_ERROR_COUNT,
+          result=run_error_count,
+      )
+
     self.run_stats.perf_info.print_perf_info()
     print()
     if not UNSUPPORTED_FLAG in self.runners.values():
       if tests_ret == ExitCode.SUCCESS:
-        if has_run_errors:
+        if run_error_count > 0:
           print(
               au.mark_yellow(
                   'All tests passed (With some incomplete tests ignored).'

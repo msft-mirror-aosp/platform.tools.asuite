@@ -222,9 +222,14 @@ def is_uploading_logs(gcert_checker: Callable[[], bool] = None) -> bool:
       'false',
       '0',
   ]:
+    logging.info(
+        'Log uploading is disabled by the environment variable %s.',
+        _ENABLE_ATEST_LOG_UPLOADING_ENV_KEY,
+    )
     return False
 
   if not logstorage_utils.is_credential_available():
+    logging.info('Log uploading is disabled because gcert is not available.')
     return False
 
   # Checks whether gcert is available and not about to expire.
@@ -243,7 +248,10 @@ def is_uploading_logs(gcert_checker: Callable[[], bool] = None) -> bool:
         ).returncode
         == 0
     )
-  return gcert_checker()
+  gcert_available = gcert_checker()
+  if not gcert_available:
+    logging.info('Log uploading is disabled because gcert is not available.')
+  return gcert_available
 
 
 def upload_logs_detached(logs_dir: pathlib.Path):
