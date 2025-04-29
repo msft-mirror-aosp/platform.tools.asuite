@@ -18,6 +18,7 @@
 
 # pylint: disable=invalid-name
 
+import os
 import subprocess
 import unittest
 from unittest import mock
@@ -40,6 +41,10 @@ fake.ser.num2        device product:device_product_2 model:not_important_model2 
 matched.ser.num       device product:matched_device_product model:not_important_model3 device:matched_device transport_id:3
 aosp.matched.ser.num    device product:aosp_cf_x86_64_only_phone model:not_important_model4 device:device2 transport_id:4
 some_serial   device product:aosp_cf_x86_64_phone model:not_important_model5 device:some_device transport_id:5
+"""
+
+_FAKE_ADB_OUTPUT2 = b"""List of devices attached
+matched.ser.num       device product:aosp_cf_x86_64_only_phone model:not_important_model3 device:matched_device transport_id:3
 """
 
 _FAKE_LOOKUP_TABLE_CONTENT = """project,target,branch,names
@@ -106,6 +111,7 @@ class AtpTestSelectorUnittests(unittest.TestCase):
     actual_device_info = atp_test_selector.get_matched_device()
 
     self.assertEqual(actual_device_info, expected_device_info)
+    self.assertEqual(os.environ.get('ANDROID_SERIAL'), 'matched.ser.num')
 
   @mock.patch('subprocess.check_output', return_value=_FAKE_ADB_OUTPUT)
   @mock.patch.dict(
@@ -214,6 +220,7 @@ class AtpTestSelectorFileSystemUnittests(fake_filesystem_unittest.TestCase):
         actual_selected_atp_tests, expected_selected_atp_tests
     )
 
+  @mock.patch('subprocess.check_output', side_effect=[_FAKE_ADB_OUTPUT2, b''])
   @mock.patch.dict(
       'os.environ',
       {
@@ -221,7 +228,9 @@ class AtpTestSelectorFileSystemUnittests(fake_filesystem_unittest.TestCase):
           constants.ANDROID_TARGET_PRODUCT: 'aosp_cf_x86_64_only_phone',
       },
   )
-  def test_get_selected_atp_tests_return_matched_tests_for_real_device(self):
+  def test_get_selected_atp_tests_return_matched_tests_for_real_device(
+      self, mock_subprocess_check_output
+  ):
     input_change_info = local_info_collector.ChangeInfo(
         project='Project/Name3',
         branch='main',
@@ -245,6 +254,14 @@ class AtpTestSelectorFileSystemUnittests(fake_filesystem_unittest.TestCase):
 
     self.assertCountEqual(
         actual_selected_atp_tests, expected_selected_atp_tests
+    )
+    self.assertEqual(
+        os.environ.get(constants.ANDROID_SERIAL), 'matched.ser.num'
+    )
+    mock_subprocess_check_output.assert_called_with(
+        'adb -s matched.ser.num shell settings put global'
+        ' package_verifier_user_consent -1',
+        shell=True,
     )
 
   @mock.patch.dict(
