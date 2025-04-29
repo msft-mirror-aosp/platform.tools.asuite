@@ -727,7 +727,14 @@ class _AtestMain:
           self._args,
           metrics.get_run_id(),
       )
+      original_android_serial = os.environ.get(constants.ANDROID_SERIAL)
       exit_code = self._run_all_steps()
+      if self._args.smart_test_selection:
+        # Recover the original ANDROID_SERIAL
+        if original_android_serial:
+          os.environ[constants.ANDROID_SERIAL] = original_android_serial
+        elif constants.ANDROID_SERIAL in os.environ:
+          del os.environ[constants.ANDROID_SERIAL]
       detector = bug_detector.BugDetector(final_args, exit_code)
       if exit_code not in EXIT_CODES_BEFORE_TEST:
         metrics.LocalDetectEvent(

@@ -232,6 +232,10 @@ def get_matched_device() -> DeviceInfo:
   # 'ANDROID_SERIAL' is not set yet.
   for device in all_devices:
     if device.product == target_product:
+      atest_utils.print_and_log_info(
+          'ANDROID_SERIAL is not set. Set it to %s', device.serial
+      )
+      os.environ[constants.ANDROID_SERIAL] = device.serial
       return device
   atest_utils.print_and_log_warning(
       f'Can not find a device that matches the lunch target {target_product}.'
@@ -256,6 +260,21 @@ def get_selected_atp_tests(change_info: local_info_collector.ChangeInfo):
         'No matched device connected, and no ATP tests are selected.'
     )
     return []
+
+  android_serial = matched_device.serial
+  try:
+    logging.debug('Disabling the ADB verification of device %s', android_serial)
+    subprocess.check_output(
+        f'adb -s {android_serial} shell settings put global'
+        ' package_verifier_user_consent -1',
+        shell=True,
+    )
+  except subprocess.CalledProcessError as err:
+    atest_utils.print_and_log_warning(
+        'Failed to disable the ADB verification of devices %s. Error: %s',
+        matched_device,
+        err,
+    )
 
   selected_atp_tests = []
   for test in candidate_tests:
