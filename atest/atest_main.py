@@ -1600,7 +1600,21 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
     reporter.print_starting_text()
 
     exit_code = ExitCode.SUCCESS
+    execution_start_time = time.time()
     for i, invocation in enumerate(self._test_runner_invocations):
+      if self._args.smart_test_selection:
+        if (
+            time.time() - execution_start_time
+            > constants.SMART_TEST_EXECUTION_TIME_LIMIT_IN_MINUTES * 60
+        ):
+          atest_utils.print_and_log_warning(
+              'Smart test run out of time limit (%d minutes). Only %d out of %d'
+              ' invocation(s) of selected tests were executed',
+              constants.SMART_TEST_EXECUTION_TIME_LIMIT_IN_MINUTES,
+              i,
+              len(self._test_runner_invocations),
+          )
+          break
       print(
           atest_utils.mark_cyan(
               f'\nRunning Invocation {i + 1} (out of'

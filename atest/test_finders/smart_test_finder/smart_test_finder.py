@@ -79,7 +79,7 @@ SMART_TEST_SELECTION_CUSTOM_ARGS = [
 
 
 def get_smartly_selected_tests(
-    time_limit_in_minutes: int = 5,
+    time_limit_in_minutes: int = constants.SMART_TEST_EXECUTION_TIME_LIMIT_IN_MINUTES,
 ) -> List[test_info.TestInfo]:
   """Given a time limit, smartly select tests to run."""
   local_change_info = local_info_collector.get_local_change_info()
