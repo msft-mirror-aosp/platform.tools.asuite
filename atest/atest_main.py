@@ -727,7 +727,14 @@ class _AtestMain:
           self._args,
           metrics.get_run_id(),
       )
+      original_android_serial = os.environ.get(constants.ANDROID_SERIAL)
       exit_code = self._run_all_steps()
+      if self._args.smart_test_selection:
+        # Recover the original ANDROID_SERIAL
+        if original_android_serial:
+          os.environ[constants.ANDROID_SERIAL] = original_android_serial
+        elif constants.ANDROID_SERIAL in os.environ:
+          del os.environ[constants.ANDROID_SERIAL]
       detector = bug_detector.BugDetector(final_args, exit_code)
       if exit_code not in EXIT_CODES_BEFORE_TEST:
         metrics.LocalDetectEvent(
@@ -1593,7 +1600,13 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
     reporter.print_starting_text()
 
     exit_code = ExitCode.SUCCESS
-    for invocation in self._test_runner_invocations:
+    for i, invocation in enumerate(self._test_runner_invocations):
+      print(
+          atest_utils.mark_cyan(
+              f'\nRunning Invocation {i + 1} (out of'
+              f' {len(self._test_runner_invocations)} invocation(s))...'
+          )
+      )
       exit_code |= invocation.run_all_tests(reporter)
 
     atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)

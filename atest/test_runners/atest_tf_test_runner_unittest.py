@@ -32,6 +32,7 @@ from unittest import mock
 
 from atest import arg_parser
 from atest import atest_configs
+from atest import atest_enum
 from atest import atest_utils
 from atest import constants
 from atest import module_info
@@ -396,15 +397,17 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     mock_conn1.assert_has_calls([mock.call.close()])
     mock_conn2.assert_has_calls([mock.call.close()])
 
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
   @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_process_connection')
   @mock.patch('select.select')
   def test_start_monitor_tf_exit_before_2nd_connection(
-      self, mock_select, mock_process
+      self, mock_select, mock_process, mock_detect_event
   ):
     """Test _start_monitor method."""
     mock_server = mock.Mock()
     mock_subproc = mock.Mock()
     mock_reporter = mock.Mock()
+    mock_reporter.all_test_results = []
     mock_conn1 = mock.Mock()
     mock_conn2 = mock.Mock()
     mock_server.accept.side_effect = [
@@ -424,6 +427,10 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     mock_subproc.poll.side_effect = [None, None, True, True, True, True]
     self.tr._start_monitor(mock_server, mock_subproc, mock_reporter, {})
     self.assertEqual(mock_process.call_count, 4)
+    mock_detect_event.assert_called_once_with(
+        detect_type=atest_enum.DetectType.HAS_NO_TEST_RUN_ISSUE,
+        result=1,
+    )
     calls = [mock.call.accept(), mock.call.close()]
     mock_server.assert_has_calls(calls)
     mock_conn1.assert_has_calls([mock.call.close()])

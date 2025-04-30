@@ -546,6 +546,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 constants.RED,
                 constants.WHITE,
             )
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.HAS_NO_TEST_RUN_ISSUE,
+                result=1,
+            )
           if not data_map:
             metrics.LocalDetectEvent(
                 detect_type=DetectType.TF_EXIT_CODE,

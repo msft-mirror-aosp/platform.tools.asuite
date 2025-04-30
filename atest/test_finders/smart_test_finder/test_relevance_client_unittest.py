@@ -484,12 +484,51 @@ class TestRelevanceClientUnittests(unittest.TestCase):
 
     self.assertCountEqual(test_class_infos, [])
 
-  def assertTestClassInfoAlmostEqual(self, info1, info2, tolerance):
+  def test_get_test_class_infos_from_decision_graph_output_errors_returned(
+      self,
+  ):
+    check_reason = decision_graph_pb2.Check.Reason(relevance_score=0.99)
+    check = decision_graph_pb2.Check(
+        identifier=decision_graph_pb2.Check.Identifier(
+            id='id_1',
+        ),
+        reason=check_reason,
+    )
+    dg_output = json_format.MessageToDict(
+        decision_graph_pb2.DecisionGraphOutput(
+            outputs=[
+                decision_graph_pb2.StageOutput(
+                    checks=[check],
+                    errors=[
+                        decision_graph_pb2.Error(
+                            message='Query cancelled', rpc_error=1
+                        )
+                    ],
+                )
+            ],
+        )
+    )
+
+    test_class_infos = (
+        test_relevance_client.get_test_class_infos_from_decision_graph_output(
+            dg_output
+        )
+    )
+
+    self.assertCountEqual(test_class_infos, [])
+
+  def assertTestClassInfoAlmostEqual(self, info1, info2, tolerance) -> None:
     """Assert test class infos equal within tolerance.
 
     This function asserts the equality of two class infos. This indicates that
     the relevance scores are within the specified tolerance, while all other
     fields are equal.
+
+    Args:
+      info1: The first test class info.
+      info2: The second test class info.
+      tolerance: The maximum deviation allowed when comparing two floating-point
+        numbers.
     """
     self.assertAlmostEqual(info1.score, info2.score, delta=tolerance)
 
