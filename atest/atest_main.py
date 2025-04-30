@@ -1600,7 +1600,13 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
     reporter.print_starting_text()
 
     exit_code = ExitCode.SUCCESS
-    for invocation in self._test_runner_invocations:
+    for i, invocation in enumerate(self._test_runner_invocations):
+      print(
+          atest_utils.mark_cyan(
+              f'\nRunning Invocation {i + 1} (out of'
+              f' {len(self._test_runner_invocations)} invocation(s))...'
+          )
+      )
       exit_code |= invocation.run_all_tests(reporter)
 
     atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
