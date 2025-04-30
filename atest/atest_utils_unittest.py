@@ -690,7 +690,10 @@ class AtestUtilsUnittests(unittest.TestCase):
       # 3. Get uncommitted changes
       side_effect=[
           b'goog/main',
-          b'11 22 tracked_fp1.java\n33 44 c/tracked_fp2.java',
+          (
+              b'11 22 tracked_fp1.java\n33 44 c/tracked_fp2.java\n- -'
+              b' tracked_fp3.jar'
+          ),
           b'',
       ],
   )
@@ -705,6 +708,11 @@ class AtestUtilsUnittests(unittest.TestCase):
         number_of_lines_inserted=33,
         number_of_lines_deleted=44,
     )
+    tracked_changed_file_details3 = atest_utils.ChangedFileDetails(
+        filename='tracked_fp3.jar',
+        number_of_lines_inserted=0,
+        number_of_lines_deleted=0,
+    )
 
     modified_files_with_details = atest_utils.get_modified_files_with_details()
 
@@ -713,6 +721,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         {
             tracked_changed_file_details1,
             tracked_changed_file_details2,
+            tracked_changed_file_details3,
         },
     )
 
@@ -726,18 +735,26 @@ class AtestUtilsUnittests(unittest.TestCase):
       side_effect=[
           b'',
           b'',
-          b'55 untracked_fp3.java\n66 a/b/untracked_fp4.py',
+          (
+              b'55 untracked_fp1.java\n66 a/b/untracked_fp2.py\n-'
+              b' untracked_fp3.jar'
+          ),
       ],
   )
   def test_get_modified_files_with_details_only_untracked_changes(self, _):
     untracked_changed_file_details1 = atest_utils.ChangedFileDetails(
-        filename='untracked_fp3.java',
+        filename='untracked_fp1.java',
         number_of_lines_inserted=55,
         number_of_lines_deleted=0,
     )
     untracked_changed_file_details2 = atest_utils.ChangedFileDetails(
-        filename='a/b/untracked_fp4.py',
+        filename='a/b/untracked_fp2.py',
         number_of_lines_inserted=66,
+        number_of_lines_deleted=0,
+    )
+    untracked_changed_file_details3 = atest_utils.ChangedFileDetails(
+        filename='untracked_fp3.jar',
+        number_of_lines_inserted=0,
         number_of_lines_deleted=0,
     )
 
@@ -748,6 +765,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         {
             untracked_changed_file_details1,
             untracked_changed_file_details2,
+            untracked_changed_file_details3,
         },
     )
 
