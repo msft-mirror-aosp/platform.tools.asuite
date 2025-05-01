@@ -17,9 +17,13 @@
 """The top-most module to automatically select tests based on local change infos."""
 
 import logging
+import os
+import pathlib
 from typing import List
 from atest import atest_utils
 from atest import constants
+from atest import module_info
+from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
 from atest.test_finders.smart_test_finder import atp_test_selector
 from atest.test_finders.smart_test_finder import local_info_collector
@@ -78,23 +82,42 @@ SMART_TEST_SELECTION_CUSTOM_ARGS = [
 ]
 
 
-def get_smartly_selected_tests(
-    time_limit_in_minutes: int = constants.SMART_TEST_EXECUTION_TIME_LIMIT_IN_MINUTES,
-) -> List[test_info.TestInfo]:
-  """Given a time limit, smartly select tests to run."""
+def _get_selected_host_unit_tests(
+    mod_info: module_info.ModuleInfo, root_dir: str
+) -> List[str]:
+  """Return host unit tests under the root directory."""
+  if not (mod_info and root_dir):
+    atest_utils.print_and_log_warning(
+        'Missing module info or root directory, skip host unit tests searching.'
+    )
+    return []
+  return test_finder_utils.find_host_unit_tests(
+      mod_info, str(pathlib.Path(os.getcwd()).relative_to(root_dir))
+  )
+
+
+def _get_selected_tests_with_relevance_scores(
+    time_limit_in_minutes: int,
+) -> tuple[List[str], List[float]]:
+  """Gets score based tests with their scores."""
   local_change_info = local_info_collector.get_local_change_info()
   logging.info('Local change info: %s', local_change_info)
   if not local_change_info.changed_files:
-    atest_utils.print_and_log_warning('No local change detected, exiting...')
-    return []
+    atest_utils.print_and_log_warning(
+        'No local change detected, skip relevance score based tests searching.'
+    )
+    return ([], [])
 
   selected_atp_tests = atp_test_selector.get_selected_atp_tests(
       local_change_info
   )
   logging.info('Selected ATP tests: %s', selected_atp_tests)
   if not selected_atp_tests:
-    atest_utils.print_and_log_warning('No ATP tests selected, exiting...')
-    return []
+    atest_utils.print_and_log_warning(
+        'No ATP tests selected, skip relevance score based tests searching.'
+    )
+    return ([], [])
+
   atest_utils.colorful_print(
       'Retrieving relevant tests, this may take a few minutes...',
       constants.MAGENTA,
@@ -106,8 +129,10 @@ def get_smartly_selected_tests(
   logging.debug('DG_outputs: %s', dg_outputs)
 
   if not dg_outputs:
-    atest_utils.print_and_log_warning('No relevant tests found, exiting...')
-    return []
+    atest_utils.print_and_log_warning(
+        'No relevant tests found, skip relevance score based tests searching.'
+    )
+    return ([], [])
 
   candidate_test_classes = []
   for dg_output in dg_outputs:
@@ -123,11 +148,10 @@ def get_smartly_selected_tests(
   )
 
   if not selected_test_classes:
-    atest_utils.print_and_log_warning('No relevant tests selected, exiting...')
-    return []
+    return ([], [])
 
-  final_selected_tests = []
-  atest_utils.colorful_print('\nSelected tests to run:', constants.CYAN)
+  tests = []
+  test_scores = []
   for selected_test_class in selected_test_classes:
     # Remove this once b/411508650 is fixed.
     if selected_test_class.module.startswith('art-run-test'):
@@ -146,10 +170,57 @@ def get_smartly_selected_tests(
         selected_test_class_str = (
             f'{selected_test_class.module}:{selected_test_class.test_class}'
         )
-    atest_utils.colorful_print(
-        f'\t{selected_test_class_str}:{selected_test_class.score}',
-        constants.CYAN,
-    )
-    final_selected_tests.append(selected_test_class_str)
+    tests.append(selected_test_class_str)
+    test_scores.append(selected_test_class.score)
+  return (tests, test_scores)
 
-  return final_selected_tests
+
+def _print_selected_tests(
+    host_unit_tests: List[str],
+    relevance_score_based_tests: List[str],
+    relevance_scores: List[float],
+):
+  """Print selected tests."""
+  atest_utils.colorful_print('\nSelected tests to run:', constants.CYAN)
+  if host_unit_tests:
+    atest_utils.colorful_print('\nHost unit tests:', constants.CYAN)
+    for host_test in host_unit_tests:
+      atest_utils.colorful_print(f'\t{host_test}', constants.CYAN)
+
+  if relevance_score_based_tests:
+    atest_utils.colorful_print(
+        '\nTests based on relevance scores:', constants.CYAN
+    )
+    for test, score in zip(relevance_score_based_tests, relevance_scores):
+      atest_utils.colorful_print(
+          f'\t{test}:{score}',
+          constants.CYAN,
+      )
+
+
+def get_smartly_selected_tests(
+    time_limit_in_minutes: int = constants.SMART_TEST_EXECUTION_TIME_LIMIT_IN_MINUTES,
+    include_host_unit_tests: bool = True,
+    mod_info: module_info.ModuleInfo = None,
+    root_dir: str = None,
+) -> List[test_info.TestInfo]:
+  """Given a time limit, smartly select tests to run."""
+  host_unit_tests = (
+      _get_selected_host_unit_tests(mod_info, root_dir)
+      if include_host_unit_tests
+      else []
+  )
+  score_based_tests_with_scores = _get_selected_tests_with_relevance_scores(
+      time_limit_in_minutes
+  )
+
+  if host_unit_tests or score_based_tests_with_scores[0]:
+    _print_selected_tests(
+        host_unit_tests,
+        score_based_tests_with_scores[0],
+        score_based_tests_with_scores[1],
+    )
+  else:
+    atest_utils.print_and_log_warning('No tests selected, exiting...')
+
+  return host_unit_tests + score_based_tests_with_scores[0]
