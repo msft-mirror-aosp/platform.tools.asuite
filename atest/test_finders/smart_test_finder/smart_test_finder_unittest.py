@@ -261,7 +261,7 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
                 branch='some_branch6',
                 target='some_target6',
                 module='TestFModule',
-                test_class='TestFModule',
+                test_class='TestFModule.TestFClass',
                 score=0.96,
             )
         ),
@@ -316,7 +316,7 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
             'TestAModule:testAClass',
             'TestDModule:testDClass',
             'TestGModule:testGClass',
-            'TestFModule',
+            'TestFModule:TestFClass',
         ],
     )
 

@@ -397,3 +397,7 @@ SMART_TEST_SELECTION = 'smart_test_selection'
 
 # Smart test selection X20 root path.
 SMART_TEST_SELECTION_ROOT_PATH = ''
+
+# TODO(b/414460878): Make this time limit an argument, and also pass it to smart
+# test finder as a criteria to select tests.
+SMART_TEST_EXECUTION_TIME_LIMIT_IN_MINUTES = 5

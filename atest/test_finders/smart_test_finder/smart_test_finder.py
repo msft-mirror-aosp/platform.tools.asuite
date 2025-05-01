@@ -79,7 +79,7 @@ SMART_TEST_SELECTION_CUSTOM_ARGS = [
 
 
 def get_smartly_selected_tests(
-    time_limit_in_minutes: int = 5,
+    time_limit_in_minutes: int = constants.SMART_TEST_EXECUTION_TIME_LIMIT_IN_MINUTES,
 ) -> List[test_info.TestInfo]:
   """Given a time limit, smartly select tests to run."""
   local_change_info = local_info_collector.get_local_change_info()
@@ -132,13 +132,20 @@ def get_smartly_selected_tests(
     # Remove this once b/411508650 is fixed.
     if selected_test_class.module.startswith('art-run-test'):
       selected_test_class_str = selected_test_class.module
-    # Remove this once b/412668377 is fixed.
-    elif selected_test_class.module == selected_test_class.test_class:
-      selected_test_class_str = selected_test_class.module
     else:
-      selected_test_class_str = (
-          f'{selected_test_class.module}:{selected_test_class.test_class}'
-      )
+      # Special handling due to b/414872096
+      split_class_name = selected_test_class.test_class.split('.')
+      if (
+          len(split_class_name) == 2
+          and split_class_name[0] == selected_test_class.module
+      ):
+        selected_test_class_str = (
+            f'{selected_test_class.module}:{split_class_name[1]}'
+        )
+      else:
+        selected_test_class_str = (
+            f'{selected_test_class.module}:{selected_test_class.test_class}'
+        )
     atest_utils.colorful_print(
         f'\t{selected_test_class_str}:{selected_test_class.score}',
         constants.CYAN,

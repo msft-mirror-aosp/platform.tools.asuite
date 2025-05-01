@@ -780,7 +780,10 @@ class CLITranslator:
           host_unit_tests, host_unit_test_details
       )
       test_infos.extend(host_unit_test_infos)
-    if atest_utils.has_mixed_type_filters(test_infos):
+    if (
+        atest_utils.has_mixed_type_filters(test_infos)
+        and not args.smart_test_selection
+    ):
       atest_utils.colorful_print(
           'Mixed type filters found. '
           'Please separate tests into different runs.',
