@@ -26,6 +26,7 @@ import tempfile
 import unittest
 from unittest import mock
 from atest import arg_parser
+from atest import atest_enum
 from atest import atest_utils
 from atest import cli_translator as cli_t
 from atest import constants
@@ -38,6 +39,7 @@ from atest.metrics import metrics
 from atest.test_finders import module_finder
 from atest.test_finders import test_finder_base
 from atest.test_finders import test_finder_utils
+from atest.test_finders.smart_test_finder import smart_test_finder
 from pyfakefs import fake_filesystem_unittest
 
 
@@ -566,6 +568,77 @@ class CLITranslatorUnittests(unittest.TestCase):
             uc.MODULE_INFO_HOST_1,
             uc.MODULE_INFO_HOST_2,
         ],
+    )
+
+  @mock.patch.object(metrics, 'LocalDetectEvent')
+  @mock.patch.object(os, 'getcwd', return_value='/src/build_top/somewhere')
+  @mock.patch.object(
+      smart_test_finder,
+      'get_smartly_selected_tests',
+      return_value=[uc.CLASS_NAME],
+  )
+  @mock.patch.object(
+      cli_t.CLITranslator,
+      '_get_test_infos',
+      side_effect=gettestinfos_side_effect,
+  )
+  def test_translate_tests_returned_from_smart_test_selection(
+      self,
+      _info,
+      _get_smartly_selected_tests,
+      _getcwd,
+      _local_detect_event,
+  ):
+    """Test translate method for smart test selection plus host unit tests."""
+    self.args.tests = []
+    self.args.host = False
+    self.args.host_unit_test_only = False
+    self.args.smart_test_selection = True
+
+    test_infos = self.ctr.translate(self.args)
+
+    unittest_utils.assert_equal_testinfo_lists(
+        self,
+        test_infos,
+        [
+            uc.CLASS_INFO,
+        ],
+    )
+    self.assertNotIn(
+        mock.call(
+            detect_type=atest_enum.DetectType.STS_SELECT_NO_TEST, result=1
+        ),
+        _local_detect_event.mock_calls,
+    )
+
+  @mock.patch.object(metrics, 'LocalDetectEvent')
+  @mock.patch.object(
+      smart_test_finder,
+      'get_smartly_selected_tests',
+      return_value=[],
+  )
+  @mock.patch.object(
+      cli_t.CLITranslator,
+      '_get_test_infos',
+      side_effect=gettestinfos_side_effect,
+  )
+  def test_translate_no_tests_from_smart_test_selection(
+      self,
+      _info,
+      _get_smartly_selected_tests,
+      _local_detect_event,
+  ):
+    """Test translate method for smart test selection when no tests returned."""
+    self.args.tests = []
+    self.args.host = False
+    self.args.host_unit_test_only = False
+    self.args.smart_test_selection = True
+
+    test_infos = self.ctr.translate(self.args)
+
+    self.assertCountEqual(test_infos, [])
+    _local_detect_event.assert_any_call(
+        detect_type=atest_enum.DetectType.STS_SELECT_NO_TEST, result=1
     )
 
   @mock.patch.object(
