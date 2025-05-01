@@ -142,3 +142,12 @@ def set_default_argument_values(args: argparse.Namespace):
   """
   if not args.disable_upload_result:
     args.request_upload_result = True
+
+
+def set_invocation_properties(invocation_properties: dict[str, str]):
+  """Sets invocation properties for perf tests.
+
+  Args:
+    invocation_properties: A dictionary to store invocation properties.
+  """
+  invocation_properties['crystalball_ingest'] = 'yes'

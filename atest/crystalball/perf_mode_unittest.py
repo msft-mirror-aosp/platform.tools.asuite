@@ -110,6 +110,13 @@ class TestPerfModule(unittest.TestCase):
 
     self.assertFalse(args.request_upload_result)
 
+  def test_set_invocation_properties_sets_crystalball_ingest(self):
+    invocation_properties = {}
+
+    perf_mode.set_invocation_properties(invocation_properties)
+
+    self.assertIn('crystalball_ingest', invocation_properties)
+
 
 if __name__ == '__main__':
   unittest.main()
