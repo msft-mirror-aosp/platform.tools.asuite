@@ -36,10 +36,10 @@ _FAKE_CONSTANTS_CONTENT = """{
 }"""
 
 _FAKE_ADB_OUTPUT = b"""List of devices attached
-fake.ser.num1        device product:device_product_1 model:not_important_model1 device:some_device1 transport_id:1
+fake.ser.num1        product:device_product_1 model:not_important_model1 device:some_device1 transport_id:1
 fake.ser.num2        device product:device_product_2 model:not_important_model2 device:some_device2 transport_id:2
-matched.ser.num       device product:matched_device_product model:not_important_model3 device:matched_device transport_id:3
-aosp.matched.ser.num    device product:aosp_cf_x86_64_only_phone model:not_important_model4 device:device2 transport_id:4
+matched.ser.num       product:matched_device_product model:not_important_model3 device:matched_device transport_id:3
+aosp.matched.ser.num    product:aosp_cf_x86_64_only_phone model:not_important_model4 device:device2 transport_id:4
 some_serial   device product:aosp_cf_x86_64_phone model:not_important_model5 device:some_device transport_id:5
 """
 

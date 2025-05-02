@@ -33,7 +33,7 @@ from atest import constants
 from atest.test_finders.smart_test_finder import local_info_collector
 
 
-_DEVICE_PRODUCT_REGEX = re.compile(r'device product:(?P<product>[^\s]+)')
+_DEVICE_PRODUCT_REGEX = re.compile(r'product:(?P<product>[^\s]+)')
 _DEVICE_REGEX = re.compile(r'device:(?P<device>[^\s]+)')
 
 _ENABLED_ATP_TEST_PLANS = [
