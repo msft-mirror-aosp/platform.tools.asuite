@@ -19,11 +19,11 @@
 import argparse
 
 from atest import constants
-from atest import perf_module
 from atest.atest_utils import BuildOutputMode
+from atest.crystalball import perf_mode
 
 _EXTRA_MODULE_MAP = {
-    perf_module.PERF_MODULE_ARG_NAME: perf_module,
+    perf_mode.PERF_MODE_ARG_NAME: perf_mode,
 }
 
 
@@ -528,7 +528,7 @@ def create_atest_arg_parser():
       help='Run tests using atest_local_min.xml as the TF base templates.',
   )
 
-  perf_module.add_global_arguments(parser)
+  perf_mode.add_global_arguments(parser)
 
   # This arg actually doesn't consume anything, it's primarily used for
   # the help description and creating custom_args in the NameSpace object.

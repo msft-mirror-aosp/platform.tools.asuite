@@ -33,7 +33,7 @@ from atest import constants
 from atest.test_finders.smart_test_finder import local_info_collector
 
 
-_DEVICE_PRODUCT_REGEX = re.compile(r'device product:(?P<product>[^\s]+)')
+_DEVICE_PRODUCT_REGEX = re.compile(r'product:(?P<product>[^\s]+)')
 _DEVICE_REGEX = re.compile(r'device:(?P<device>[^\s]+)')
 
 _ENABLED_ATP_TEST_PLANS = [
@@ -212,17 +212,20 @@ def get_matched_device() -> DeviceInfo:
 
   # 'ANDROID_SERIAL' is already set.
   if android_serial:
-    for device in all_devices:
-      if device.serial == android_serial:
-        if device.product != target_product:
+    for device_info in all_devices:
+      if device_info.serial == android_serial:
+        if (
+            device_info.product != target_product
+            and device_info.device != target_product
+        ):
           atest_utils.print_and_log_warning(
               f'Device with configured ANDROID_SERIAL {android_serial} is not'
-              ' aligned with the lunch target. Device target is:'
-              f' {device.product} but lunch target is: {target_product}.'
+              ' aligned with the lunch target. lunch target is:'
+              f' {target_product}. Configured device is: {device_info}.'
           )
           return None
         else:
-          return device
+          return device_info
     atest_utils.print_and_log_warning(
         f'ANDROID_SERIAL is set to {android_serial} but can not find the device'
         ' with that serial.'
@@ -230,12 +233,24 @@ def get_matched_device() -> DeviceInfo:
     return None
 
   # 'ANDROID_SERIAL' is not set yet.
-  for device in all_devices:
-    if device.product == target_product:
-      return device
+  for device_info in all_devices:
+    if (
+        device_info.product == target_product
+        or device_info.device == target_product
+    ):
+      logging.info('Found matched device %s', device_info)
+      logging.info(
+          'ANDROID_SERIAL is not set. Set it to %s', device_info.serial
+      )
+      os.environ[constants.ANDROID_SERIAL] = device_info.serial
+      return device_info
   atest_utils.print_and_log_warning(
-      'Can not find a device that matches the lunch target.'
+      f'Can not find a device that matches the lunch target {target_product}.'
   )
+  atest_utils.colorful_print('Available devices are:', constants.CYAN)
+  for device in all_devices:
+    atest_utils.colorful_print(f'\t{device}', constants.CYAN)
+
   return None
 
 
@@ -252,6 +267,21 @@ def get_selected_atp_tests(change_info: local_info_collector.ChangeInfo):
         'No matched device connected, and no ATP tests are selected.'
     )
     return []
+
+  android_serial = matched_device.serial
+  try:
+    logging.debug('Disabling the ADB verification of device %s', android_serial)
+    subprocess.check_output(
+        f'adb -s {android_serial} shell settings put global'
+        ' package_verifier_user_consent -1',
+        shell=True,
+    )
+  except subprocess.CalledProcessError as err:
+    atest_utils.print_and_log_warning(
+        'Failed to disable the ADB verification of devices %s. Error: %s',
+        matched_device,
+        err,
+    )
 
   selected_atp_tests = []
   for test in candidate_tests:

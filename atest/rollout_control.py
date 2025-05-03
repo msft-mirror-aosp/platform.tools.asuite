@@ -204,10 +204,7 @@ tf_preparer_incremental_setup = RolloutControlledFeature(
     feature_id=3,
     print_message=(
         atest_utils.mark_magenta(
-            'You are one of the first users selected to receive the'
-            ' "Incremental setup for TradeFed preparers" feature. If you are'
-            ' happy with it, please +1 on http://b/381900378. If you'
-            ' experienced any issues, please comment on the same bug.'
+            'Incremental APK installation is enabled (b/381900378).'
         )
     ),
 )

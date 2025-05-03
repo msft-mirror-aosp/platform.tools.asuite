@@ -23,7 +23,9 @@ import unittest
 from unittest import mock
 from atest import atest_utils
 from atest import constants
+from atest import unittest_constants
 from atest.proto import decision_graph_pb2
+from atest.test_finders import test_finder_utils
 from atest.test_finders.smart_test_finder import atp_test_selector
 from atest.test_finders.smart_test_finder import local_info_collector
 from atest.test_finders.smart_test_finder import smart_test_filter
@@ -261,7 +263,7 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
                 branch='some_branch6',
                 target='some_target6',
                 module='TestFModule',
-                test_class='TestFModule',
+                test_class='TestFModule.TestFClass',
                 score=0.96,
             )
         ),
@@ -316,7 +318,7 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
             'TestAModule:testAClass',
             'TestDModule:testDClass',
             'TestGModule:testGClass',
-            'TestFModule',
+            'TestFModule:TestFClass',
         ],
     )
 
@@ -346,6 +348,59 @@ class SmartTestFinderFilmsystemUnittests(fake_filesystem_unittest.TestCase):
     )
     mock_local_info_collector.return_value = CHANGE_INFO_WITH_NO_CHANGED_FILES
     results = smart_test_finder.get_smartly_selected_tests()
+    self.assertEqual(results, [])
+
+  @mock.patch.object(
+      test_finder_utils,
+      'find_host_unit_tests',
+      return_value=[
+          unittest_constants.CLASS_NAME,
+          unittest_constants.MODULE2_NAME,
+      ],
+  )
+  @mock.patch('os.getcwd', return_value='/my/main/some/project')
+  @mock.patch.object(local_info_collector, 'get_local_change_info')
+  def test_get_smartly_selected_tests_return_host_unit_tests_but_no_relevance_score_based_tests(
+      self, mock_local_info_collector, _, __
+  ):
+    CHANGE_INFO_WITH_NO_CHANGED_FILES = local_info_collector.ChangeInfo(
+        project='fake_project',
+        branch='fake_branch',
+        remote_hostname='stuff-to-be-selected',
+        changed_files=[],
+        user_key='fake_user',
+    )
+    mock_local_info_collector.return_value = CHANGE_INFO_WITH_NO_CHANGED_FILES
+
+    results = smart_test_finder.get_smartly_selected_tests(
+        mod_info=unittest_constants.MODULE_INFO, root_dir='/my/main'
+    )
+
+    self.assertCountEqual(
+        results,
+        [unittest_constants.CLASS_NAME, unittest_constants.MODULE2_NAME],
+    )
+
+  @mock.patch.object(local_info_collector, 'get_local_change_info')
+  def test_get_smartly_selected_tests_return_no_host_unit_tests_per_user_specification(
+      self,
+      mock_local_info_collector,
+  ):
+    CHANGE_INFO_WITH_NO_CHANGED_FILES = local_info_collector.ChangeInfo(
+        project='fake_project',
+        branch='fake_branch',
+        remote_hostname='stuff-to-be-selected',
+        changed_files=[],
+        user_key='fake_user',
+    )
+    mock_local_info_collector.return_value = CHANGE_INFO_WITH_NO_CHANGED_FILES
+
+    results = smart_test_finder.get_smartly_selected_tests(
+        include_host_unit_tests=False,
+        mod_info=unittest_constants.MODULE_INFO,
+        root_dir='/my/main',
+    )
+
     self.assertEqual(results, [])
 
 

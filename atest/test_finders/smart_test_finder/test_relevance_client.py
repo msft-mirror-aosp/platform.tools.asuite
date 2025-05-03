@@ -258,6 +258,12 @@ def get_test_class_infos_from_decision_graph_output(
 
   test_classes = []
   for stage_output in dg_output.get('outputs', []):
+    errors = stage_output.get('errors')
+    if errors:
+      atest_utils.print_and_log_warning(
+          'Errors returned from test relevance API output: %s', errors
+      )
+      return []
     for check in stage_output.get('checks', []):
       check_identifier = check.get('identifier')
       if not check_identifier:

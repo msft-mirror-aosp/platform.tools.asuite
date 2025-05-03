@@ -53,12 +53,12 @@ from atest import cli_translator
 from atest import constants
 from atest import device_update
 from atest import module_info
-from atest import perf_module
 from atest import result_reporter
 from atest import test_runner_handler
 from atest.atest_enum import DetectType
 from atest.atest_enum import ExitCode
 from atest.coverage import coverage
+from atest.crystalball import perf_mode
 from atest.metrics import metrics
 from atest.metrics import metrics_base
 from atest.metrics import metrics_utils
@@ -727,7 +727,14 @@ class _AtestMain:
           self._args,
           metrics.get_run_id(),
       )
+      original_android_serial = os.environ.get(constants.ANDROID_SERIAL)
       exit_code = self._run_all_steps()
+      if self._args.smart_test_selection:
+        # Recover the original ANDROID_SERIAL
+        if original_android_serial:
+          os.environ[constants.ANDROID_SERIAL] = original_android_serial
+        elif constants.ANDROID_SERIAL in os.environ:
+          del os.environ[constants.ANDROID_SERIAL]
       detector = bug_detector.BugDetector(final_args, exit_code)
       if exit_code not in EXIT_CODES_BEFORE_TEST:
         metrics.LocalDetectEvent(
@@ -1010,8 +1017,8 @@ class _AtestMain:
   def _inject_default_arguments_based_on_test_infos(
       test_infos: list[test_info.TestInfo], args: argparse.Namespace
   ) -> None:
-    if perf_module.is_perf_test(test_infos=test_infos):
-      perf_module.set_default_argument_values(args)
+    if perf_mode.is_perf_test(test_infos=test_infos):
+      perf_mode.set_default_argument_values(args)
 
   def _handle_list_modules(self) -> int:
     """Print the testable modules for a given suite.
@@ -1593,7 +1600,27 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
     reporter.print_starting_text()
 
     exit_code = ExitCode.SUCCESS
-    for invocation in self._test_runner_invocations:
+    execution_start_time = time.time()
+    for i, invocation in enumerate(self._test_runner_invocations):
+      if self._args.smart_test_selection:
+        if (
+            time.time() - execution_start_time
+            > constants.SMART_TEST_EXECUTION_TIME_LIMIT_IN_MINUTES * 60
+        ):
+          atest_utils.print_and_log_warning(
+              'Smart test run out of time limit (%d minutes). Only %d out of %d'
+              ' invocation(s) of selected tests were executed',
+              constants.SMART_TEST_EXECUTION_TIME_LIMIT_IN_MINUTES,
+              i,
+              len(self._test_runner_invocations),
+          )
+          break
+      print(
+          atest_utils.mark_cyan(
+              f'\nRunning Invocation {i + 1} (out of'
+              f' {len(self._test_runner_invocations)} invocation(s))...'
+          )
+      )
       exit_code |= invocation.run_all_tests(reporter)
 
     atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)

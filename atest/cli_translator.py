@@ -769,7 +769,13 @@ class CLITranslator:
     if atest_utils.has_wildcard(tests):
       tests = self._extract_testable_modules_by_wildcard(tests)
     if args.smart_test_selection:
-      tests = smart_test_finder.get_smartly_selected_tests()
+      tests = smart_test_finder.get_smartly_selected_tests(
+          mod_info=self.mod_info, root_dir=self.root_dir
+      )
+      if not tests:
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.STS_SELECT_NO_TEST, result=1
+        )
     test_infos = self._get_test_infos(tests, test_details_list)
     if host_unit_tests:
       host_unit_test_details = [
@@ -780,7 +786,10 @@ class CLITranslator:
           host_unit_tests, host_unit_test_details
       )
       test_infos.extend(host_unit_test_infos)
-    if atest_utils.has_mixed_type_filters(test_infos):
+    if (
+        atest_utils.has_mixed_type_filters(test_infos)
+        and not args.smart_test_selection
+    ):
       atest_utils.colorful_print(
           'Mixed type filters found. '
           'Please separate tests into different runs.',
