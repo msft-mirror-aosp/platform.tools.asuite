@@ -36,10 +36,10 @@ _FAKE_CONSTANTS_CONTENT = """{
 }"""
 
 _FAKE_ADB_OUTPUT = b"""List of devices attached
-fake.ser.num1        device product:device_product_1 model:not_important_model1 device:some_device1 transport_id:1
+fake.ser.num1        product:device_product_1 model:not_important_model1 device:some_device1 transport_id:1
 fake.ser.num2        device product:device_product_2 model:not_important_model2 device:some_device2 transport_id:2
-matched.ser.num       device product:matched_device_product model:not_important_model3 device:matched_device transport_id:3
-aosp.matched.ser.num    device product:aosp_cf_x86_64_only_phone model:not_important_model4 device:device2 transport_id:4
+matched.ser.num       product:matched_device_product model:not_important_model3 device:matched_device transport_id:3
+aosp.matched.ser.num    product:aosp_cf_x86_64_only_phone model:not_important_model4 device:device2 transport_id:4
 some_serial   device product:aosp_cf_x86_64_phone model:not_important_model5 device:some_device transport_id:5
 """
 
@@ -85,6 +85,25 @@ class AtpTestSelectorUnittests(unittest.TestCase):
       'os.environ',
       {
           constants.ANDROID_SERIAL: 'matched.ser.num',
+          constants.ANDROID_TARGET_PRODUCT: 'matched_device',
+      },
+  )
+  def test_get_matched_device_android_serial_set_and_device_matched(self, _):
+    expected_device_info = atp_test_selector.DeviceInfo(
+        serial='matched.ser.num',
+        product='matched_device_product',
+        device='matched_device',
+    )
+
+    actual_device_info = atp_test_selector.get_matched_device()
+
+    self.assertEqual(actual_device_info, expected_device_info)
+
+  @mock.patch('subprocess.check_output', return_value=_FAKE_ADB_OUTPUT)
+  @mock.patch.dict(
+      'os.environ',
+      {
+          constants.ANDROID_SERIAL: 'matched.ser.num',
           constants.ANDROID_TARGET_PRODUCT: 'unmatched_device_product',
       },
   )
@@ -102,6 +121,26 @@ class AtpTestSelectorUnittests(unittest.TestCase):
       },
   )
   def test_get_matched_device_android_serial_unset_but_product_matched(self, _):
+    expected_device_info = atp_test_selector.DeviceInfo(
+        serial='matched.ser.num',
+        product='matched_device_product',
+        device='matched_device',
+    )
+
+    actual_device_info = atp_test_selector.get_matched_device()
+
+    self.assertEqual(actual_device_info, expected_device_info)
+    self.assertEqual(os.environ.get('ANDROID_SERIAL'), 'matched.ser.num')
+
+  @mock.patch('subprocess.check_output', return_value=_FAKE_ADB_OUTPUT)
+  @mock.patch.dict(
+      'os.environ',
+      {
+          constants.ANDROID_SERIAL: '',
+          constants.ANDROID_TARGET_PRODUCT: 'matched_device',
+      },
+  )
+  def test_get_matched_device_android_serial_unset_but_device_matched(self, _):
     expected_device_info = atp_test_selector.DeviceInfo(
         serial='matched.ser.num',
         product='matched_device_product',

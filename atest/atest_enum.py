@@ -131,6 +131,8 @@ class DetectType(IntEnum):
   RUN_ERROR_COUNT = 69
   # Whether no test run issue occurred during the Atest invocation
   HAS_NO_TEST_RUN_ISSUE = 70
+  # Whether no tests are returned with smart test selection
+  STS_SELECT_NO_TEST = 71
 
 
 @unique

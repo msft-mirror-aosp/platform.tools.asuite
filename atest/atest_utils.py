@@ -347,6 +347,8 @@ def stream_io_output(
   original_stdout = sys.stdout
   original_stderr = sys.stderr
 
+  original_stdout.write('\n')
+
   lock = threading.Lock()
 
   class SafeStdout:
