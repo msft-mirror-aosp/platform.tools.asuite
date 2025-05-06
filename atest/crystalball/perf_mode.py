@@ -33,13 +33,36 @@ def add_arguments(parser: argparse.ArgumentParser):
   parser.add_argument(
       '--iter',
       type=int,
-      help='(For performance tests) Perf iteration ...',  # TODO(jinghuanwen): add help message
+      help=(
+          '(For performance tests) The number of iterations to run the'
+          ' microbenchmark. This option is used in'
+          ' com.android.tradefed.testtype.AndroidJUnitTest to control the'
+          ' microbenchmark iterations.'
+      ),
   )
 
-  parser.add_argument(  # TODO(jinghuanwen): update this option
+  parser.add_argument(
       '--class',
       dest='class_name',
-      help='(For performance tests) some class name.',
+      help=(
+          '(For performance tests) The name of the Microbenchmark or CUJ class'
+          ' to run. This option is used in'
+          ' com.android.tradefed.testtype.AndroidJUnitTest to specify which'
+          ' class will run.'
+      ),
+  )
+
+  parser.add_argument(
+      '--metric-filter',
+      dest='metric_filter',
+      help=(
+          '(For performance tests) Regular expression that will be used for'
+          ' filtering the metrics from individual test metrics and aggregated'
+          ' metrics. This option is equivalent to the option'
+          ' "strict-include-metric-filter" in'
+          ' com.android.tradefed.postprocessor.MetricFilePostProcessor.'
+          ' Right now in the perf test, only the aggregated metrics works well.'
+      ),
   )
 
 
@@ -61,19 +84,32 @@ def process_parsed_args(args: argparse.Namespace):
         f' {module_arg}"'
     )
 
-  if args.class_name:  # TODO(jinghuanwen): update this option
+  if args.class_name:
     module_name = args.tests[0]
+    module_arg = f'{module_name}:{{com.android.tradefed.testtype.AndroidJUnitTest}}class:{args.class_name}'
     args.custom_args.append('--module-arg')
-    args.custom_args.append(
-        f'{module_name}:{{com.android.tradefed.testtype.AndroidJUnitTest}}instrumentation-arg:class:={args.class_name}'
+    args.custom_args.append(module_arg)
+    print(
+        f'Converting argument "--class {args.class_name}" to "--module-arg'
+        f' {module_arg}"'
+    )
+
+  if args.metric_filter:
+    module_name = args.tests[0]
+    module_arg = f'{module_name}:{{com.android.tradefed.postprocessor.MetricFilePostProcessor}}strict-include-metric-filter:{args.metric_filter}'
+    args.custom_args.append('--module-arg')
+    args.custom_args.append(module_arg)
+    print(
+        f'Converting argument "--metric-filter {args.metric_filter}" to'
+        f' "--module-arg {module_arg}"'
     )
 
   if str(original_args) != str(args):
     print(  # TODO(jinghuanwen): update or remove this message
         atest_utils.mark_magenta(
             'Perf arguments simplification experimental feature was triggered.'
-            ' If you like the change please +1 to b/12345, or leave comments if'
-            ' you have feedbacks.'
+            ' If you like the change please +1 to b/347360193, or leave'
+            ' comments if you have feedbacks.'
         )
     )
 
