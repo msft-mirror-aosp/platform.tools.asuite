@@ -258,14 +258,14 @@ alias_definitions = {
     },
     'launcher': {'build': 'NexusLauncherRelease'},
     'launcherd': {
-        'build': 'nexusLauncherDebug',
+        'build': 'NexusLauncherDebug',
         'update': (
             'adb install'
             ' $OUT/anywhere/priv-app/NexusLauncherDebug/NexusLauncherDebug.apk'
         ),
     },
     'launchergo': {
-        'build': 'launcherGoGoogle',
+        'build': 'LauncherGoGoogle',
         'update': 'adb shell am force-stop com.android.launcher3',
     },
     'intentresolver': {
@@ -273,27 +273,27 @@ alias_definitions = {
         'update': 'adb shell am force-stop com.android.intentresolver',
     },
     'sysuig': {
-        'build': 'systemUIGoogle',
+        'build': 'SystemUIGoogle',
         'update': 'adb shell am force-stop com.android.systemui',
     },
     'sysuititan': {
-        'build': 'systemUITitan',
+        'build': 'SystemUITitan',
         'update': 'adb shell am force-stop com.android.systemui',
     },
     'sysuigo': {
-        'build': 'systemUIGo',
+        'build': 'SystemUIGo',
         'update': 'adb shell am force-stop com.android.systemui',
     },
     'flagflipper': {
-        'build': 'theFlippinApp',
+        'build': 'TheFlippinApp',
         'update': 'adb shell am force-stop com.android.theflippinapp',
     },
     'docsui': {
-        'build': 'documentsUI',
+        'build': 'DocumentsUI',
         'update': 'adb shell am force-stop com.android.documentsui',
     },
     'docsuig': {
-        'build': 'documentsUIGoogle',
+        'build': 'DocumentsUIGoogle',
         'update': 'adb shell am force-stop com.google.android.documentsui',
     },
     'settings': {
