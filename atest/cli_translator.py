@@ -762,9 +762,6 @@ class CLITranslator:
       )
     atest_utils.colorful_print('\nFinding Tests...', constants.CYAN)
     logging.debug('Finding Tests: %s', tests)
-    # Clear cache if user pass -c option
-    if args.clear_cache:
-      atest_utils.clean_test_info_caches(tests + host_unit_tests)
     # Process tests which might contain wildcard symbols in advance.
     if atest_utils.has_wildcard(tests):
       tests = self._extract_testable_modules_by_wildcard(tests)
@@ -776,6 +773,9 @@ class CLITranslator:
         metrics.LocalDetectEvent(
             detect_type=DetectType.STS_SELECT_NO_TEST, result=1
         )
+    # Clear cache if user pass -c option
+    if args.clear_cache:
+      atest_utils.clean_test_info_caches(tests + host_unit_tests)
     test_infos = self._get_test_infos(tests, test_details_list)
     if host_unit_tests:
       host_unit_test_details = [
