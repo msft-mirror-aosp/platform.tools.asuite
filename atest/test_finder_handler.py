@@ -260,7 +260,11 @@ def _get_test_reference_types(ref):
     if '#' in ref_end:
       ref_end = ref_end.split('#')[0]
     if ref_end in ('java', 'kt', 'bp', 'mk', 'cc', 'cpp'):
-      return [FinderMethod.CACHE, FinderMethod.MODULE_FILE_PATH]
+      return [
+          FinderMethod.CACHE,
+          FinderMethod.MODULE,
+          FinderMethod.MODULE_FILE_PATH,
+      ]
     if ref_end == 'xml':
       return [
           FinderMethod.CACHE,
