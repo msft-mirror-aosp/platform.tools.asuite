@@ -175,32 +175,36 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         ],
     )
     self.assertEqual(
+        test_finder_handler._get_test_reference_types('a.test.module.java'),
+        [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.MODULE_FILE_PATH],
+    )
+    self.assertEqual(
         test_finder_handler._get_test_reference_types('SomeClass.java'),
-        [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH],
+        [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.MODULE_FILE_PATH],
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('SomeClass.kt'),
-        [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH],
+        [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.MODULE_FILE_PATH],
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('Android.mk'),
-        [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH],
+        [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.MODULE_FILE_PATH],
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('Android.bp'),
-        [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH],
+        [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.MODULE_FILE_PATH],
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('SomeTest.cc'),
-        [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH],
+        [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.MODULE_FILE_PATH],
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('SomeTest.cpp'),
-        [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH],
+        [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.MODULE_FILE_PATH],
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('SomeTest.cc#method'),
-        [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH],
+        [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.MODULE_FILE_PATH],
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('module:Class'),
