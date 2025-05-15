@@ -344,6 +344,7 @@ def get_extra_args(args) -> Dict[str, str]:
       'verbose': constants.VERBOSE,
       'use_tf_min_base_template': constants.USE_TF_MIN_BASE_TEMPLATE,
       'smart_test_selection': constants.SMART_TEST_SELECTION,
+      'class_level_report': constants.CLASS_LEVEL_REPORT,
   }
   not_match = [k for k in arg_maps if k not in vars(args)]
   if not_match:
@@ -1596,6 +1597,7 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
           wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
           args=self._args,
           test_infos=self._test_infos,
+          class_level_report=self._args.class_level_report,
       )
     reporter.print_starting_text()
 
