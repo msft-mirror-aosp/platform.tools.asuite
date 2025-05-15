@@ -31,11 +31,12 @@ def add_arguments(parser: argparse.ArgumentParser):
     parser: An argparse.ArgumentParser object.
   """
   parser.add_argument(
-      '--inst-arg',
+      '--instr-arg',
       dest='instrumentation_arg',
       help=(
-          '(For performance tests) An instrumentation argument to pass to the test.'
-          ' This option is used in com.android.tradefed.testtype.AndroidJUnitTest.'
+          '(For performance tests) An instrumentation argument to pass to the'
+          ' test. This option is used in'
+          ' com.android.tradefed.testtype.AndroidJUnitTest.'
       ),
   )
 
@@ -89,8 +90,8 @@ def process_parsed_args(args: argparse.Namespace):
     args.custom_args.append('--module-arg')
     args.custom_args.append(module_arg)
     print(
-        f'Converting argument "--inst-arg {args.instrumentation_arg}" to "--module-arg'
-        f' {module_arg}"'
+        f'Converting argument "--instr-arg {args.instrumentation_arg}" to'
+        f' "--module-arg {module_arg}"'
     )
 
   if args.iter:
