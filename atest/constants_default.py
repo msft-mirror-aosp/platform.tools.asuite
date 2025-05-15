@@ -392,6 +392,9 @@ REQUIRE_DEVICES_MSG = (
 # Default shard num.
 SHARD_NUM = 2
 
+# The keyword for summarizing test results in class granularity
+CLASS_LEVEL_REPORT = 'class_level_report'
+
 # Smart test selection keyword.
 SMART_TEST_SELECTION = 'smart_test_selection'
 

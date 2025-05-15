@@ -200,6 +200,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     self._smart_test_selection = extra_args.get(
         constants.SMART_TEST_SELECTION, False
     )
+    self._class_level_report = (
+        extra_args.get(constants.CLASS_LEVEL_REPORT, False)
+        or self._smart_test_selection
+    )
 
   def requires_device_update(
       self, test_infos: List[test_info.TestInfo]
@@ -512,7 +516,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                           collect_only=extra_args.get(
                               constants.COLLECT_TESTS_ONLY
                           ),
-                          class_level_report=self._smart_test_selection,
+                          class_level_report=self._class_level_report,
                           runner_errors_as_warnings=self._smart_test_selection,
                       ),
                       self.NAME,
@@ -1561,6 +1565,7 @@ def extra_args_to_tf_args(
         constants.DRY_RUN,
         constants.DEVICE_ONLY,
         constants.SMART_TEST_SELECTION,
+        constants.CLASS_LEVEL_REPORT,
     ):
       continue
     unsupported_args.append(arg)
