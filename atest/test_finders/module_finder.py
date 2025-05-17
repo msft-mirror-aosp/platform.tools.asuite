@@ -14,11 +14,14 @@
 
 """Module Finder class."""
 
+from collections import Counter
 import logging
 import os
+import shlex
 import time
 from typing import List
 
+from atest import arg_parser
 from atest import atest_configs
 from atest import atest_error
 from atest import atest_utils
@@ -350,8 +353,12 @@ class ModuleFinder(test_finder_base.TestFinderBase):
   # pylint: disable=too-many-branches
   # pylint: disable=too-many-locals
   def _get_test_info_filter(
-      self, path, methods, rel_module_dir=None, class_name=None,
-      is_native_test=False
+      self,
+      path,
+      methods,
+      rel_module_dir=None,
+      class_name=None,
+      is_native_test=False,
   ):
     """Get test info filter.
 
@@ -361,8 +368,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         rel_module_dir: Optional. A string of the module dir no-absolute to
           root.
         class_name: Optional. A string of the class name.
-        is_native_test: Optional. A boolean variable of whether to search for
-          a native test or not.
+        is_native_test: Optional. A boolean variable of whether to search for a
+          native test or not.
 
     Returns:
         A set of test info filter.
@@ -375,7 +382,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
           test_info.TestFilter(
               test_filter_utils.get_cc_filter(
                   class_info,
-                  class_name if class_name is not None else '*', methods
+                  class_name if class_name is not None else '*',
+                  methods,
               ),
               frozenset(),
           )
@@ -406,12 +414,11 @@ class ModuleFinder(test_finder_base.TestFinderBase):
       ti_filter = frozenset(cc_filters)
     # If input path is a folder and have class_name information.
     elif not file_name and class_name:
-      ti_filter = frozenset(
-          [test_info.TestFilter(class_name, methods)]
-      )
+      ti_filter = frozenset([test_info.TestFilter(class_name, methods)])
     # Path to non-module dir, treat as package.
     elif not file_name and rel_module_dir != os.path.relpath(
-        path, self.root_dir):
+        path, self.root_dir
+    ):
       dir_items = [os.path.join(path, f) for f in os.listdir(path)]
       for dir_item in dir_items:
         if constants.JAVA_EXT_RE.match(dir_item):
@@ -608,6 +615,77 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     if '/' in search_class_name:
       search_class_name = str(search_class_name).split('/')[-1]
 
+    def remove_duplicated_test(test_paths: List[str] | None) -> List[str] | None:
+      """Remove duplicated test paths that generate the same command.
+
+      Check for each TF commands generated with test_path.
+      Only keep the first test_path if the generated command is the same.
+
+      Returns:
+          A subset or the same list of the test paths from test_paths.
+          or None if test_paths is None.
+      """
+      if test_paths is None:
+        return None
+
+      from atest import test_runner_handler
+
+      is_sts_enabled = getattr(
+          atest_configs.GLOBAL_ARGS, 'smart_test_selection', False
+      )
+      # Only do the filtering when sts enabled
+      if is_sts_enabled and module_name and len(test_paths) > 1:
+        # Remove duplicated test paths when they generates same commands:
+        filtered_tests = []
+        known_fingerprints_list = []
+        for test_path in test_paths:
+          test_filter = self._get_test_info_filter(
+              test_path,
+              methods,
+              class_name=class_name,
+              is_native_test=is_native_test,
+          )
+          test_infos = self._get_test_infos(
+              test_path, rel_config_path, module_name, test_filter
+          )
+
+          # A random value for command generation.
+          # GLOBAL_ARGS.device_count_config will be updated to proper value later.
+          atest_configs.GLOBAL_ARGS.device_count_config = 1
+          # try generate the command
+          for (
+              test_runner,
+              tests,
+          ) in test_runner_handler.group_tests_by_test_runners(test_infos):
+            if test_runner.NAME == self._TEST_RUNNER:
+              runner = test_runner(
+                  '/tmp',
+                  mod_info=self.module_info,
+                  extra_args={},
+              )
+              run_cmds = runner.generate_run_commands(tests, {})
+              for run_cmd in run_cmds:
+                current_command_fingerprint = Counter(shlex.split(run_cmd))
+
+                # check if generated command exists, it will be skipped from the result
+                if current_command_fingerprint in known_fingerprints_list:
+                  logging.debug(
+                      'Test [%s] has been filtered out due to same generated'
+                      ' command',
+                      test_path,
+                  )
+                else:
+                  known_fingerprints_list.append(current_command_fingerprint)
+                  filtered_tests.append(test_path)
+                  logging.debug(
+                      'Added generated command [%s] from Test [%s]',
+                      run_cmd,
+                      test_path,
+                  )
+          return filtered_tests if filtered_tests else test_paths
+      # No filtering needed
+      return test_paths
+
     test_paths = []
     # Search using the path where the config file is located.
     if rel_config_path:
@@ -627,7 +705,12 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     # Search from the root dir.
     if not test_paths:
       test_paths = test_finder_utils.find_class_file(
-          self.root_dir, search_class_name, is_native_test, methods
+          self.root_dir,
+          search_class_name,
+          is_native_test,
+          module_name,
+          methods,
+          remove_duplicated_test,
       )
     # If we already have module name, use path in module-info as test_path.
     if not test_paths:

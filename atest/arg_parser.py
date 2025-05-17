@@ -174,6 +174,16 @@ def create_atest_arg_parser():
       ),
   )
 
+  parser.add_argument(
+      '--class-level-report',
+      default=False,
+      action='store_true',
+      help=(
+          'Summarize the test results by test classes (default: False, which'
+          ' summarizes the test results by test modules).'
+      ),
+  )
+
   hgroup = parser.add_mutually_exclusive_group()
   hgroup.add_argument(
       '--host',

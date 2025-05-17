@@ -28,6 +28,8 @@ import re
 import tempfile
 import unittest
 from unittest import mock
+from atest import arg_parser
+from atest import atest_configs
 from atest import atest_error
 from atest import atest_utils
 from atest import constants
@@ -408,6 +410,143 @@ class ModuleFinderFindTestByModuleClassName(
       self.assert_test_info_has_class_filter(
           t_infos[0], 'tests.android.multi_module.ClassOneTest'
       )
+
+  @mock.patch.object(test_finder_utils, 'get_multiple_selection_answer')
+  @mock.patch('subprocess.check_output')
+  def test_find_test_by_module_and_native_class_name_multiple_found(
+      self, find_cmd, mock_selection_answer
+  ):
+    """Testing when multiple cc test_path found and unable to determine module
+
+    sts enabled -- only one test is returned
+    sts not enabled -- two tests are returned
+    """
+    global_args = arg_parser.create_atest_arg_parser().parse_args([])
+    # When sts is enabled
+    global_args.smart_test_selection = True
+    global_args_patcher = mock.patch.object(
+        atest_configs, 'GLOBAL_ARGS', global_args
+    )
+    global_args_patcher.start()
+    # Select all test path if prompted
+    mock_selection_answer.return_value = 'A'
+
+    module_name = 'MyCCTestModule'
+    test_module = module_info_unittest_base.device_driven_test_module(
+        name=module_name, class_type=['NATIVE_TESTS']
+    )
+
+    find_cmd.return_value = [
+        'path/to/testmodule/src/com/android/mycctests/MyCCTestCases.cpp',
+        'path/to/anotherModule/src/com/android/mycctests/MyCCTestCases.cpp',
+    ]
+    finder = self.create_finder_with_module(test_module)
+
+    t_infos = finder.find_test_by_module_and_class(
+        'MyCCTestModule:MyCCTestCases'
+    )
+
+    with self.subTest(name='returns_one_test_info'):
+      self.assertEqual(len(t_infos), 1)
+
+    # When sts is not enabled
+    global_args.smart_test_selection = False
+    t_infos = finder.find_test_by_module_and_class(
+        'MyCCTestModule:MyCCTestCases'
+    )
+    with self.subTest(name='returns_two_test_info'):
+      self.assertEqual(len(t_infos), 2)
+
+    global_args_patcher.stop()
+
+  @mock.patch.object(test_finder_utils, 'get_multiple_selection_answer')
+  @mock.patch('subprocess.check_output')
+  def test_find_test_by_module_and_java_class_name_multiple_found(
+      self, find_cmd, mock_selection_answer
+  ):
+    """Testing when multiple java test_path found and unable to determine module
+
+    sts enabled -- one test is returned
+    sts not enabled -- two tests are returned
+    """
+    global_args = arg_parser.create_atest_arg_parser().parse_args([])
+    # When sts is enabled
+    global_args.smart_test_selection = True
+    global_args_patcher = mock.patch.object(
+        atest_configs, 'GLOBAL_ARGS', global_args
+    )
+    global_args_patcher.start()
+    # Select all test path if prompted
+    mock_selection_answer.return_value = 'A'
+
+    module_name = 'MyJavaTestModule'
+    test_module = module_info_unittest_base.device_driven_test_module(
+        name=module_name
+    )
+
+    find_cmd.return_value = [
+        'path/to/testmodule/src/com/android/mycctests/MyJavaTestCases.java',
+        'path/to/anotherModule/src/com/android/mycctests/MyJavaTestCases.java',
+    ]
+    finder = self.create_finder_with_module(test_module)
+
+    t_infos = finder.find_test_by_module_and_class(
+        'MyJavaTestModule:qualified.domain.MyJavaTestCases'
+    )
+
+    with self.subTest(name='returns_one_test_info'):
+      self.assertEqual(len(t_infos), 1)
+
+    # When sts is not enabled
+    global_args.smart_test_selection = False
+    t_infos = finder.find_test_by_module_and_class(
+        'MyJavaTestModule:MyJavaTestCases'
+    )
+    with self.subTest(name='returns_two_test_info'):
+      self.assertEqual(len(t_infos), 2)
+
+    global_args_patcher.stop()
+
+  @mock.patch.object(atf_tr.AtestTradefedTestRunner, 'generate_run_commands')
+  @mock.patch('subprocess.check_output')
+  def test_find_test_by_module_class_name_multiple_found_with_same_cmd_diff_order(
+      self, find_cmd, generate_run_commands
+  ):
+    """Testing when generated command is same but args in different order.
+
+    The duplicated test will still be filtered out.
+    """
+    global_args = arg_parser.create_atest_arg_parser().parse_args([])
+    # When sts is enabled
+    global_args.smart_test_selection = True
+    global_args_patcher = mock.patch.object(
+        atest_configs, 'GLOBAL_ARGS', global_args
+    )
+    global_args_patcher.start()
+
+    module_name = 'MyJavaTestModule'
+    test_module = module_info_unittest_base.device_driven_test_module(
+        name=module_name
+    )
+
+    find_cmd.return_value = [
+        'path/to/testmodule/src/com/android/mycctests/MyJavaTestCases.java',
+        'path/to/anotherModule/src/com/android/mycctests/MyJavaTestCases.java',
+    ]
+    generate_run_commands.side_effect = [
+        ["atest_tradefed.sh --arg1 'module test' --arg2 222"],
+        ["atest_tradefed.sh --arg2 222 --arg1 'module test'"],
+    ]
+    finder = self.create_finder_with_module(test_module)
+
+    t_infos = finder.find_test_by_module_and_class(
+        'MyJavaTestModule:qualified.domain.MyJavaTestCases'
+    )
+
+    with self.subTest(name='returns_two_test_info'):
+      self.assertEqual(len(t_infos), 1)
+
+    global_args_patcher.stop()
 
   @mock.patch.object(test_finder_utils, 'get_multiple_selection_answer')
   @mock.patch('subprocess.check_output')

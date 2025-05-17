@@ -325,6 +325,7 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
 
   Args:
       tests: A string list which contains multiple test paths.
+      default_all: A bool that indicates whether to select all tests.
 
   Returns:
       A string list of paths.
@@ -417,14 +418,23 @@ def get_selected_indices(string: str, limit: int = None) -> Set[int]:
   return selections
 
 
-def run_find_cmd(ref_type, search_dir, target, methods=None):
+def run_find_cmd(
+    ref_type,
+    search_dir,
+    target,
+    module_name=None,
+    methods=None,
+    filter_func=None,
+):
   """Find a path to a target given a search dir and a target name.
 
   Args:
       ref_type: An Enum of the reference type.
       search_dir: A string of the dirpath to search in.
       target: A string of what you're trying to find.
+      module_name: Optional. A string of the module name.
       methods: A set of method names.
+      filter_func: Optional. A filter logic from calling class.
 
   Return:
       A list of the path to the target.
@@ -466,11 +476,25 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
     if isinstance(out, bytes):
       out = out.decode()
     logging.debug('%s find cmd out: %s', ref_name, out)
+
+  # Check if module info exist, then do test dedup
+  if module_name and filter_func:
+    logging.debug('Checking duplicate among found tests')
+    out = filter_func(out)  # update out list
+    logging.debug('After test deduplication, Found %s in %s', target, out)
+
   logging.debug('%s find completed in %ss', ref_name, time.time() - start)
   return extract_test_path(out, methods)
 
 
-def find_class_file(search_dir, class_name, is_native_test=False, methods=None):
+def find_class_file(
+    search_dir,
+    class_name,
+    is_native_test=False,
+    module_name=None,
+    methods=None,
+    filter_func=None,
+):
   """Find a path to a class file given a search dir and a class name.
 
   Args:
@@ -478,7 +502,9 @@ def find_class_file(search_dir, class_name, is_native_test=False, methods=None):
       class_name: A string of the class to search for.
       is_native_test: A boolean variable of whether to search for a native test
         or not.
+      module_name: Optional. A string of the module name.
       methods: A set of method names.
+      filter_func: Optional. A filter logic from calling class.
 
   Return:
       A list of the path to the java/cc file.
@@ -489,7 +515,9 @@ def find_class_file(search_dir, class_name, is_native_test=False, methods=None):
     ref_type = TestReferenceType.QUALIFIED_CLASS
   else:
     ref_type = TestReferenceType.CLASS
-  return run_find_cmd(ref_type, search_dir, class_name, methods)
+  return run_find_cmd(
+      ref_type, search_dir, class_name, module_name, methods, filter_func
+  )
 
 
 def is_equal_or_sub_dir(sub_dir, parent_dir):
@@ -629,8 +657,8 @@ def get_targets_from_xml_root(xml_root, module_info):
     - Look for the perf script.
 
   Args:
-      module_info: ModuleInfo class used to verify targets are valid modules.
       xml_root: ElementTree xml_root for us to look through.
+      module_info: ModuleInfo class used to verify targets are valid modules.
 
   Returns:
       A set of build targets based on the signals found in the xml file.
@@ -797,9 +825,9 @@ def get_targets_from_vts_xml(xml_file, rel_out_dir, module_info):
     - apk
 
   Args:
-      module_info: ModuleInfo class used to verify targets are valid modules.
-      rel_out_dir: Abs path to the out dir to help create vts10 build targets.
       xml_file: abs path to xml file.
+      rel_out_dir: Abs path to the out dir to help create vts10 build targets.
+      module_info: ModuleInfo class used to verify targets are valid modules.
 
   Returns:
       A set of build targets based on the signals found in the xml file.
