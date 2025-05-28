@@ -341,6 +341,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     invocation_properties = {'atest_run_id': metrics.get_run_id()}
 
     if perf_mode.is_perf_test(args=extra_args, test_infos=test_infos):
+      logging.debug('perf mode is enabled, setting extra invocation properties')
       perf_mode.set_invocation_properties(invocation_properties)
 
     creds, inv = (
