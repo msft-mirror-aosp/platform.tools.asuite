@@ -1915,6 +1915,67 @@ class ModuleFinderUnittests(unittest.TestCase):
         self, processed_info, uc.MODULE_INFO_W_DALVIK
     )
 
+  @mock.patch('atest.test_finders.module_finder.os.path.exists')
+  @mock.patch.object(
+      test_finder_utils,
+      'extract_selected_tests',
+      side_effect=lambda x, **kwargs: x,
+  )
+  def test_determine_modules_to_test_with_subdirs(
+      self, mock_extract_selected, mock_os_exists
+  ):
+    """Test _determine_modules_to_test with additional /tests and /test subdirectories."""
+    module_path_base = 'project/module'
+    # Absolute paths for os.path.exists mock
+    path_tests_abs = os.path.join(uc.ROOT, module_path_base, 'tests')
+    # Relative paths for get_modules_by_path mock
+    path_tests_rel = os.path.join(module_path_base, 'tests')
+
+    # Scenario: test_file_path provided, get_modules_by_path_in_srcs returns 1 module (early exit).
+    with self.subTest('test_file_path_srcs_finds_one_module_early_exit'):
+      test_file = 'some/file.java'
+      self.mod_finder.module_info.get_modules_by_path_in_srcs.return_value = {
+          'ModuleFromSrc'
+      }
+      result = self.mod_finder._determine_modules_to_test(
+          module_path_base, test_file_path=test_file
+      )
+      self.assertEqual(result, {'ModuleFromSrc'})
+      self.mod_finder.module_info.get_modules_by_path_in_srcs.assert_called_once_with(
+          path=test_file, testable_modules_only=True
+      )
+      self.mod_finder.module_info.get_modules_by_path.assert_not_called()
+      mock_extract_selected.assert_not_called()
+
+    # Scenario: test_file_path provided, srcs finds 0, then subdirs contribute.
+    with self.subTest('test_file_path_srcs_finds_zero_subdirs_contribute'):
+      test_file = 'some/other/file.java'
+      mock_os_exists.side_effect = (
+          lambda p: p == path_tests_abs
+      )  # Only /tests subdir exists
+      self.mod_finder.module_info.get_modules_by_path_in_srcs.return_value = (
+          set()
+      )
+
+      def get_modules_side_effect(path, testable_modules_only=True):
+        if path == module_path_base:
+          return {'ModuleBase'}
+        if path == path_tests_rel:
+          return {'ModuleFromTests'}  # This will be found
+        return set()
+
+      self.mod_finder.module_info.get_modules_by_path.side_effect = (
+          get_modules_side_effect
+      )
+
+      result = self.mod_finder._determine_modules_to_test(
+          module_path_base, test_file_path=test_file
+      )
+      self.assertEqual(result, {'ModuleBase', 'ModuleFromTests'})
+      mock_extract_selected.assert_called_once_with(
+          {'ModuleBase', 'ModuleFromTests'}
+      )
+
   # pylint: disable=unused-argument
   @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
   @mock.patch.object(module_info.ModuleInfo, 'get_instrumentation_target_apps')
