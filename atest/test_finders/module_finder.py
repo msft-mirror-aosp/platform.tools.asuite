@@ -89,6 +89,25 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         testable_modules_only=True,
     )
 
+    # Checking for additional possible module paths
+    additional_paths = []
+    tests_path = os.path.join(module_path, 'tests')
+    if os.path.exists(os.path.join(self.root_dir, tests_path)):
+      additional_paths.append(tests_path)
+    test_path = os.path.join(module_path, 'test')
+    if os.path.exists(os.path.join(self.root_dir, test_path)):
+      additional_paths.append(test_path)
+    if additional_paths:
+      logging.debug(
+          'Adding additional possible module location(s): %s', additional_paths
+      )
+
+    for new_path in additional_paths:
+      modules_to_test |= self.module_info.get_modules_by_path(
+          path=new_path,
+          testable_modules_only=True,
+      )
+
     return test_finder_utils.extract_selected_tests(modules_to_test)
 
   def _is_vts_module(self, module_name):
@@ -615,7 +634,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     if '/' in search_class_name:
       search_class_name = str(search_class_name).split('/')[-1]
 
-    def remove_duplicated_test(test_paths: List[str] | None) -> List[str] | None:
+    def remove_duplicated_test(
+        test_paths: List[str] | None,
+    ) -> List[str] | None:
       """Remove duplicated test paths that generate the same command.
 
       Check for each TF commands generated with test_path.
