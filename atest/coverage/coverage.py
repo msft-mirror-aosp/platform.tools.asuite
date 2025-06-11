@@ -352,16 +352,41 @@ def _generate_native_coverage_report(unstripped_native_binaries, results_dir):
   profdata_files = atest_utils.find_files(results_dir, '*.profdata')
 
   os.mkdir(out_dir)
+
+  merged_profdata_file = f'{out_dir}/merged.profdata'
+  merge_cmd = [
+      'llvm-profdata',
+      'merge',
+      '--sparse',
+      '-o',
+      merged_profdata_file,
+  ]
+  for profdata in profdata_files:
+    merge_cmd.append(profdata)
+
+  logging.debug(
+      'Running llvm-profdata to merge coverage reports: %s', merge_cmd
+  )
+  try:
+    subprocess.run(
+        merge_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
+    logging.debug('Merged profile written to %s', merged_profdata_file)
+  except subprocess.CalledProcessError as err:
+    atest_utils.colorful_print(
+        'Failed to merge native code coverage.', constants.RED
+    )
+    logging.exception(err.stdout)
+
   cmd = [
       'llvm-cov',
       'show',
       '-format=html',
       f'-output-dir={out_dir}',
       f'-path-equivalence=/proc/self/cwd,{build_top}',
+      '--instr-profile',
+      merged_profdata_file,
   ]
-  for profdata in profdata_files:
-    cmd.append('--instr-profile')
-    cmd.append(profdata)
   for binary in unstripped_native_binaries:
     cmd.append(f'--object={str(binary)}')
 
