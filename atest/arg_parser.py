@@ -17,7 +17,9 @@
 """Atest Argument Parser class for atest."""
 
 import argparse
+import logging
 
+from atest import atest_utils
 from atest import constants
 from atest.atest_utils import BuildOutputMode
 from atest.crystalball import perf_mode
@@ -25,6 +27,19 @@ from atest.crystalball import perf_mode
 _EXTRA_MODULE_MAP = {
     perf_mode.PERF_MODE_ARG_NAME: perf_mode,
 }
+
+_INCLUDE_PREVIEW_TESTS_FLAG = '--include-preview-tests'
+
+# LINT.IfChange
+_EXCLUDE_PREVIEW_TESTS_CUSTOM_ARGS = [
+    '--test-arg',
+    'com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:com.android.compatibility.common.util.PreviewOnly',
+    '--test-arg',
+    'com.android.compatibility.common.tradefed.testtype.JarHostTest:exclude-annotation:com.android.compatibility.common.util.PreviewOnly',
+    '--test-arg',
+    'com.android.tradefed.testtype.HostTest:exclude-annotation:com.android.compatibility.common.util.PreviewOnly',
+]
+# LINT.ThenChange(//test/suite_harness/common/host-side/tradefed/res/config/exclude-preview-only.xml)
 
 
 def _output_mode_msg() -> str:
@@ -455,6 +470,13 @@ def create_atest_arg_parser():
           ' minute timeout. For no timeout, set to 0.'
       ),
   )
+  parser.add_argument(
+      '--include-preview-tests',
+      default=False,
+      dest='include_preview_tests',
+      action='store_true',
+      help='Include tests annotated with @PreviewOnly',
+  )
 
   iteration_group = parser.add_mutually_exclusive_group()
   iteration_group.add_argument(
@@ -570,6 +592,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
   for arg, module in _EXTRA_MODULE_MAP.items():
     if arg in argv:
       module.process_parsed_args(parsed_args)
+
+  if _INCLUDE_PREVIEW_TESTS_FLAG not in argv:
+    # By default (if we're not using the flag to include preview tests), we'll
+    # exclude them.  We quote these args to match the behavior in
+    # atest_main._parse_args() for custom args.
+    for arg in _EXCLUDE_PREVIEW_TESTS_CUSTOM_ARGS:
+      logging.debug('Quoting regex argument %s', arg)
+      parsed_args.custom_args.append(atest_utils.quote(arg))
 
   return parsed_args
 
