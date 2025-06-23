@@ -187,7 +187,7 @@ alias_definitions = {
     'idmap2': {'build': 'idmap2 idmap2d'},
     'sf': {'build': 'surfaceflinger'},
     'res': {'build': 'framework-res'},
-    'services': {'build': 'services protolog.conf.json.gz'},
+    'services': {'build': 'services gen-core.protolog.pb'},
     'inputflinger': {'build': 'libinputflinger'},
     'carsysui': {
         'build': 'carSystemUI',
