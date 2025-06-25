@@ -404,3 +404,6 @@ SMART_TEST_SELECTION_ROOT_PATH = ''
 # TODO(b/414460878): Make this time limit an argument, and also pass it to smart
 # test finder as a criteria to select tests.
 SMART_TEST_EXECUTION_TIME_LIMIT_IN_MINUTES = 5
+
+# Whether to skip building test.
+SKIP_BUILDING_TEST = 'SKIP_BUILDING_TEST'
