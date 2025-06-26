@@ -15,12 +15,192 @@
 
 """Unittests for fetch_artifact."""
 
+import os
+import pathlib
 import subprocess
 import unittest
 from unittest import mock
 
+from atest import constants
 from atest.test_finders.test_info import TestInfo
 from atest.tools import fetch_artifact
+from pyfakefs import fake_filesystem_unittest
+
+
+class ArtifactContextManagerUnittests(fake_filesystem_unittest.TestCase):
+
+  def setUp(self):
+    super(ArtifactContextManagerUnittests, self).setUp()
+    self.setUpPyfakefs()
+    self.fs.create_dir(os.getenv('ANDROID_TARGET_OUT_TESTCASES'))
+    self.fs.create_dir(os.getenv('ANDROID_HOST_OUT_TESTCASES'))
+    self._cache_path = pathlib.Path(fetch_artifact._CACHE_DIR)
+    self._target_tcases = pathlib.Path(
+        os.getenv('ANDROID_TARGET_OUT_TESTCASES')
+    )
+    self._target_out = pathlib.Path(os.getenv('ANDROID_PRODUCT_OUT'))
+    self._host_out = pathlib.Path(os.getenv('ANDROID_HOST_OUT'))
+    self._host_tcases = pathlib.Path(os.getenv('ANDROID_HOST_OUT_TESTCASES'))
+
+  def test_symlink_artifacts_swap(self):
+    # Downloaded artifacts
+    module_cache = self._cache_path / 'android-cts/testcases/module'
+    self.fs.create_dir(module_cache)
+    self.fs.create_file(module_cache / 'module.config', contents='module cache')
+    # Existing testcases directory
+    target_dir = self._target_tcases / 'module'
+    module_config = target_dir / 'module.config'
+    self.fs.create_dir(target_dir)
+    self.fs.create_file(module_config, contents='module config')
+
+    test_infos = [
+        TestInfo(
+            test_name='module',
+            test_runner='',
+            build_targets=set(),
+            install_locations={constants.DEVICE_TEST},
+        ),
+    ]
+    mod_info = mock.MagicMock()
+    mod_info.get_installed_paths.return_value = []
+
+    self.assertFalse(target_dir.is_symlink())
+    self.assertEqual(module_config.read_text(), 'module config')
+    with fetch_artifact.ArtifactContextManager(
+        test_infos=test_infos, mod_info=mod_info
+    ):
+      self.assertTrue(target_dir.is_symlink())
+      self.assertEqual(target_dir.resolve(), module_cache)
+      self.assertEqual(module_config.read_text(), 'module cache')
+    self.assertFalse(target_dir.is_symlink())
+    self.assertEqual(module_config.read_text(), 'module config')
+
+  def test_symlink_artifacts_installed_files(self):
+    # Downloaded artifacts
+    module_cache = self._cache_path / 'android-cts/testcases/module'
+    self.fs.create_dir(module_cache)
+    self.fs.create_file(module_cache / 'module.config')
+    self.fs.create_dir(module_cache / 'arm')
+    self.fs.create_file(module_cache / 'arm/test.apk')
+    self.fs.create_file(module_cache / 'arm/testdata/test.apk')
+    self.fs.create_dir(module_cache / 'arm64')
+    self.fs.create_file(module_cache / 'arm64/test.apk')
+    self.fs.create_file(module_cache / 'arm64/testdata/test.apk')
+
+    test_infos = [
+        TestInfo(
+            test_name='module',
+            test_runner='',
+            build_targets=set(),
+            install_locations={constants.DEVICE_TEST, constants.HOST},
+        ),
+    ]
+    mod_info = mock.MagicMock()
+    mod_info.get_installed_paths.return_value = [
+        self._host_out / 'nativetest64/module/test.apk',
+        self._target_tcases / 'module/arm/test.apk',
+        self._target_tcases / 'module/arm64/test.apk',
+        self._target_out / 'nativetest64/module/test.apk',
+        self._target_out / 'nativetest64/module/testdata/test.apk',
+        self._target_out / 'nativetest/module/test.apk',
+        self._target_out / 'nativetest/module/testdata/test.apk',
+        self._target_out / 'unknown',
+    ]
+    self.fs.create_file(self._target_out / 'unknown')
+
+    host_dir = self._host_tcases / 'module'
+    target_dir = self._target_tcases / 'module'
+    test_apk64 = self._target_out / 'nativetest64/module/test.apk'
+    testdata_apk64 = self._target_out / 'nativetest64/module/testdata/test.apk'
+    test_apk = self._target_out / 'nativetest/module/test.apk'
+    testdata_apk = self._target_out / 'nativetest/module/testdata/test.apk'
+    self.assertFalse(host_dir.exists())
+    self.assertFalse(target_dir.exists())
+    with fetch_artifact.ArtifactContextManager(
+        test_infos=test_infos, mod_info=mod_info
+    ):
+      # Ignore installed files for host
+      self.assertFalse(host_dir.exists())
+      self.assertFalse(
+          (self._host_out / 'nativetest64/module/test.apk').exists()
+      )
+
+      # Symlink testcases directory
+      self.assertTrue(target_dir.is_symlink())
+      self.assertEqual(target_dir.resolve(), module_cache)
+
+      # Ignore installed files in testcases directory
+      self.assertTrue((self._target_tcases / 'module/arm/test.apk').exists())
+      self.assertFalse(
+          (self._target_tcases / 'module/arm/test.apk').is_symlink()
+      )
+      self.assertTrue((self._target_tcases / 'module/arm64/test.apk').exists())
+      self.assertFalse(
+          (self._target_tcases / 'module/arm64/test.apk').is_symlink()
+      )
+
+      # Symlink other installed files
+      self.assertTrue(test_apk64.is_symlink())
+      self.assertEqual(test_apk64.resolve(), module_cache / 'arm64/test.apk')
+      self.assertTrue(testdata_apk64.is_symlink())
+      self.assertEqual(
+          testdata_apk64.resolve(), module_cache / 'arm64/testdata/test.apk'
+      )
+      self.assertTrue(test_apk.is_symlink())
+      self.assertEqual(test_apk.resolve(), module_cache / 'arm/test.apk')
+      self.assertTrue(testdata_apk.is_symlink())
+      self.assertEqual(
+          testdata_apk.resolve(), module_cache / 'arm/testdata/test.apk'
+      )
+
+      # Remove unknown file
+      self.assertFalse((self._target_out / 'unknown').exists())
+    self.assertFalse(host_dir.exists())
+    self.assertFalse(target_dir.exists())
+    self.assertFalse(test_apk64.exists())
+    self.assertFalse(testdata_apk64.exists())
+    self.assertFalse(test_apk.exists())
+    self.assertFalse(testdata_apk.exists())
+    self.assertTrue((self._target_out / 'unknown').exists())
+
+  def test_symlink_artifacts_cleanup_on_error(self):
+    self.fs.create_dir(self._cache_path / 'android-cts/testcases/module1')
+    # Existing testcases directory
+    module1_dir = self._host_tcases / 'module1'
+    module2_dir = self._host_tcases / 'module2'
+    self.fs.create_dir(module1_dir)
+    self.fs.create_dir(module2_dir)
+
+    test_infos = [
+        TestInfo(
+            test_name='module1',
+            test_runner='',
+            build_targets=set(),
+            install_locations={constants.HOST},
+        ),
+        TestInfo(
+            test_name='module2',
+            test_runner='',
+            build_targets=set(),
+            install_locations={constants.HOST},
+        ),
+    ]
+    mod_info = mock.MagicMock()
+    mod_info.get_installed_paths.return_value = []
+
+    try:
+      with fetch_artifact.ArtifactContextManager(
+          test_infos=test_infos, mod_info=mod_info
+      ):
+        # symlink module1
+        # error for module2
+        pass
+    except fetch_artifact.CrossBranchArtifactError:
+      pass
+    self.assertTrue(module1_dir.exists())
+    self.assertFalse(module1_dir.is_symlink())
+    self.assertTrue(module2_dir.exists())
+    self.assertFalse(module2_dir.is_symlink())
 
 
 class FetchArtifactUnittests(unittest.TestCase):

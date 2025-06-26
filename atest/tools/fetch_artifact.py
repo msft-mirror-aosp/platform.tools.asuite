@@ -22,18 +22,175 @@ import pathlib
 import shutil
 import subprocess
 import time
-from typing import Iterator, Sequence, Tuple
+from typing import Any, Iterator, Sequence, Tuple
+import uuid
 
 from atest import atest_utils
+from atest import constants
+from atest.module_info import ModuleInfo
 from atest.test_finders.test_info import TestInfo
 
 
+_ARCH_64_DIR_PATTERN = '64/'
 _CACHE_DIR = '/tmp/atest_artifact/cache'
+_SWAP_DIR = '/tmp/atest_artifact/swap'
 _FETCH_ARTIFACT_BIN = '/google/data/ro/projects/android/fetch_artifact'
 _EXECUTABLE_SUFFIXES = frozenset(('', '.sh'))
 _SUPPORTED_SUITES = frozenset(('cts', 'cts-v-host', 'vts'))
 _MAX_WORKERS = 128
 _MAX_ZIP_ENTRY_BATCH = 3
+
+
+class CrossBranchArtifactError(Exception):
+  """Error related to cross-branch artifacts."""
+
+
+class ArtifactContextManager:
+  """Manages cross-branch aritifacts."""
+
+  def __init__(
+      self,
+      test_infos: Sequence[TestInfo],
+      mod_info: ModuleInfo,
+  ):
+    self._test_infos = test_infos
+    self._mod_info = mod_info
+    self._backup_to_original_paths = {}
+    self._symlinks = []
+    self._swap_dir = pathlib.Path(_SWAP_DIR, str(uuid.uuid4()))
+
+  def __enter__(self):
+    if not self._swap_dir.exists():
+      self._swap_dir.mkdir(parents=True)
+
+    done = set()
+    try:
+      for test_info in self._test_infos:
+        if test_info.raw_test_name in done:
+          continue
+        self._symlink_artifacts(test_info)
+        done.add(test_info.raw_test_name)
+    except Exception as _:
+      # Clean up created symlinks if any exception is raised
+      self._cleanup()
+      raise
+
+  def __exit__(self, *_: Any) -> None:
+    self._cleanup()
+
+  def _symlink_artifacts(self, test_info: TestInfo):
+    """Symlinks artifacts from downloaded directory to the out directory."""
+    test_name = test_info.raw_test_name
+    # For test supports both modes, xTS test suites include the device one.
+    if constants.DEVICE_TEST in test_info.install_locations:
+      out_dir = atest_utils.get_product_out()
+      testcase_dir = atest_utils.get_target_out_testcases(test_name)
+    else:
+      out_dir = atest_utils.get_host_out()
+      testcase_dir = atest_utils.get_host_out_testcases(test_name)
+
+    logging.debug('Replacing %s with artifacts from AB.', testcase_dir)
+    self._symlink_testcases_dir(testcase_dir, test_name)
+
+    for path in self._mod_info.get_installed_paths(test_name):
+      if not path.is_relative_to(out_dir) or path.is_relative_to(testcase_dir):
+        continue
+      self._symlink_installed_file(path, out_dir, test_name)
+
+  def _cleanup(self) -> None:
+    for symlink in self._symlinks:
+      logging.debug('Cleanup: unlink %s', symlink)
+      symlink.unlink(missing_ok=True)
+    for backup, target in self._backup_to_original_paths.items():
+      logging.debug('Cleanup: mv %s -> %s', backup, target)
+      shutil.move(backup, target)
+    shutil.rmtree(self._swap_dir)
+
+  def _symlink_testcases_dir(self, target_dir: pathlib.Path, test_name: str):
+    """Symlinks the testcases directory to a downloaded directory."""
+    source_dir = _find_downloaded_testcases_dir(test_name)
+    if not source_dir:
+      raise CrossBranchArtifactError(
+          f'Unable to find the downloaded testcases directory for {test_name}.'
+      )
+    if target_dir.exists():
+      test_dir = self._swap_dir / 'testcases'
+      test_dir.mkdir(parents=True)
+      logging.debug('Backup: mv %s -> %s', target_dir, test_dir)
+      backup_dir = shutil.move(target_dir, test_dir)
+      self._backup_to_original_paths[backup_dir] = target_dir
+    logging.debug('Symlink %s -> %s', target_dir, source_dir)
+    target_dir.symlink_to(source_dir)
+    self._symlinks.append(target_dir)
+
+  def _symlink_installed_file(
+      self, target_file: pathlib.Path, out_dir: pathlib.Path, test_name: str
+  ):
+    """Symlinks the installed file to a downloaded file."""
+    if target_file.exists():
+      relative_path = target_file.relative_to(out_dir)
+      swap_file = self._swap_dir / relative_path
+      swap_file.parent.mkdir(parents=True, exist_ok=True)
+      logging.debug(
+          'Backup: mv installed files %s -> %s', target_file, swap_file
+      )
+      shutil.move(target_file, swap_file)
+      self._backup_to_original_paths[swap_file] = target_file
+    else:
+      target_file.parent.mkdir(parents=True, exist_ok=True)
+    source_file = self._find_downloaded_installed_files(test_name, target_file)
+    if source_file:
+      logging.debug(
+          'Symlink installed files %s -> %s', target_file, source_file
+      )
+      target_file.symlink_to(source_file)
+      self._symlinks.append(target_file)
+
+  def _find_downloaded_installed_files(
+      self, test_name: str, installed_path: pathlib.Path
+  ) -> pathlib.Path:
+    """Finds the downloaded file with the given test name and installed path."""
+    # If the installed file is in a 64-bit directory, find the downloaded file
+    # in relevant directories (e.g. nativetest64/arm64/x86_64)
+    if _ARCH_64_DIR_PATTERN in str(installed_path):
+      file_filter = lambda p: _ARCH_64_DIR_PATTERN in str(p)
+    else:
+      file_filter = lambda p: _ARCH_64_DIR_PATTERN not in str(p)
+    # If the installed file is in a test directory, search the file with the
+    # relative path. Otherwise directly search the file name.
+    parts = str(installed_path).split(f'/{test_name}/', 1)
+    pattern = (
+        f'{test_name}/**/{parts[1]}'
+        if len(parts) == 2
+        else f'{test_name}/**/{installed_path.name}'
+    )
+    # Find the shallowest matched file
+    matched_files = sorted(
+        [
+            path
+            for path in pathlib.Path(_CACHE_DIR).rglob(pattern=pattern)
+            if file_filter(path)
+        ],
+        key=lambda p: len(str(p).split('/')),
+    )
+    if not matched_files:
+      logging.warning(
+          'Unable to find the downloaded file for %s with pattern "%s".',
+          installed_path,
+          pattern,
+      )
+      return None
+    if len(matched_files) > 1:
+      logging.warning(
+          (
+              'Found mutilple downloaded files for %s with pattern "%s",'
+              ' only the first (shallowest) one will be returned:\n- %s'
+          ),
+          installed_path,
+          pattern,
+          '\n- '.join([str(file) for file in matched_files]),
+      )
+    return matched_files[0]
 
 
 def fetch_artifacts(

@@ -1239,7 +1239,13 @@ class _AtestMain:
           result=int(round(_init_and_find * 1000)),
       )
 
-    tests_exit_code = self._test_execution_plan.execute()
+    if self._args.test_build_target:
+      with fetch_artifact.ArtifactContextManager(
+          self._test_infos, self._mod_info
+      ):
+        tests_exit_code = self._test_execution_plan.execute()
+    else:
+      tests_exit_code = self._test_execution_plan.execute()
 
     if self._args.experimental_coverage:
       coverage.generate_coverage_report(
