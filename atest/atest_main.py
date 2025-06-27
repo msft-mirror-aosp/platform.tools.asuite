@@ -1176,6 +1176,17 @@ class _AtestMain:
     Returns:
         Exit code if failed. None otherwise.
     """
+    # Download additional test artifacts from AB
+    if self._args.test_build_target:
+      success = fetch_artifact.fetch_artifacts(
+          test_infos=self._test_infos,
+          build_target=self._args.test_build_target,
+          branch=self._args.test_branch,
+          build_id=self._args.test_build_id,
+      )
+      if not success:
+        return ExitCode.CROSS_BRANCH_FETCH_FAILURE
+
     build_targets = self._get_build_targets()
     if not build_targets:
       return None
@@ -1208,17 +1219,6 @@ class _AtestMain:
     )
     if not success:
       return ExitCode.BUILD_FAILURE
-
-    # Download additional test artifacts from AB
-    if self._args.test_build_target:
-      success = fetch_artifact.fetch_artifacts(
-          test_infos=self._test_infos,
-          build_target=self._args.test_build_target,
-          branch=self._args.test_branch,
-          build_id=self._args.test_build_id,
-      )
-      if not success:
-        return ExitCode.CROSS_BRANCH_FETCH_FAILURE
 
   def _run_test_step(self) -> int:
     """Runs the test step.

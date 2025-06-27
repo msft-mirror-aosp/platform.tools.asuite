@@ -370,6 +370,15 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
   # Temporary files and directories used by the runner.
   _temppaths: List[str] = []
 
+  def __init__(
+      self,
+      results_dir: str,
+      extra_args: Dict[str, Any],
+      **kwargs,
+  ):
+    super().__init__(results_dir, **kwargs)
+    self._skip_test_build = extra_args.get(constants.SKIP_BUILDING_TEST, False)
+
   def run_tests(
       self,
       test_infos: List[test_info.TestInfo],
@@ -439,6 +448,8 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
   ) -> Set[str]:
     """Returns a set of build targets required by the test runner."""
     build_targets = set()
+    if self._skip_test_build:
+      return build_targets
     build_targets.update(test_runner_base.gather_build_targets(test_infos))
     return build_targets
 
