@@ -1241,7 +1241,7 @@ class _AtestMain:
 
     if self._args.test_build_target:
       with fetch_artifact.ArtifactContextManager(
-          self._test_infos, self._mod_info
+          self._test_infos, self._mod_info, self._args.test_build_target
       ):
         tests_exit_code = self._test_execution_plan.execute()
     else:
