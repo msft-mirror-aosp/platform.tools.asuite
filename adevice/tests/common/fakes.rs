@@ -106,7 +106,7 @@ impl Device for FakeDevice {
     fn run_adb_command(&self, cmd: &AdbCommand) -> Result<String> {
         match cmd.action {
             AdbAction::Push { .. } => self.pushes.borrow_mut().push(cmd.file.clone()),
-            AdbAction::DeleteDir { .. } | AdbAction::DeleteFile => {
+            AdbAction::DeleteDir | AdbAction::DeleteFile => {
                 self.removes.borrow_mut().push(cmd.file.clone())
             }
             _ => (),
