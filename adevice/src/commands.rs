@@ -173,12 +173,11 @@ impl AdbCommand {
     }
 
     pub fn is_mkdir(&self) -> bool {
-        matches!(self.action, AdbAction::Mkdir { .. })
+        matches!(self.action, AdbAction::Mkdir)
     }
 
     pub fn is_rm(&self) -> bool {
-        matches!(self.action, AdbAction::DeleteDir { .. })
-            || matches!(self.action, AdbAction::DeleteFile { .. })
+        matches!(self.action, AdbAction::DeleteDir) || matches!(self.action, AdbAction::DeleteFile)
     }
 
     pub fn device_path(&self) -> &Path {
