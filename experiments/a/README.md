@@ -1,12 +1,14 @@
-# A tool
+# `a` tool
 
-A tool is a command-line tool that can run android workflows and productivity tools
-go/a-tool-design-doc
+`a` is a command-line tool that can run Android workflows and productivity tools.
+For more information, see the design doc at go/a-tool-design-doc.
 
 Contributions welcome!
 
-### A and Autocomplete aliases
-Add the following to your  ~/.bashrc for autocompletions
+## Setup: Aliases and Autocomplete
+
+### Bash
+Add the following to your  `~/.bashrc` to enable the `a` command and its autocompletion.
 ```
 # Alias for local workflow "a update" tool
 a() {
@@ -31,16 +33,48 @@ _a_completion() {
 complete -F _a_completion a
 ```
 
-### To Run
+### Zsh
+Add the following to your `~/.zshrc` to enable the `a` command and its autocompletion.
+```
+# Turn on auto completion
+autoload -U compinit
+compinit
+
+# Alias for local workflow "a update" tool
+a() {
+    python3 "$ANDROID_BUILD_TOP/tools/asuite/experiments/a/a.py" "$@"
+}
+_a_completion() {
+    local state
+
+    _arguments \
+        '1: :->command' \
+        '*:: :->args'
+
+    case $state in
+        command)
+            _values 'command' 'update'
+            ;;
+        args)
+            case ${words[1]} in
+                update)
+                    _arguments '*:alias:_values "alias" $(a update --list-aliases)'
+                    ;;
+            esac
+            ;;
+    esac
+}
+compdef _a_completion a
+```
+
+## Running and Developing
+You can run the tool using either the `a` alias (if configured) or by directly invoking the script:
 ```a {config_name}```
 or
 ```python3 a.py {config_name}```
 
-### To develop
-```python3 a.py {config_name}```
-
-### To Test:
-or
+## Testing
+Run the tests using any of the following commands:
 ```python3 -m unittest **/*_test.py```
 or
 ```python3 tests.py``
