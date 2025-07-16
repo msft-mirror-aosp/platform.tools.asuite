@@ -204,6 +204,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         extra_args.get(constants.CLASS_LEVEL_REPORT, False)
         or self._smart_test_selection
     )
+    self._skip_test_build = extra_args.get(constants.SKIP_BUILDING_TEST, False)
 
   def requires_device_update(
       self, test_infos: List[test_info.TestInfo]
@@ -781,7 +782,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     # host jars break the test.
     build_req |= self._get_host_framework_targets()
 
-    build_req |= trb.gather_build_targets(test_infos)
+    if not self._skip_test_build:
+      build_req |= trb.gather_build_targets(test_infos)
     return build_req
 
   def _get_test_runner_reqs_minimal(
@@ -793,7 +795,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
 
     for info in test_infos:
       test = self._create_test(info)
-      build_targets.update(test.query_build_targets())
+      build_targets.update(test.query_build_targets(self._skip_test_build))
       runtime_targets.update(test.query_runtime_targets())
 
     AtestTradefedTestRunner._MINIMAL_BUILD_TARGETS = runtime_targets
@@ -1567,6 +1569,7 @@ def extra_args_to_tf_args(
         constants.DEVICE_ONLY,
         constants.SMART_TEST_SELECTION,
         constants.CLASS_LEVEL_REPORT,
+        constants.SKIP_BUILDING_TEST,
     ):
       continue
     unsupported_args.append(arg)
@@ -1657,11 +1660,12 @@ class Test(ABC):
       + [Target(t, Variant.HOST) for t in constants.GTF_TARGETS]
   )
 
-  def query_build_targets(self) -> Set[Target]:
+  def query_build_targets(self, skip_test_build: bool = False) -> Set[Target]:
     """Returns the list of build targets required to run this test."""
     build_targets = set()
     build_targets.update(self._get_harness_build_targets())
-    build_targets.update(self._get_test_build_targets())
+    if not skip_test_build:
+      build_targets.update(self._get_test_build_targets())
     return build_targets
 
   @abstractmethod

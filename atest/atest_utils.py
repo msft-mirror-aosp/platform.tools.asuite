@@ -192,9 +192,19 @@ def get_host_out(*joinpaths: Any) -> Path:
   return Path(AndroidVariables().host_out, *joinpaths)
 
 
+def get_host_out_testcases(*joinpaths: Any) -> Path:
+  """Get the absolute host out testcases path from the given path."""
+  return Path(AndroidVariables().host_out_cases, *joinpaths)
+
+
 def get_product_out(*joinpaths: Any) -> Path:
   """Get the absolute product out path from the given path."""
   return Path(AndroidVariables().product_out, *joinpaths)
+
+
+def get_target_out_testcases(*joinpaths: Any) -> Path:
+  """Get the absolute target out testcases path from the given path."""
+  return Path(AndroidVariables().target_out_cases, *joinpaths)
 
 
 def get_index_path(*filename: Any) -> Path:

@@ -574,6 +574,19 @@ def create_atest_arg_parser():
       ),
   )
 
+  parser.add_argument(
+      '--test_branch', help='Build branch for tests from other branches.'
+  )
+  parser.add_argument(
+      '--test_build_target', help='Build target for tests from other branches.'
+  )
+  parser.add_argument(
+      '--test_build_id',
+      help=(
+          'Build id for tests. If not specified, use the last known good build.'
+      ),
+  )
+
   return parser
 
 

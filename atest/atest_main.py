@@ -67,6 +67,7 @@ from atest.test_finders import test_info
 from atest.test_finders.smart_test_finder import smart_test_finder
 from atest.test_finders.test_info import TestInfo
 from atest.test_runner_invocation import TestRunnerInvocation
+from atest.tools import fetch_artifact
 from atest.tools import indexing
 from atest.tools import start_avd as avd
 
@@ -315,6 +316,8 @@ def get_extra_args(args) -> Dict[str, str]:
     extra_args[constants.WAIT_FOR_DEBUGGER] = None
   if not parse_steps(args).install:
     extra_args[constants.DISABLE_INSTALL] = None
+  if args.test_build_target and (args.test_branch or args.test_build_id):
+    extra_args[constants.SKIP_BUILDING_TEST] = True
   # The key and its value of the dict can be called via:
   # if args.aaaa:
   #     extra_args[constants.AAAA] = args.aaaa
@@ -803,6 +806,21 @@ class _AtestMain:
         )
         return ExitCode.OUTSIDE_REPO
 
+    if (
+        self._args.test_build_target
+        or self._args.test_branch
+        or self._args.test_build_id
+    ):
+      if not self._args.test_build_target or not (
+          self._args.test_branch or self._args.test_build_id
+      ):
+        atest_utils.colorful_print(
+            'Cross branch testing is enabled. --test_build_target and one of'
+            ' either --test_branch or --test_build_id are required.',
+            constants.RED,
+        )
+        return ExitCode.INVALID_CROSS_BRANCH_ARGS
+
     # Checks whether ANDROID_SERIAL environment variable is set to an empty string.
     if 'ANDROID_SERIAL' in os.environ and not os.environ['ANDROID_SERIAL']:
       atest_utils.print_and_log_warning(
@@ -1060,6 +1078,21 @@ class _AtestMain:
         % (atest_utils.mark_green('%s' % self._get_build_targets()))
     )
 
+    if self._args.test_build_target:
+      print(
+          'Would download test artifacts from: %s'
+          % (
+              atest_utils.mark_green(
+                  '%s'
+                  % ({
+                      'build_target': self._args.test_build_target,
+                      'branch': self._args.test_branch,
+                      'build_id': self._args.test_build_id or 'latest',
+                  })
+              )
+          )
+      )
+
     all_run_cmds = []
     for test_runner, tests in test_runner_handler.group_tests_by_test_runners(
         self._test_infos
@@ -1176,6 +1209,17 @@ class _AtestMain:
     if not success:
       return ExitCode.BUILD_FAILURE
 
+    # Download additional test artifacts from AB
+    if self._args.test_build_target:
+      success = fetch_artifact.fetch_artifacts(
+          test_infos=self._test_infos,
+          build_target=self._args.test_build_target,
+          branch=self._args.test_branch,
+          build_id=self._args.test_build_id,
+      )
+      if not success:
+        return ExitCode.CROSS_BRANCH_FETCH_FAILURE
+
   def _run_test_step(self) -> int:
     """Runs the test step.
 
@@ -1195,7 +1239,13 @@ class _AtestMain:
           result=int(round(_init_and_find * 1000)),
       )
 
-    tests_exit_code = self._test_execution_plan.execute()
+    if self._args.test_build_target:
+      with fetch_artifact.ArtifactContextManager(
+          self._test_infos, self._mod_info
+      ):
+        tests_exit_code = self._test_execution_plan.execute()
+    else:
+      tests_exit_code = self._test_execution_plan.execute()
 
     if self._args.experimental_coverage:
       coverage.generate_coverage_report(

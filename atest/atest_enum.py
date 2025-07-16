@@ -163,6 +163,8 @@ class ExitCode(IntEnum):
   INSUFFICIENT_DEVICES = 21
   FEATURE_NOT_IMPLEMENTED = 22
   OUTSIDE_REPO = 23
+  INVALID_CROSS_BRANCH_ARGS = 24
+  CROSS_BRANCH_FETCH_FAILURE = 25
   # The code > 100 are reserved for collecting data only, actually the run
   # doesn't finish at the point.
   COLLECT_ONLY_FILE_NOT_FOUND = 101
