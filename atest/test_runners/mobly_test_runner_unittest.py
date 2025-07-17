@@ -148,7 +148,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
   """Unit tests for MoblyTestRunner."""
 
   def setUp(self) -> None:
-    self.runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR)
+    self.runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR, extra_args={})
     self.tinfo = test_info.TestInfo(
         test_name=TEST_NAME,
         test_runner=mobly_test_runner.MoblyTestRunner.EXECUTABLE,
@@ -397,7 +397,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         '_run_mobly_command',
         side_effect=(1, 1, 0, 0, 1),
     ) as run_mobly_command:
-      runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR)
+      runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR, extra_args={})
       runner._run_and_handle_results(
           [],
           self.tinfo,
@@ -423,7 +423,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         '_run_mobly_command',
         side_effect=(0, 0, 1, 0, 1),
     ) as run_mobly_command:
-      runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR)
+      runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR, extra_args={})
       runner._run_and_handle_results(
           [],
           self.tinfo,
@@ -449,7 +449,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         '_run_mobly_command',
         side_effect=(1, 1, 1, 0, 0),
     ) as run_mobly_command:
-      runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR)
+      runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR, extra_args={})
       runner._run_and_handle_results(
           [],
           self.tinfo,

@@ -342,6 +342,7 @@ class AtestMainUnitTests(unittest.TestCase):
   )
   def test_run_build_step_exits_normally_when_no_build_target(self, _):
     pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(argv=[])
 
     self.assertIsNone(pseudo_atest_main._run_build_step())
 
