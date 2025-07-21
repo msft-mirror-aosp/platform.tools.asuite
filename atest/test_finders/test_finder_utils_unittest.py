@@ -272,7 +272,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
   @mock.patch('builtins.input')
   @mock.patch.object(test_finder_utils, 'get_selected_indices')
   def test_multiselect_auxiliary_menu_all_returns_all_tests(
-      self, mock_get_selected_indices, mock_input):
+      self, mock_get_selected_indices, mock_input
+  ):
     paths = ['/a/b/c.java', '/d/e/f.java', '/g/h/i.java']
     mock_input.return_value = 'A'
 
@@ -287,7 +288,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
   @mock.patch.object(sys, 'exit')
   @mock.patch.object(test_finder_utils, 'get_selected_indices')
   def test_multiselect_auxiliary_menu_lowercase_cancel_returns_empty_list(
-      self, mock_get_selected_indices, mock_exit, mock_input):
+      self, mock_get_selected_indices, mock_exit, mock_input
+  ):
     # Cancelling the command
     mock_input.return_value = 'c'
 
@@ -626,6 +628,25 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     )
     self.assertTrue(cpp_class in cc_tmp_test_result)
     self.assertTrue(cc_class in cc_tmp_test_result)
+
+  @mock.patch('os.path.isdir', return_value=True)
+  @mock.patch('subprocess.run')
+  def test_run_find_cmd_subprocess_failed_does_not_throw(
+      self, mock_subprocess_run, _
+  ):
+    """Test run_find_cmd doesn't throw when subprocess.run fails."""
+    mock_result = mock.Mock()
+    mock_result.returncode = 1
+    mock_result.stdout = b''
+    mock_result.stderr = b'some error'
+    mock_subprocess_run.return_value = mock_result
+
+    class MockRefType:
+      find_command = 'find {0} -name {1}'
+      index_file = 'non_existent_file'
+      name = 'mock_ref'
+
+    test_finder_utils.run_find_cmd(MockRefType, '/some/dir', 'some_target')
 
   @mock.patch('builtins.input', return_value='0')
   @mock.patch.object(test_finder_utils, 'get_dir_path_and_filename')

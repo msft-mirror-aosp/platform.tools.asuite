@@ -75,7 +75,9 @@ class TFIntegrationFinderUnittests(unittest.TestCase):
       'get_fully_qualified_class_name',
       return_value=uc.FULL_CLASS_NAME,
   )
-  @mock.patch('subprocess.check_output')
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output'
+  )
   @mock.patch('os.path.exists', return_value=True)
   @mock.patch('os.path.isfile', return_value=False)
   @mock.patch('os.path.isdir', return_value=False)
