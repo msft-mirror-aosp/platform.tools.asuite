@@ -643,10 +643,103 @@ class TestFinderUtilsUnittests(unittest.TestCase):
 
     class MockRefType:
       find_command = 'find {0} -name {1}'
+      cs_command = None
       index_file = 'non_existent_file'
       name = 'mock_ref'
 
     test_finder_utils.run_find_cmd(MockRefType, '/some/dir', 'some_target')
+
+  @mock.patch('os.path.isdir', return_value=True)
+  @mock.patch('os.path.exists', return_value=True)
+  @mock.patch.object(test_finder_utils, '_call_cs_cmd_and_get_output')
+  @mock.patch.object(test_finder_utils, '_call_find_cmd_and_get_output')
+  def test_run_find_cmd_cs_returns_perfect_match_find_not_called(
+      self, mock_call_find_cmd, mock_call_cs_cmd, _1, _2
+  ):
+    """Test run_find_cmd: CS command returns a result, find command not called."""
+
+    class MockRefType:
+      find_command = 'find {0} -name {1}'
+      cs_command = 'cs -l --local "file:.*/{0}.xml"'
+      index_file = 'non_existent_file'
+      name = 'mock_ref'
+
+    mock_call_cs_cmd.return_value = '/some/dir/some_target.xml'
+    mock_call_find_cmd.return_value = ''
+
+    test_finder_utils.run_find_cmd(MockRefType, '/some/dir', 'some_target')
+
+    mock_call_cs_cmd.assert_called_once()
+    mock_call_find_cmd.assert_not_called()
+
+  @mock.patch('os.path.isdir', return_value=True)
+  @mock.patch('os.path.exists', return_value=True)
+  @mock.patch.object(test_finder_utils, '_call_cs_cmd_and_get_output')
+  @mock.patch.object(test_finder_utils, '_call_find_cmd_and_get_output')
+  def test_run_find_cmd_cs_returns_path_mismatch_find_called(
+      self, mock_call_find_cmd, mock_call_cs_cmd, _1, _2
+  ):
+    """Test run_find_cmd: CS command returns a result with path mismatch, find command called."""
+
+    class MockRefType:
+      find_command = 'find {0} -name {1}'
+      cs_command = 'cs -l --local "file:.*/{0}.xml"'
+      index_file = 'non_existent_file'
+      name = 'mock_ref'
+
+    mock_call_cs_cmd.return_value = '/another/dir/some_target.xml'
+    mock_call_find_cmd.return_value = '/some/dir/some_target.xml'
+
+    test_finder_utils.run_find_cmd(MockRefType, '/some/dir', 'some_target')
+
+    mock_call_cs_cmd.assert_called_once()
+    mock_call_find_cmd.assert_called_once()
+
+  @mock.patch('os.path.isdir', return_value=True)
+  @mock.patch('os.path.exists', return_value=True)
+  @mock.patch.object(test_finder_utils, '_call_cs_cmd_and_get_output')
+  @mock.patch.object(test_finder_utils, '_call_find_cmd_and_get_output')
+  def test_run_find_cmd_cs_returns_target_name_mismatch_find_called(
+      self, mock_call_find_cmd, mock_call_cs_cmd, _1, _2
+  ):
+    """Test run_find_cmd: CS command returns a result with target name mismatch, find command called."""
+
+    class MockRefType:
+      find_command = 'find {0} -name {1}'
+      cs_command = 'cs -l --local "file:.*/{0}.xml"'
+      index_file = 'non_existent_file'
+      name = 'mock_ref'
+
+    mock_call_cs_cmd.return_value = '/some/dir/other_target.xml'
+    mock_call_find_cmd.return_value = '/some/dir/some_target.xml'
+
+    test_finder_utils.run_find_cmd(MockRefType, '/some/dir', 'some_target')
+
+    mock_call_cs_cmd.assert_called_once()
+    mock_call_find_cmd.assert_called_once()
+
+  @mock.patch('os.path.isdir', return_value=True)
+  @mock.patch('os.path.exists', return_value=True)
+  @mock.patch.object(test_finder_utils, '_call_cs_cmd_and_get_output')
+  @mock.patch.object(test_finder_utils, '_call_find_cmd_and_get_output')
+  def test_run_find_cmd_cs_no_result_find_called(
+      self, mock_call_find_cmd, mock_call_cs_cmd, _1, _2
+  ):
+    """Test run_find_cmd: CS command returns no result, find command called."""
+
+    class MockRefType:
+      find_command = 'find {0} -name {1}'
+      cs_command = 'cs -l --local "file:.*/{0}.xml"'
+      index_file = 'non_existent_file'
+      name = 'mock_ref'
+
+    mock_call_cs_cmd.return_value = ''
+    mock_call_find_cmd.return_value = '/some/other/path/to/target.xml'
+
+    test_finder_utils.run_find_cmd(MockRefType, '/some/dir', 'some_target')
+
+    mock_call_cs_cmd.assert_called_once()
+    mock_call_find_cmd.assert_called_once()
 
   @mock.patch('builtins.input', return_value='0')
   @mock.patch.object(test_finder_utils, 'get_dir_path_and_filename')

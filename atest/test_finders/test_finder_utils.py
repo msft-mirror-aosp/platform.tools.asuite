@@ -20,6 +20,7 @@ from __future__ import print_function
 
 from contextlib import contextmanager
 from enum import Enum, unique
+import functools
 import logging
 import os
 from pathlib import Path
@@ -71,22 +72,26 @@ class TestReferenceType(Enum):
   CLASS = (
       constants.CLASS_INDEX,
       r"find {0} -type f| egrep '.*/{1}\.(kt|java)$' || true",
+      None,
   )
   # Like CLASS but also contains the package in front like
   # com.android.tradefed.testtype.HostTest.
   QUALIFIED_CLASS = (
       constants.QCLASS_INDEX,
       r"find {0} -type f | egrep '.*{1}\.(kt|java)$' || true",
+      None,
   )
   # Name of a Java package.
   PACKAGE = (
       constants.PACKAGE_INDEX,
       r"find {0} -wholename '*{1}' -type d -print",
+      None,
   )
   # XML file name in one of the 4 integration config directories.
   INTEGRATION = (
       constants.INT_INDEX,
       r"find {0} -wholename '*/{1}\.xml' -print",
+      r'cs -l --local "file:.*/{0}.xml"',
   )
   # Name of a cc/cpp class.
   CC_CLASS = (
@@ -95,11 +100,13 @@ class TestReferenceType(Enum):
           r"find {0} -type f -print | egrep -i '/*test.*\.(cc|cpp)$'"
           f"| xargs -P0 egrep -sH '{_CC_GREP_RE}' || true"
       ),
+      None,
   )
 
-  def __init__(self, index_file, find_command):
+  def __init__(self, index_file, find_command, cs_command):
     self.index_file = index_file
     self.find_command = find_command
+    self.cs_command = cs_command
 
 
 # XML parsing related constants.
@@ -419,6 +426,7 @@ def get_selected_indices(string: str, limit: int = None) -> Set[int]:
 
 
 def _call_find_cmd_and_get_output(find_cmd):
+  logging.debug('Executing find cmd: %s', find_cmd)
   result = subprocess.run(
       find_cmd, shell=True, capture_output=True, check=False
   )
@@ -440,6 +448,57 @@ def _call_find_cmd_and_get_output(find_cmd):
   return out
 
 
+@functools.lru_cache(maxsize=None)
+def _call_cs_cmd_and_get_output(cs_cmd):
+  """Run a cs command and return the results."""
+  logging.debug('Executing cs cmd: %s', cs_cmd)
+  try:
+    result = subprocess.run(
+        cs_cmd, shell=True, capture_output=True, check=False
+    )
+    cs_out = result.stdout
+    if isinstance(cs_out, bytes):
+      cs_out = cs_out.decode()
+    if result.returncode != 0:
+      logging.error(
+          'Command "%s" failed with exit code %s. Stderr: %s',
+          cs_cmd,
+          result.returncode,
+          result.stderr.decode().strip(),
+      )
+    return cs_out
+  except subprocess.CalledProcessError as e:
+    logging.error('Command "%s" failed with error: %s', cs_cmd, e)
+    return ''
+
+
+def _call_find_or_cs_cmd_and_get_output(
+    ref_type,
+    search_dir,
+    target,
+    attempt_code_search,
+):
+  """Find a path to a target given a search dir and a target name."""
+  out = ''
+  if attempt_code_search and ref_type.cs_command:
+    cs_cmd = ref_type.cs_command.format(target)
+    cs_out = _call_cs_cmd_and_get_output(cs_cmd)
+    cs_res = set(cs_out.splitlines(False))
+    cs_res = [
+        path
+        for path in cs_res
+        if path.startswith(search_dir)
+        and os.path.exists(path)
+        and target in path
+    ]
+    out = '\n'.join(cs_res)
+
+  if not out:
+    find_cmd = ref_type.find_command.format(search_dir, target)
+    out = _call_find_cmd_and_get_output(find_cmd)
+  return out
+
+
 def run_find_cmd(
     ref_type,
     search_dir,
@@ -447,6 +506,7 @@ def run_find_cmd(
     module_name=None,
     methods=None,
     filter_func=None,
+    attempt_code_search=True,
 ):
   """Find a path to a target given a search dir and a target name.
 
@@ -457,6 +517,7 @@ def run_find_cmd(
       module_name: Optional. A string of the module name.
       methods: A set of method names.
       filter_func: Optional. A filter logic from calling class.
+      attempt_code_search: A boolean variable of whether to attempt code search.
 
   Return:
       A list of the path to the target.
@@ -492,10 +553,9 @@ def run_find_cmd(
   else:
     if '.' in target:
       target = target.replace('.', '/')
-    find_cmd = ref_type.find_command.format(search_dir, target)
-    logging.debug('Executing %s find cmd: %s', ref_name, find_cmd)
-
-    out = _call_find_cmd_and_get_output(find_cmd)
+    out = _call_find_or_cs_cmd_and_get_output(
+        ref_type, search_dir, target, attempt_code_search
+    )
 
   # Check if module info exist, then do test dedup
   if module_name and filter_func:
