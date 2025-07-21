@@ -17,6 +17,7 @@
 
 import concurrent.futures
 import itertools
+import json
 import logging
 import pathlib
 import shutil
@@ -32,6 +33,7 @@ from atest.test_finders.test_info import TestInfo
 
 
 _ARCH_64_DIR_PATTERN = '64/'
+_BUILD_INFO_FILE = 'BUILD_INFO'
 _CACHE_DIR = '/tmp/atest_artifact/cache'
 _SWAP_DIR = '/tmp/atest_artifact/swap'
 _FETCH_ARTIFACT_BIN = '/google/data/ro/projects/android/fetch_artifact'
@@ -52,12 +54,21 @@ class ArtifactContextManager:
       self,
       test_infos: Sequence[TestInfo],
       mod_info: ModuleInfo,
+      build_target: str,
   ):
     self._test_infos = test_infos
     self._mod_info = mod_info
     self._backup_to_original_paths = {}
     self._symlinks = []
     self._swap_dir = pathlib.Path(_SWAP_DIR, str(uuid.uuid4()))
+    self._cache_dir = next(
+        pathlib.Path(_CACHE_DIR).glob(f'*/{build_target}'), None
+    )
+    if not self._cache_dir:
+      raise CrossBranchArtifactError(
+          f'Unable to find downloaded artifacts for {build_target}'
+      )
+    logging.debug('Found artifact directory %s', self._cache_dir)
 
   def __enter__(self):
     if not self._swap_dir.exists():
@@ -108,7 +119,7 @@ class ArtifactContextManager:
 
   def _symlink_testcases_dir(self, target_dir: pathlib.Path, test_name: str):
     """Symlinks the testcases directory to a downloaded directory."""
-    source_dir = _find_downloaded_testcases_dir(test_name)
+    source_dir = _find_downloaded_testcases_dir(self._cache_dir, test_name)
     if not source_dir:
       raise CrossBranchArtifactError(
           f'Unable to find the downloaded testcases directory for {test_name}.'
@@ -168,8 +179,8 @@ class ArtifactContextManager:
     matched_files = sorted(
         [
             path
-            for path in pathlib.Path(_CACHE_DIR).rglob(pattern=pattern)
-            if file_filter(path)
+            for path in self._cache_dir.rglob(pattern=pattern)
+            if file_filter(path.relative_to(self._cache_dir))
         ],
         key=lambda p: len(str(p).split('/')),
     )
@@ -203,7 +214,11 @@ def fetch_artifacts(
   if not _is_fetch_artifact_available():
     return False
 
-  pathlib.Path(_CACHE_DIR).mkdir(parents=True, exist_ok=True)
+  try:
+    root_dir = _prepare_cache_dir(build_target, branch, build_id)
+  except CrossBranchArtifactError as e:
+    atest_utils.print_and_log_error(e)
+    return False
 
   done = set()
   for test_info in test_infos:
@@ -211,14 +226,20 @@ def fetch_artifacts(
       continue
     done.add(test_info.raw_test_name)
 
+    testcases_dir = _find_downloaded_testcases_dir(
+        root_dir, test_info.raw_test_name
+    )
+    if testcases_dir:
+      atest_utils.print_and_log_info(
+          'Found downloaded caches for %s at %s, skip downloading.',
+          test_info.raw_test_name,
+          testcases_dir,
+      )
+      continue
+
     atest_utils.print_and_log_info(
         'Fetching %s with fetch_artifact', test_info.raw_test_name
     )
-    # TODO(b/390161000): support cache for downloaded files
-    testcases_dir = _find_downloaded_testcases_dir(test_info.raw_test_name)
-    if testcases_dir:
-      shutil.rmtree(testcases_dir)
-
     suite_name = _get_test_suite_name(test_info.compatibility_suites)
     if not suite_name:
       atest_utils.print_and_log_error(
@@ -243,14 +264,14 @@ def fetch_artifacts(
           _MAX_ZIP_ENTRY_BATCH,
       )
       failed_files = _fetch_parallel(
-          batches, _CACHE_DIR, suite_name, build_target, branch, build_id
+          batches, str(root_dir), suite_name, build_target, branch, build_id
       )
       if failed_files:
         # Attempt to fetch each item individually.
         # This can resolve issues caused by empty files in the batch.
         failed_files = _fetch_parallel(
             ((file,) for file in failed_files),
-            _CACHE_DIR,
+            str(root_dir),
             suite_name,
             build_target,
             branch,
@@ -262,7 +283,9 @@ def fetch_artifacts(
             f'{"\n".join(failed_files)}\n'
             'This may be due to the files being empty. Testing will proceed.'
         )
-      testcases_dir = _find_downloaded_testcases_dir(test_info.raw_test_name)
+      testcases_dir = _find_downloaded_testcases_dir(
+          root_dir, test_info.raw_test_name
+      )
       if not testcases_dir:
         atest_utils.print_and_log_error(
             'Failed to download artifacts for %s', test_info.raw_test_name
@@ -299,10 +322,54 @@ def _is_fetch_artifact_available() -> bool:
     return False
 
 
-def _find_downloaded_testcases_dir(test_name: str) -> pathlib.Path:
-  return next(
-      pathlib.Path(_CACHE_DIR).rglob(pattern=f'testcases/{test_name}/'), None
-  )
+def _prepare_cache_dir(
+    build_target: str,
+    branch: str | None = None,
+    build_id: str | None = None,
+) -> pathlib.Path:
+  """Prepares the cache directory for a build and clears outdated caches."""
+  pathlib.Path(_CACHE_DIR).mkdir(parents=True, exist_ok=True)
+  if not build_id or build_id == '0':
+    cmd = [_FETCH_ARTIFACT_BIN]
+    cmd.extend(_get_build_args(build_target, branch, build_id))
+    cmd.append(_BUILD_INFO_FILE)
+    cmd.append(_CACHE_DIR)
+    proc = subprocess.run(
+        cmd,
+        text=True,
+        check=False,
+        stderr=subprocess.STDOUT,
+        stdout=subprocess.PIPE,
+    )
+    build_info = pathlib.Path(_CACHE_DIR, _BUILD_INFO_FILE)
+    if not build_info.exists():
+      err_msg = (
+          f'Failed to get build info on ({build_target}, {branch}, {build_id}).'
+      )
+      if proc.stdout:
+        err_msg += '\n' + _decode_subprocess_err(proc.stdout)
+      raise CrossBranchArtifactError(err_msg)
+    with open(build_info, 'r') as f:
+      try:
+        build_id = json.load(f)['bid']
+      except (json.JSONDecodeError, KeyError) as e:
+        raise CrossBranchArtifactError(
+            f'Invalid build info {build_info}.'
+        ) from e
+    build_info.unlink()
+  build_dir = pathlib.Path(_CACHE_DIR, build_id)
+  if not build_dir.exists():
+    # Clear caches to keep only 1 build
+    shutil.rmtree(_CACHE_DIR)
+  cache_dir = build_dir / build_target
+  cache_dir.mkdir(parents=True, exist_ok=True)
+  return cache_dir
+
+
+def _find_downloaded_testcases_dir(
+    root_dir: pathlib.Path, test_name: str
+) -> pathlib.Path:
+  return next(root_dir.rglob(pattern=f'testcases/{test_name}/'), None)
 
 
 def _get_test_suite_name(compatibility_suites: Sequence[str]) -> str | None:
@@ -360,6 +427,8 @@ def _get_build_args(
     args.extend(('--branch', branch))
   if build_id:
     args.extend(('--bid', build_id))
+  else:
+    args.append('--latest')
   return args
 
 
