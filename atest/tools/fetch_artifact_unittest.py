@@ -34,7 +34,7 @@ class ArtifactContextManagerUnittests(fake_filesystem_unittest.TestCase):
     self.setUpPyfakefs()
     self.fs.create_dir(os.getenv('ANDROID_TARGET_OUT_TESTCASES'))
     self.fs.create_dir(os.getenv('ANDROID_HOST_OUT_TESTCASES'))
-    self._cache_path = pathlib.Path(fetch_artifact._CACHE_DIR)
+    self._cache_path = pathlib.Path(fetch_artifact._CACHE_DIR, '123', 'target')
     self._target_tcases = pathlib.Path(
         os.getenv('ANDROID_TARGET_OUT_TESTCASES')
     )
@@ -67,7 +67,7 @@ class ArtifactContextManagerUnittests(fake_filesystem_unittest.TestCase):
     self.assertFalse(target_dir.is_symlink())
     self.assertEqual(module_config.read_text(), 'module config')
     with fetch_artifact.ArtifactContextManager(
-        test_infos=test_infos, mod_info=mod_info
+        test_infos=test_infos, mod_info=mod_info, build_target='target'
     ):
       self.assertTrue(target_dir.is_symlink())
       self.assertEqual(target_dir.resolve(), module_cache)
@@ -117,7 +117,7 @@ class ArtifactContextManagerUnittests(fake_filesystem_unittest.TestCase):
     self.assertFalse(host_dir.exists())
     self.assertFalse(target_dir.exists())
     with fetch_artifact.ArtifactContextManager(
-        test_infos=test_infos, mod_info=mod_info
+        test_infos=test_infos, mod_info=mod_info, build_target='target'
     ):
       # Ignore installed files for host
       self.assertFalse(host_dir.exists())
@@ -190,7 +190,7 @@ class ArtifactContextManagerUnittests(fake_filesystem_unittest.TestCase):
 
     try:
       with fetch_artifact.ArtifactContextManager(
-          test_infos=test_infos, mod_info=mod_info
+          test_infos=test_infos, mod_info=mod_info, build_target='target'
       ):
         # symlink module1
         # error for module2
@@ -205,17 +205,17 @@ class ArtifactContextManagerUnittests(fake_filesystem_unittest.TestCase):
 
 class FetchArtifactUnittests(unittest.TestCase):
 
-  @mock.patch('pathlib.Path', autospec=True)
+  @mock.patch.object(fetch_artifact, '_prepare_cache_dir', autospec=True)
   @mock.patch(
       'subprocess.run',
       return_value=subprocess.CompletedProcess(args=[], returncode=0),
   )
   @mock.patch('subprocess.Popen', autospec=True)
-  def test_fetch_artifact_success(self, mock_popen, mock_run, mock_path):
-    mock_path.return_value.rglob.side_effect = [
-        iter(()),
-        iter((mock.MagicMock(),)),
-    ]
+  def test_fetch_artifact_success(self, mock_popen, mock_run, mock_cache_dir):
+    root_dir = mock.MagicMock()
+    root_dir.rglob.side_effect = [iter(()), iter((mock.MagicMock(),))]
+    root_dir.__str__.return_value = 'cache/123/target'
+    mock_cache_dir.return_value = root_dir
     proc = mock.MagicMock()
     mock_popen.return_value.__enter__.return_value = proc
     proc.stdout = [
@@ -239,7 +239,7 @@ class FetchArtifactUnittests(unittest.TestCase):
 
     self.assertTrue(
         fetch_artifact.fetch_artifacts(
-            test_infos=test_infos, build_target='target'
+            test_infos=test_infos, build_target='target', build_id='123'
         )
     )
     mock_run.assert_has_calls(
@@ -255,6 +255,8 @@ class FetchArtifactUnittests(unittest.TestCase):
                     fetch_artifact._FETCH_ARTIFACT_BIN,
                     '--target',
                     'target',
+                    '--bid',
+                    '123',
                     '--zip_entry',
                     'testcases/module/module.config',
                     '--zip_entry',
@@ -262,7 +264,7 @@ class FetchArtifactUnittests(unittest.TestCase):
                     '--zip_entry',
                     'testcases/module/test.apk',
                     'android-cts.zip',
-                    fetch_artifact._CACHE_DIR,
+                    'cache/123/target',
                 ],
                 check=True,
                 text=True,
@@ -274,10 +276,12 @@ class FetchArtifactUnittests(unittest.TestCase):
                     fetch_artifact._FETCH_ARTIFACT_BIN,
                     '--target',
                     'target',
+                    '--bid',
+                    '123',
                     '--zip_entry',
                     'testcases/module/setup.sh',
                     'android-cts.zip',
-                    fetch_artifact._CACHE_DIR,
+                    'cache/123/target',
                 ],
                 check=True,
                 text=True,
@@ -298,12 +302,41 @@ class FetchArtifactUnittests(unittest.TestCase):
     )
     mock_run.assert_called_once()
 
+  @mock.patch.object(fetch_artifact, '_prepare_cache_dir', autospec=True)
   @mock.patch(
       'subprocess.run',
       return_value=subprocess.CompletedProcess(args=[], returncode=0),
   )
   @mock.patch('subprocess.Popen')
-  def test_fetch_artifact_suite_not_supported(self, mock_popen, mock_run):
+  def test_fetch_artifact_skip_downloading_with_cache(
+      self, mock_popen, mock_run, mock_cache_dir
+  ):
+    mock_cache_dir.return_value.rglob.return_value = iter((mock.MagicMock(),))
+    test_infos = [
+        TestInfo(
+            test_name='module',
+            test_runner='',
+            build_targets=set(),
+            compatibility_suites=['cts'],
+        )
+    ]
+
+    self.assertTrue(
+        fetch_artifact.fetch_artifacts(test_infos=test_infos, build_target='')
+    )
+    mock_run.assert_called_once()
+    mock_popen.assert_not_called()
+
+  @mock.patch.object(fetch_artifact, '_prepare_cache_dir', autospec=True)
+  @mock.patch(
+      'subprocess.run',
+      return_value=subprocess.CompletedProcess(args=[], returncode=0),
+  )
+  @mock.patch('subprocess.Popen', autospec=True)
+  def test_fetch_artifact_suite_not_supported(
+      self, mock_popen, mock_run, mock_cache_dir
+  ):
+    mock_cache_dir.return_value.rglob.return_value = iter(())
     test_infos = [
         TestInfo(
             test_name='module',
@@ -319,6 +352,7 @@ class FetchArtifactUnittests(unittest.TestCase):
     mock_run.assert_called_once()
     mock_popen.assert_not_called()
 
+  @mock.patch.object(fetch_artifact, '_prepare_cache_dir', autospec=True)
   @mock.patch(
       'subprocess.run',
       return_value=subprocess.CompletedProcess(args=[], returncode=0),
@@ -327,7 +361,10 @@ class FetchArtifactUnittests(unittest.TestCase):
       'subprocess.Popen',
       side_effect=subprocess.CalledProcessError(returncode=1, cmd='list'),
   )
-  def test_fetch_artifact_list_artifact_error(self, mock_popen, mock_run):
+  def test_fetch_artifact_list_artifact_error(
+      self, mock_popen, mock_run, mock_cache_dir
+  ):
+    mock_cache_dir.return_value.rglob.return_value = iter(())
     test_infos = [
         TestInfo(
             test_name='module',
@@ -343,7 +380,7 @@ class FetchArtifactUnittests(unittest.TestCase):
     mock_run.assert_called_once()
     mock_popen.assert_called_once()
 
-  @mock.patch('pathlib.Path', autospec=True)
+  @mock.patch.object(fetch_artifact, '_prepare_cache_dir', autospec=True)
   @mock.patch(
       'subprocess.run',
       side_effect=[
@@ -355,12 +392,12 @@ class FetchArtifactUnittests(unittest.TestCase):
   )
   @mock.patch('subprocess.Popen', autospec=True)
   def test_fetch_artifact_retry_failed_files(
-      self, mock_popen, mock_run, mock_path
+      self, mock_popen, mock_run, mock_cache_dir
   ):
-    mock_path.return_value.rglob.side_effect = [
-        iter(()),
-        iter((mock.MagicMock(),)),
-    ]
+    root_dir = mock.MagicMock()
+    root_dir.rglob.side_effect = [iter(()), iter((mock.MagicMock(),))]
+    root_dir.__str__.return_value = 'cache/123/target'
+    mock_cache_dir.return_value = root_dir
     proc = mock.MagicMock()
     mock_popen.return_value.__enter__.return_value = proc
     proc.stdout = [
@@ -382,7 +419,7 @@ class FetchArtifactUnittests(unittest.TestCase):
 
     self.assertTrue(
         fetch_artifact.fetch_artifacts(
-            test_infos=test_infos, build_target='target'
+            test_infos=test_infos, build_target='target', branch='branch'
         )
     )
     mock_run.assert_has_calls(
@@ -392,12 +429,15 @@ class FetchArtifactUnittests(unittest.TestCase):
                     fetch_artifact._FETCH_ARTIFACT_BIN,
                     '--target',
                     'target',
+                    '--branch',
+                    'branch',
+                    '--latest',
                     '--zip_entry',
                     'testcases/module/module.config',
                     '--zip_entry',
                     'testcases/module/module',
                     'android-cts.zip',
-                    fetch_artifact._CACHE_DIR,
+                    'cache/123/target',
                 ],
                 check=True,
                 text=True,
@@ -409,10 +449,13 @@ class FetchArtifactUnittests(unittest.TestCase):
                     fetch_artifact._FETCH_ARTIFACT_BIN,
                     '--target',
                     'target',
+                    '--branch',
+                    'branch',
+                    '--latest',
                     '--zip_entry',
                     'testcases/module/module.config',
                     'android-cts.zip',
-                    fetch_artifact._CACHE_DIR,
+                    'cache/123/target',
                 ],
                 check=True,
                 text=True,
@@ -424,10 +467,13 @@ class FetchArtifactUnittests(unittest.TestCase):
                     fetch_artifact._FETCH_ARTIFACT_BIN,
                     '--target',
                     'target',
+                    '--branch',
+                    'branch',
+                    '--latest',
                     '--zip_entry',
                     'testcases/module/module',
                     'android-cts.zip',
-                    fetch_artifact._CACHE_DIR,
+                    'cache/123/target',
                 ],
                 check=True,
                 text=True,
@@ -438,14 +484,14 @@ class FetchArtifactUnittests(unittest.TestCase):
         any_order=True,
     )
 
-  @mock.patch('pathlib.Path', autospec=True)
+  @mock.patch.object(fetch_artifact, '_prepare_cache_dir', autospec=True)
   @mock.patch(
       'subprocess.run',
       return_value=subprocess.CompletedProcess(args=[], returncode=0),
   )
   @mock.patch('subprocess.Popen')
-  def test_fetch_artifact_empty_list(self, mock_popen, _, mock_path):
-    mock_path.return_value.rglob.return_value = iter(())
+  def test_fetch_artifact_empty_list(self, mock_popen, _, mock_cache_dir):
+    mock_cache_dir.return_value.rglob.return_value = iter(())
     mock_popen.return_value.__enter__.return_value.wait.return_value = 0
     test_infos = [
         TestInfo(
@@ -461,3 +507,76 @@ class FetchArtifactUnittests(unittest.TestCase):
             test_infos=test_infos, build_target='target'
         )
     )
+
+  @mock.patch.object(pathlib.Path, 'mkdir')
+  @mock.patch.object(pathlib.Path, 'exists', return_value=True)
+  def test_prepare_cache_dir_success_with_digit_build_id(self, *_):
+    self.assertEqual(
+        fetch_artifact._prepare_cache_dir(
+            build_target='target', build_id='123'
+        ),
+        pathlib.Path(fetch_artifact._CACHE_DIR, '123', 'target'),
+    )
+
+  @mock.patch.object(pathlib.Path, 'mkdir')
+  @mock.patch.object(pathlib.Path, 'exists', return_value=True)
+  @mock.patch.object(pathlib.Path, 'unlink')
+  @mock.patch('builtins.open')
+  @mock.patch('json.load', return_value={'bid': '123'})
+  @mock.patch(
+      'subprocess.run',
+      return_value=subprocess.CompletedProcess(args=[], returncode=0),
+  )
+  def test_prepare_cache_dir_success_without_build_id(self, mock_run, *_):
+    self.assertEqual(
+        fetch_artifact._prepare_cache_dir(
+            build_target='target', branch='branch'
+        ),
+        pathlib.Path(fetch_artifact._CACHE_DIR, '123', 'target'),
+    )
+
+    mock_run.assert_called_once_with(
+        [
+            fetch_artifact._FETCH_ARTIFACT_BIN,
+            '--target',
+            'target',
+            '--branch',
+            'branch',
+            '--latest',
+            'BUILD_INFO',
+            fetch_artifact._CACHE_DIR,
+        ],
+        text=True,
+        check=False,
+        stderr=subprocess.STDOUT,
+        stdout=subprocess.PIPE,
+    )
+
+  @mock.patch.object(pathlib.Path, 'mkdir')
+  @mock.patch.object(pathlib.Path, 'exists', return_value=False)
+  @mock.patch(
+      'subprocess.run',
+      return_value=subprocess.CompletedProcess(
+          args=[], returncode=0, stdout='err'
+      ),
+  )
+  def test_prepare_cache_dir_fail_no_build_info(self, *_):
+    with self.assertRaisesRegex(
+        fetch_artifact.CrossBranchArtifactError, 'Failed to get build info'
+    ):
+      fetch_artifact._prepare_cache_dir(build_target='target', branch='branch')
+
+  @mock.patch.object(pathlib.Path, 'mkdir')
+  @mock.patch.object(pathlib.Path, 'exists', return_value=True)
+  @mock.patch.object(pathlib.Path, 'unlink')
+  @mock.patch('builtins.open')
+  @mock.patch('json.load', return_value={'a': '123'})
+  @mock.patch(
+      'subprocess.run',
+      return_value=subprocess.CompletedProcess(args=[], returncode=0),
+  )
+  def test_prepare_cache_dir_fail_invalid_build_info(self, *_):
+    with self.assertRaisesRegex(
+        fetch_artifact.CrossBranchArtifactError, 'Invalid build info'
+    ):
+      fetch_artifact._prepare_cache_dir(build_target='target', branch='branch')

@@ -418,6 +418,28 @@ def get_selected_indices(string: str, limit: int = None) -> Set[int]:
   return selections
 
 
+def _call_find_cmd_and_get_output(find_cmd):
+  result = subprocess.run(
+      find_cmd, shell=True, capture_output=True, check=False
+  )
+  out = (
+      result.stdout.decode()
+      if isinstance(result.stdout, bytes)
+      else result.stdout
+  )
+  if result.returncode != 0:
+    logging.error(
+        'Command "%s" failed with exit code %s. Stderr: %s',
+        find_cmd,
+        result.returncode,
+        result.stderr.decode().strip()
+        if isinstance(result.stderr, bytes)
+        else result.stderr.strip(),
+    )
+  logging.debug('Find cmd out: %s', out)
+  return out
+
+
 def run_find_cmd(
     ref_type,
     search_dir,
@@ -472,10 +494,8 @@ def run_find_cmd(
       target = target.replace('.', '/')
     find_cmd = ref_type.find_command.format(search_dir, target)
     logging.debug('Executing %s find cmd: %s', ref_name, find_cmd)
-    out = subprocess.check_output(find_cmd, shell=True)
-    if isinstance(out, bytes):
-      out = out.decode()
-    logging.debug('%s find cmd out: %s', ref_name, out)
+
+    out = _call_find_cmd_and_get_output(find_cmd)
 
   # Check if module info exist, then do test dedup
   if module_name and filter_func:

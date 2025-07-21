@@ -151,7 +151,7 @@ class ModuleFinderFindTestByModuleClassName(
       )
 
   @mock.patch(
-      'subprocess.check_output',
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output',
       return_value=(
           'path/to/testmodule/src/com/android/myjavatests/MyJavaTestClass.java'
       ),
@@ -182,7 +182,7 @@ class ModuleFinderFindTestByModuleClassName(
       )
 
   @mock.patch(
-      'subprocess.check_output',
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output',
   )
   def test_find_test_by_module_class_module_name_unknown_test_info_is_none(
       self, find_cmd
@@ -207,7 +207,7 @@ class ModuleFinderFindTestByModuleClassName(
     self.assertIsNone(t_infos)
 
   @mock.patch(
-      'subprocess.check_output',
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output',
       return_value=[
           'example_module/project/src/com/android/myjavatests/MyJavaTestClass.java'
       ],
@@ -263,7 +263,9 @@ class ModuleFinderFindTestByModuleClassName(
           'example_module-project',
       )
 
-  @mock.patch('subprocess.check_output')
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output'
+  )
   def test_find_test_by_class_unique_class_name_finds_class(self, mock_run_cmd):
     self.create_module_paths(['/project/tests/module1'])
     test_file_src = self.create_class_in_module(
@@ -294,7 +296,9 @@ class ModuleFinderFindTestByModuleClassName(
       )
 
   @mock.patch.object(test_finder_utils, 'get_multiple_selection_answer')
-  @mock.patch('subprocess.check_output')
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output'
+  )
   def test_find_test_by_class_multiple_class_names_returns_selection_menu(
       self, mock_run_cmd, mock_test_selection
   ):
@@ -336,7 +340,9 @@ class ModuleFinderFindTestByModuleClassName(
           t_infos[0], 'tests.android.module1.ClassOneTest'
       )
 
-  @mock.patch('subprocess.check_output')
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output'
+  )
   def test_find_test_by_class_multiple_classes_in_module_finds_class(
       self, mock_run_cmd
   ):
@@ -369,7 +375,9 @@ class ModuleFinderFindTestByModuleClassName(
       )
 
   @mock.patch('atest.module_info.Loader.get_testable_module_from_memory')
-  @mock.patch('subprocess.check_output')
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output'
+  )
   def test_find_test_by_class_multiple_modules_with_same_path_finds_class(
       self, mock_run_cmd, mock_loader
   ):
@@ -412,7 +420,9 @@ class ModuleFinderFindTestByModuleClassName(
       )
 
   @mock.patch.object(test_finder_utils, 'get_multiple_selection_answer')
-  @mock.patch('subprocess.check_output')
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output'
+  )
   def test_find_test_by_module_and_native_class_name_multiple_found(
       self, find_cmd, mock_selection_answer
   ):
@@ -460,7 +470,9 @@ class ModuleFinderFindTestByModuleClassName(
     global_args_patcher.stop()
 
   @mock.patch.object(test_finder_utils, 'get_multiple_selection_answer')
-  @mock.patch('subprocess.check_output')
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output'
+  )
   def test_find_test_by_module_and_java_class_name_multiple_found(
       self, find_cmd, mock_selection_answer
   ):
@@ -508,7 +520,9 @@ class ModuleFinderFindTestByModuleClassName(
     global_args_patcher.stop()
 
   @mock.patch.object(atf_tr.AtestTradefedTestRunner, 'generate_run_commands')
-  @mock.patch('subprocess.check_output')
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output'
+  )
   def test_find_test_by_module_class_name_multiple_found_with_same_cmd_diff_order(
       self, find_cmd, generate_run_commands
   ):
@@ -549,7 +563,9 @@ class ModuleFinderFindTestByModuleClassName(
     global_args_patcher.stop()
 
   @mock.patch.object(test_finder_utils, 'get_multiple_selection_answer')
-  @mock.patch('subprocess.check_output')
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output'
+  )
   def test_find_test_by_class_multiple_configs_one_test_per_config_found(
       self, mock_run_cmd, mock_test_selection
   ):
@@ -794,7 +810,10 @@ class ModuleFinderUnittests(unittest.TestCase):
       module_finder.ModuleFinder, '_is_vts_module', return_value=False
   )
   @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
-  @mock.patch('subprocess.check_output', return_value=uc.FIND_ONE)
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output',
+      return_value=uc.FIND_ONE,
+  )
   @mock.patch.object(
       test_filter_utils,
       'get_fully_qualified_class_name',
@@ -873,7 +892,10 @@ class ModuleFinderUnittests(unittest.TestCase):
       module_finder.ModuleFinder, '_is_vts_module', return_value=False
   )
   @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
-  @mock.patch('subprocess.check_output', return_value=uc.FIND_ONE)
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output',
+      return_value=uc.FIND_ONE,
+  )
   @mock.patch.object(
       test_filter_utils,
       'get_fully_qualified_class_name',
@@ -937,7 +959,10 @@ class ModuleFinderUnittests(unittest.TestCase):
       module_finder.ModuleFinder, '_is_vts_module', return_value=False
   )
   @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
-  @mock.patch('subprocess.check_output', return_value=uc.FIND_CC_ONE)
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output',
+      return_value=uc.FIND_CC_ONE,
+  )
   @mock.patch.object(
       test_finder_utils, 'find_class_file', side_effect=[None, None, '/']
   )
@@ -1005,7 +1030,10 @@ class ModuleFinderUnittests(unittest.TestCase):
       module_finder.ModuleFinder, '_is_vts_module', return_value=False
   )
   @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
-  @mock.patch('subprocess.check_output', return_value=uc.FIND_CC_ONE)
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output',
+      return_value=uc.FIND_CC_ONE,
+  )
   @mock.patch.object(
       test_finder_utils, 'find_class_file', side_effect=[None, None, '/']
   )
@@ -1044,7 +1072,10 @@ class ModuleFinderUnittests(unittest.TestCase):
       module_finder.ModuleFinder, '_is_vts_module', return_value=False
   )
   @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
-  @mock.patch('subprocess.check_output', return_value=uc.FIND_PKG)
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output',
+      return_value=uc.FIND_PKG,
+  )
   @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
   @mock.patch('os.path.isdir', return_value=True)
   # pylint: disable=unused-argument
@@ -1098,7 +1129,10 @@ class ModuleFinderUnittests(unittest.TestCase):
       module_finder.ModuleFinder, '_is_vts_module', return_value=False
   )
   @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
-  @mock.patch('subprocess.check_output', return_value=uc.FIND_PKG)
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output',
+      return_value=uc.FIND_PKG,
+  )
   @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
   # pylint: disable=unused-argument
   def test_find_test_by_module_and_package(
@@ -1326,7 +1360,10 @@ class ModuleFinderUnittests(unittest.TestCase):
       module_finder.ModuleFinder, '_is_vts_module', return_value=False
   )
   @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
-  @mock.patch('subprocess.check_output', return_value=uc.CC_FIND_ONE)
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output',
+      return_value=uc.CC_FIND_ONE,
+  )
   @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
   @mock.patch('os.path.isdir', return_value=True)
   # pylint: disable=unused-argument
@@ -1449,7 +1486,10 @@ class ModuleFinderUnittests(unittest.TestCase):
       module_finder.ModuleFinder, '_is_vts_module', return_value=False
   )
   @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
-  @mock.patch('subprocess.check_output', return_value='')
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output',
+      return_value='',
+  )
   @mock.patch.object(
       test_filter_utils,
       'get_fully_qualified_class_name',
@@ -1497,7 +1537,10 @@ class ModuleFinderUnittests(unittest.TestCase):
       module_finder.ModuleFinder, '_is_vts_module', return_value=False
   )
   @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
-  @mock.patch('subprocess.check_output', return_value='')
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output',
+      return_value='',
+  )
   @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
   @mock.patch('os.path.isdir', return_value=True)
   # pylint: disable=unused-argument
@@ -1609,7 +1652,10 @@ class ModuleFinderUnittests(unittest.TestCase):
       module_finder.ModuleFinder, '_is_vts_module', return_value=False
   )
   @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
-  @mock.patch('subprocess.check_output', return_value=uc.FIND_ONE)
+  @mock.patch(
+      'atest.test_finders.test_finder_utils._call_find_cmd_and_get_output',
+      return_value=uc.FIND_ONE,
+  )
   @mock.patch.object(
       test_filter_utils,
       'get_fully_qualified_class_name',
