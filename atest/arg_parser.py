@@ -562,18 +562,6 @@ def create_atest_arg_parser():
 
   perf_mode.add_global_arguments(parser)
 
-  # This arg actually doesn't consume anything, it's primarily used for
-  # the help description and creating custom_args in the NameSpace object.
-  parser.add_argument(
-      '--',
-      dest='custom_args',
-      nargs='*',
-      help=(
-          'Specify custom args for the test runners. Everything after -- will'
-          ' be consumed as custom args.'
-      ),
-  )
-
   parser.add_argument(
       '--test_branch', help='Build branch for tests from other branches.'
   )
@@ -584,6 +572,18 @@ def create_atest_arg_parser():
       '--test_build_id',
       help=(
           'Build id for tests. If not specified, use the last known good build.'
+      ),
+  )
+
+  # This arg actually doesn't consume anything, it's primarily used for
+  # the help description and creating custom_args in the NameSpace object.
+  parser.add_argument(
+      '--',
+      dest='custom_args',
+      nargs='*',
+      help=(
+          'Specify custom args for the test runners. Everything after -- will'
+          ' be consumed as custom args.'
       ),
   )
 
