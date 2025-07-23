@@ -502,7 +502,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         ),
         action='append',
     )
-    return parser.parse_args(argv)
+    return parser.parse_known_args(argv)[0]
 
   def _get_rerun_options(self, extra_args: dict[str, Any]) -> RerunOptions:
     """Get rerun options from extra_args."""
