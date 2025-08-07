@@ -507,7 +507,7 @@ fn is_apk_installed(host_path: &Path, installed_packages: &HashSet<String>) -> R
     let aapt_output = std::process::Command::new("aapt2")
         .args(["dump", "permissions", host_apk_path])
         .output()
-        .context(format!("Running aapt2 on host to see if apk installed: {}", host_apk_path))?;
+        .context(format!("Running aapt2 on host to see if apk installed: {host_apk_path}"))?;
 
     if !aapt_output.status.success() {
         let stderr = String::from_utf8(aapt_output.stderr)?;
@@ -638,7 +638,7 @@ fn print_files_in_state(
         .map(|path| format!("\t{}", path.display()))
         .collect::<Vec<String>>()
         .join("\n");
-    writeln!(stdout, "{}", file_list_output)?;
+    writeln!(stdout, "{file_list_output}")?;
     Ok(())
 }
 
@@ -666,7 +666,7 @@ fn shadow_apk_check(stdout: &mut impl Write, files: &HashMap<PathBuf, PushState>
         .map(|path| format!("adb uninstall {};", path.display()))
         .collect::<Vec<String>>()
         .join("\n");
-    writeln!(stdout, "{}", file_list_output)?;
+    writeln!(stdout, "{file_list_output}")?;
     bail!("{} shadowing apks found. Uninstall to continue.", filtered_files.keys().len());
 }
 

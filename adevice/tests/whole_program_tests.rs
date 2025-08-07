@@ -48,8 +48,7 @@ fn adevice_status() -> Result<()> {
     // TODO(rbraunstein): Check the status group it is in: (Ready to push)
     assert!(
         stdout_str.contains(&"system/fakefs_new_file".to_string()),
-        "\n\nACTUAL:\n {}",
-        stdout_str
+        "\n\nACTUAL:\n {stdout_str}"
     );
     Ok(())
 }
@@ -93,8 +92,8 @@ fn lost_and_found_should_not_be_cleaned() -> Result<()> {
         )
         .context("Running adevice clean")?;
         let stdout_str = String::from_utf8(stdout).unwrap();
-        assert!(stdout_str.contains("system/some_file"), "\n\nACTUAL:\n {}", stdout_str);
-        assert!(!stdout_str.contains("lost+found"), "\n\nACTUAL:\n {}", stdout_str);
+        assert!(stdout_str.contains("system/some_file"), "\n\nACTUAL:\n {stdout_str}");
+        assert!(!stdout_str.contains("lost+found"), "\n\nACTUAL:\n {stdout_str}");
 
         assert!(fake_device.removes().contains(&PathBuf::from("system/some_file")));
         assert!(!fake_device.removes().contains(&PathBuf::from("system/lost+found")));

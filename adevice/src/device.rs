@@ -346,7 +346,7 @@ pub fn update(
     println!();
 
     let rtype = restart_type(restart_chooser, &installed_files);
-    profiler.restart_type = format!("{:?}", rtype);
+    profiler.restart_type = format!("{rtype:?}");
     match rtype {
         RestartType::Reboot => time!(device.reboot(), profiler.restart),
         RestartType::SoftRestart => time!(device.soft_restart(), profiler.restart),
@@ -460,9 +460,7 @@ mod tests {
         let duration = start_time.elapsed();
         assert!(
             duration > timeout,
-            "Expected process to take longer then timeout. Elapsed: {:?}, Timeout: {:?}",
-            duration,
-            timeout
+            "Expected process to take longer then timeout. Elapsed: {duration:?}, Timeout: {timeout:?}"
         );
 
         match output {

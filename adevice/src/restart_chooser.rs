@@ -102,8 +102,7 @@ mod tests {
             assert_eq!(
                 RestartType::SoftRestart,
                 auto_restart().restart_type(installed_file),
-                "Wrong class for {}",
-                installed_file
+                "Wrong class for {installed_file}"
             );
         }
 
@@ -116,8 +115,7 @@ mod tests {
             assert_eq!(
                 RestartType::Reboot,
                 auto_restart().restart_type(installed_file),
-                "Wrong class for {}",
-                installed_file
+                "Wrong class for {installed_file}"
             );
         }
     }

@@ -138,7 +138,7 @@ impl MetricSender for Metrics {
     fn display_survey(&mut self) {
         let survey = env::var(ENV_SURVEY_BANNER).unwrap_or("".to_string());
         if !survey.is_empty() {
-            println!("\n{}", survey);
+            println!("\n{survey}");
         }
     }
 }
@@ -176,8 +176,8 @@ impl Metrics {
         };
 
         let out = env::var(ENV_OUT).unwrap_or("/tmp".to_string());
-        let temp_dir = format!("{}/adevice", out);
-        let temp_file_path = format!("{}/adevice/adevice.bin", out);
+        let temp_dir = format!("{out}/adevice");
+        let temp_file_path = format!("{out}/adevice/adevice.bin");
         fs::create_dir_all(temp_dir).expect("Failed to create folder for metrics");
         fs::write(temp_file_path.clone(), body).expect("Failed to write to metrics file");
         if let Err(e) = Command::new(METRICS_UPLOADER)
