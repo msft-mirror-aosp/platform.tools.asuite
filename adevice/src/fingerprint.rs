@@ -581,9 +581,7 @@ mod tests {
             fs::write(&file_path, &boring_buff[0..*num_bytes]).unwrap();
             assert!(
                 compute_digest(&file_path).unwrap().starts_with(digest),
-                "Expected file {:?} to have a digest starting with {:?}",
-                file_path,
-                digest
+                "Expected file {file_path:?} to have a digest starting with {digest:?}"
             );
         }
     }
@@ -729,7 +727,7 @@ mod tests {
         let result = fingerprint_partitions(tmp_root.path(), &[PathBuf::from("system")]).unwrap();
         println!("RESULTS\n");
         for x in &result {
-            println!("{:?}", x);
+            println!("{x:?}");
         }
         let expected = &[
             ("system/file1.so", FileType::File, "b94f"),
@@ -765,9 +763,7 @@ mod tests {
             match file_type {
                 FileType::File => assert!(
                     matching_file_fingerprint(file_name, data, &result),
-                    "mismatch on {:?} {:?}",
-                    file_name,
-                    data
+                    "mismatch on {file_name:?} {data:?}"
                 ),
                 FileType::Directory => assert!(result
                     .get(&PathBuf::from(file_name))
@@ -809,7 +805,7 @@ mod tests {
         .unwrap();
         println!("RESULTS\n");
         for x in &result {
-            println!("{:?}", x);
+            println!("{x:?}");
         }
         let expected = &[
             ("system/file1.so", FileType::File, "b94f"),
@@ -832,9 +828,7 @@ mod tests {
             match file_type {
                 FileType::File => assert!(
                     matching_file_fingerprint(file_name, data, &result),
-                    "mismatch on {:?} {:?}",
-                    file_name,
-                    data
+                    "mismatch on {file_name:?} {data:?}"
                 ),
                 FileType::Directory => assert!(result
                     .get(&PathBuf::from(file_name))
@@ -866,7 +860,7 @@ mod tests {
         let result = fingerprint_partitions(&tmp_root, &[PathBuf::from("funky")]).unwrap();
         println!("RESULTS\n");
         for x in &result {
-            println!("{:?}", x);
+            println!("{x:?}");
         }
         let expected = &[
             ("funky/안녕하세요", FileType::File, "5891b"),
@@ -887,9 +881,7 @@ mod tests {
             match file_type {
                 FileType::File => assert!(
                     matching_file_fingerprint(file_name, data, &result),
-                    "mismatch on {:?} {:?}",
-                    file_name,
-                    data
+                    "mismatch on {file_name:?} {data:?}"
                 ),
                 FileType::Directory => assert!(result
                     .get(&PathBuf::from(file_name))
@@ -924,9 +916,7 @@ mod tests {
             match file_type {
                 FileType::File => assert!(
                     matching_file_fingerprint(file_name, data, &result),
-                    "mismatch on {:?} {:?}",
-                    file_name,
-                    data
+                    "mismatch on {file_name:?} {data:?}"
                 ),
                 FileType::Directory => assert!(result
                     .get(&PathBuf::from(file_name))
@@ -949,9 +939,7 @@ mod tests {
             match file_type {
                 FileType::File => assert!(
                     matching_file_fingerprint(file_name, data, &result2),
-                    "mismatch on {:?} {:?}",
-                    file_name,
-                    data
+                    "mismatch on {file_name:?} {data:?}"
                 ),
                 FileType::Directory => assert!(result2
                     .get(&PathBuf::from(file_name))
@@ -1060,7 +1048,7 @@ mod tests {
     // Returns the absolute path to the created symlink.
     fn create_symlink(target: &Path, link_name: &str, directory: &Path) -> PathBuf {
         fs::soft_link(target, directory.join(link_name))
-            .unwrap_or_else(|e| println!("Could not symlink to {:?} {:?}", directory, e));
+            .unwrap_or_else(|e| println!("Could not symlink to {directory:?} {e:?}"));
 
         directory.join(Path::new(link_name))
     }

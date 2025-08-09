@@ -196,7 +196,7 @@ impl Config {
         let mut msg = String::new();
         for tracked_module in &self.modules {
             if stderr.contains(tracked_module) {
-                msg = format!("You may need to `adevice untrack {}`", tracked_module);
+                msg = format!("You may need to `adevice untrack {tracked_module}`");
             }
         }
         if stderr.contains(&self.base) {
@@ -205,7 +205,7 @@ impl Config {
                 &self.base
             );
         }
-        format!("{}{}", stderr, msg)
+        format!("{stderr}{msg}")
     }
 
     pub fn clear_cache(&self) {

@@ -18,12 +18,12 @@ fn main() {
     let root = PathBuf::from("/");
 
     let infos = fingerprint::fingerprint_partitions(&root, &partitions).unwrap_or_else(|err| {
-        eprintln!("Error scanning directories: {}", err);
+        eprintln!("Error scanning directories: {err}");
         process::exit(1);
     });
 
     serde_json::to_writer(io::stdout(), &infos).unwrap_or_else(|err| {
-        eprintln!("Error writing json: {}", err);
+        eprintln!("Error writing json: {err}");
         process::exit(1);
     });
 }

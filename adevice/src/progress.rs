@@ -29,7 +29,7 @@ impl Progress {
                     message.push('…');
                 }
                 print!("\x1B[2K"); // clear the line
-                print!("\r{} ", message);
+                print!("\r{message} ");
                 io::stdout().flush().unwrap();
                 thread::sleep(Duration::from_millis(100));
             }
