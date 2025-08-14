@@ -253,7 +253,6 @@
             "file://$PROJECT_DIR$/frameworks/base/tests/AppLaunch/src",
             "file://$PROJECT_DIR$/frameworks/base/tests/AppLaunchWear/src",
             "file://$PROJECT_DIR$/frameworks/base/tests/Assist/src",
-            "file://$PROJECT_DIR$/frameworks/base/tests/BackgroundDexOptServiceIntegrationTests/src",
             "file://$PROJECT_DIR$/frameworks/base/tests/BandwidthTests/src",
             "file://$PROJECT_DIR$/frameworks/base/tests/BatteryWaster/src",
             "file://$PROJECT_DIR$/frameworks/base/tests/BiDiTests/src",
