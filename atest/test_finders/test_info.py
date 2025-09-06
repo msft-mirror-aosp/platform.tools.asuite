@@ -78,8 +78,6 @@ class TestInfo:
     self.compatibility_suites = (
         compatibility_suites if compatibility_suites else []
     )
-    # True if test need to generate aggregate metrics result.
-    self.aggregate_metrics_result = False
     self.artifacts = set()
 
     self._build_targets = set(build_targets) if build_targets else set()
@@ -97,7 +95,6 @@ class TestInfo:
         f'test_finder:{self.test_finder} - '
         f'compatibility_suites:{self.compatibility_suites} - '
         f'mainline_modules:{self._mainline_modules} - '
-        f'aggregate_metrics_result:{self.aggregate_metrics_result} - '
         f'robo_type:{self.robo_type} - '
         f'artifacts:{self.artifacts}'
     )

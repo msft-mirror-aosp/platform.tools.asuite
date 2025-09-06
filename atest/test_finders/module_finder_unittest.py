@@ -2332,7 +2332,7 @@ def create_test_info(**kwargs):
   mainline_modules = kwargs.pop('mainline_modules', set())
   if mainline_modules:
     t_info._mainline_modules = mainline_modules
-  for keyword in ['from_test_mapping', 'host', 'aggregate_metrics_result']:
+  for keyword in ['from_test_mapping', 'host']:
     value = kwargs.pop(keyword, 'None')
     if isinstance(value, bool):
       setattr(t_info, keyword, value)
