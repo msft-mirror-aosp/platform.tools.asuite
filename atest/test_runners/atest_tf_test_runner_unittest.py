@@ -1183,7 +1183,6 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     test_info_with_aggregate_metrics = test_info.TestInfo(
         test_name='perf_test', test_runner='test_runner', build_targets=set()
     )
-    test_info_with_aggregate_metrics.aggregate_metrics_result = True
 
     run_cmd = self.tr.generate_run_commands(
         [test_info_with_aggregate_metrics],
