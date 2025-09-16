@@ -313,6 +313,69 @@ class LogUploaderTest(fake_filesystem_unittest.TestCase):
         link_path.joinpath(file_name),
     )
 
+  def test_create_artifact_metadata_txt_file(self):
+    file_path = pathlib.Path('/dir/file.txt')
+    metadata = log_uploader._LogUploadSession._create_artifact_metadata(
+        file_path
+    )
+    self.assertEqual(metadata['name'], 'file.txt')
+    self.assertEqual(metadata['artifactType'], 'HOST_LOG')
+    self.assertEqual(metadata['contentType'], 'text/plain')
+
+  def test_create_artifact_metadata_log_file(self):
+    file_path = pathlib.Path('/dir/file.log')
+    metadata = log_uploader._LogUploadSession._create_artifact_metadata(
+        file_path
+    )
+    self.assertEqual(metadata['name'], 'file.log')
+    self.assertEqual(metadata['artifactType'], 'HOST_LOG')
+    self.assertEqual(metadata['contentType'], 'text/plain')
+
+  def test_create_artifact_metadata_html_file(self):
+    file_path = pathlib.Path('/dir/file.html')
+    metadata = log_uploader._LogUploadSession._create_artifact_metadata(
+        file_path
+    )
+    self.assertEqual(metadata['name'], 'file.html')
+    self.assertEqual(metadata['artifactType'], 'HOST_LOG')
+    self.assertEqual(metadata['contentType'], 'text/plain')
+
+  def test_create_artifact_metadata_test_result_file(self):
+    file_path = pathlib.Path('/dir/test_result')
+    metadata = log_uploader._LogUploadSession._create_artifact_metadata(
+        file_path
+    )
+    self.assertEqual(metadata['name'], 'test_result')
+    self.assertEqual(metadata['artifactType'], 'HOST_LOG')
+    self.assertEqual(metadata['contentType'], 'text/plain')
+
+  def test_create_artifact_metadata_unrecognized_suffix(self):
+    file_path = pathlib.Path('/dir/file.zip')
+    metadata = log_uploader._LogUploadSession._create_artifact_metadata(
+        file_path
+    )
+    self.assertEqual(metadata['name'], 'file.zip')
+    self.assertNotIn('artifactType', metadata)
+    self.assertNotIn('contentType', metadata)
+
+  def test_create_artifact_metadata_no_suffix(self):
+    file_path = pathlib.Path('/dir/file_no_suffix')
+    metadata = log_uploader._LogUploadSession._create_artifact_metadata(
+        file_path
+    )
+    self.assertEqual(metadata['name'], 'file_no_suffix')
+    self.assertNotIn('artifactType', metadata)
+    self.assertNotIn('contentType', metadata)
+
+  def test_create_artifact_metadata_empty_suffix(self):
+    file_path = pathlib.Path('/dir/file.')
+    metadata = log_uploader._LogUploadSession._create_artifact_metadata(
+        file_path
+    )
+    self.assertEqual(metadata['name'], 'file.')
+    self.assertNotIn('artifactType', metadata)
+    self.assertNotIn('contentType', metadata)
+
   class _FakeUploadingClient(log_uploader._SimpleUploadingClient):
 
     def __init__(self):
