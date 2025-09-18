@@ -216,16 +216,16 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self, test_finder_utils.extract_test_path(uc.FIND_ONE), paths
     )
     paths = [os.path.join(uc.ROOT, OTHER_DIR, OTHER_CLASS_NAME)]
-    mock_input.return_value = '1'
+    mock_input.return_value = '2'
     unittest_utils.assert_strict_equal(
         self, test_finder_utils.extract_test_path(FIND_TWO), paths
     )
     # Test inputing out-of-range integer or a string
-    mock_input.return_value = '100'
+    mock_input.return_value = '101'
     self.assertEqual(
         test_finder_utils.extract_selected_tests(uc.CLASS_NAME), []
     )
-    mock_input.return_value = 'lOO'
+    mock_input.return_value = 'lO1'
     self.assertEqual(
         test_finder_utils.extract_selected_tests(uc.CLASS_NAME), []
     )
@@ -235,7 +235,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     """Test method extract_selected_tests method."""
     # multi-select
     paths = ['/a/b/c.java', '/g/h/i.java']
-    mock_input.return_value = '0,2'
+    mock_input.return_value = '1,3'
 
     unittest_utils.assert_strict_equal(
         self,
@@ -245,7 +245,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
 
     # selecting a range
     paths = ['/d/e/f.java', '/g/h/i.java']
-    mock_input.return_value = '1-2'
+    mock_input.return_value = '2-3'
 
     unittest_utils.assert_strict_equal(
         self, test_finder_utils.extract_selected_tests(FIND_THREE_LIST), paths
@@ -253,7 +253,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
 
     # mixed formats
     paths = ['/a/b/c.java', '/d/e/f.java', '/g/h/i.java']
-    mock_input.return_value = '0,1-2'
+    mock_input.return_value = '1,2-3'
 
     unittest_utils.assert_strict_equal(
         self,
@@ -493,7 +493,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
   @mock.patch('builtins.input', return_value='0')
   def test_search_integration_dirs(self, mock_input):
     """Test search_integration_dirs."""
-    mock_input.return_value = '0'
+    mock_input.return_value = '1'
     paths = [os.path.join(uc.ROOT, INT_DIR1, INT_FILE_NAME + '.xml')]
     int_dirs = [INT_DIR1]
     test_result = test_finder_utils.search_integration_dirs(
@@ -508,13 +508,13 @@ class TestFinderUtilsUnittests(unittest.TestCase):
 
   @mock.patch('os.path.isfile', return_value=False)
   @mock.patch('os.environ.get', return_value=uc.TEST_CONFIG_DATA_DIR)
-  @mock.patch('builtins.input', return_value='0')
+  @mock.patch('builtins.input', return_value='1')
   # pylint: disable=too-many-statements
   def test_find_class_file(self, mock_input, _mock_env, _mock_isfile):
     """Test find_class_file."""
     # 1. Java class(find).
     java_tmp_test_result = []
-    mock_input.return_value = '0'
+    mock_input.return_value = '1'
     java_class = os.path.join(
         uc.FIND_PATH, uc.FIND_PATH_TESTCASE_JAVA + '.java'
     )
@@ -523,7 +523,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             uc.FIND_PATH, uc.FIND_PATH_TESTCASE_JAVA
         )
     )
-    mock_input.return_value = '1'
+    mock_input.return_value = '2'
     kt_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_TESTCASE_JAVA + '.kt')
     java_tmp_test_result.extend(
         test_finder_utils.find_class_file(
@@ -535,7 +535,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
 
     # 2. Java class(read index).
     del java_tmp_test_result[:]
-    mock_input.return_value = '0'
+    mock_input.return_value = '1'
     _mock_isfile = True
     java_class = os.path.join(
         uc.FIND_PATH, uc.FIND_PATH_TESTCASE_JAVA + '.java'
@@ -545,7 +545,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             uc.FIND_PATH, uc.FIND_PATH_TESTCASE_JAVA
         )
     )
-    mock_input.return_value = '1'
+    mock_input.return_value = '2'
     kt_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_TESTCASE_JAVA + '.kt')
     java_tmp_test_result.extend(
         test_finder_utils.find_class_file(
@@ -557,7 +557,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
 
     # 3. Qualified Java class(find).
     del java_tmp_test_result[:]
-    mock_input.return_value = '0'
+    mock_input.return_value = '1'
     _mock_isfile = False
     java_qualified_class = '{0}.{1}'.format(
         uc.FIND_PATH_FOLDER, uc.FIND_PATH_TESTCASE_JAVA
@@ -565,7 +565,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     java_tmp_test_result.extend(
         test_finder_utils.find_class_file(uc.FIND_PATH, java_qualified_class)
     )
-    mock_input.return_value = '1'
+    mock_input.return_value = '2'
     java_tmp_test_result.extend(
         test_finder_utils.find_class_file(uc.FIND_PATH, java_qualified_class)
     )
@@ -574,7 +574,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
 
     # 4. Qualified Java class(read index).
     del java_tmp_test_result[:]
-    mock_input.return_value = '0'
+    mock_input.return_value = '1'
     _mock_isfile = True
     java_qualified_class = '{0}.{1}'.format(
         uc.FIND_PATH_FOLDER, uc.FIND_PATH_TESTCASE_JAVA
@@ -582,7 +582,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     java_tmp_test_result.extend(
         test_finder_utils.find_class_file(uc.FIND_PATH, java_qualified_class)
     )
-    mock_input.return_value = '1'
+    mock_input.return_value = '2'
     java_tmp_test_result.extend(
         test_finder_utils.find_class_file(uc.FIND_PATH, java_qualified_class)
     )
@@ -592,14 +592,14 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     # 5. CC class(find).
     cc_tmp_test_result = []
     _mock_isfile = False
-    mock_input.return_value = '0'
+    mock_input.return_value = '1'
     cpp_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_FILENAME_CC + '.cpp')
     cc_tmp_test_result.extend(
         test_finder_utils.find_class_file(
             uc.FIND_PATH, uc.FIND_PATH_TESTCASE_CC, True
         )
     )
-    mock_input.return_value = '1'
+    mock_input.return_value = '2'
     cc_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_FILENAME_CC + '.cc')
     cc_tmp_test_result.extend(
         test_finder_utils.find_class_file(
@@ -611,7 +611,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
 
     # 6. CC class(read index).
     del cc_tmp_test_result[:]
-    mock_input.return_value = '0'
+    mock_input.return_value = '1'
     _mock_isfile = True
     cpp_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_FILENAME_CC + '.cpp')
     cc_tmp_test_result.extend(
@@ -619,7 +619,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             uc.FIND_PATH, uc.FIND_PATH_TESTCASE_CC, True
         )
     )
-    mock_input.return_value = '1'
+    mock_input.return_value = '2'
     cc_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_FILENAME_CC + '.cc')
     cc_tmp_test_result.extend(
         test_finder_utils.find_class_file(
@@ -746,7 +746,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
   @mock.patch('os.path.exists', return_value=True)
   def test_get_int_dir_from_path(self, _exists, _find, mock_input):
     """Test get_int_dir_from_path."""
-    mock_input.return_value = '0'
+    mock_input.return_value = '1'
     int_dirs = [INT_DIR1]
     path = os.path.join(uc.ROOT, INT_DIR1, INT_FILE_NAME + '.xml')
     _find.return_value = (INT_DIR1, INT_FILE_NAME + '.xml')

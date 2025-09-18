@@ -330,7 +330,7 @@ def extract_selected_tests(
   Return the test to run from tests. If more than one option, prompt the user
   to select multiple ones. Supporting formats:
   - A string for the auxiliary menu: A for All, C for Cancel
-  - An integer. E.g. 0
+  - An integer. E.g. 1
   - Comma-separated integers. E.g. 1,3,5
   - A range of integers denoted by the starting integer separated from
     the end integer by a dash, '-'. E.g. 1-3
@@ -352,7 +352,9 @@ def extract_selected_tests(
 
   extracted_tests = set()
   auxiliary_menu = [f'{_ALL_OPTION}: All', f'{_CANCEL_OPTION}: Cancel']
-  numbered_list = ['%s: %s' % (i, name_func(t)) for i, t in enumerate(tests)]
+  numbered_list = [
+      '%s: %s' % (i + 1, name_func(t)) for i, t in enumerate(tests)
+  ]
   print(
       'Multiple tests found{0}:\n{1}'.format(
           f' for {atest_utils.mark_cyan(target_test_identifier)}'
@@ -371,8 +373,8 @@ def extract_selected_tests(
     sys.exit(0)
   else:
     extracted_tests = {
-        tests[index]
-        for index in get_selected_indices(answer, limit=len(numbered_list) - 1)
+        tests[_convert_indices_to_0_based_list(index)]
+        for index in get_selected_indices(answer, limit=len(numbered_list))
     }
   metrics.LocalDetectEvent(
       detect_type=DetectType.INTERACTIVE_SELECTION,
@@ -382,13 +384,26 @@ def extract_selected_tests(
   return list(extracted_tests)
 
 
+def _convert_indices_to_0_based_list(index: int) -> int:
+  """Convert a single index to a 0-based integer.
+
+  Args:
+      index: A single index.
+
+  Returns:
+      The 0-based integer corresponding to the given index. If the index is
+      zero or less, it is returned as is.
+  """
+  return index - 1 if index > 0 else index
+
+
 def get_multiple_selection_answer() -> str:
   """Get the answer from the user input."""
   try:
     return input(
         'Please select an option.'
         '\n(multiple selection is supported, '
-        "e.g. '1' or '0,1' or '0-2'): "
+        "e.g. '1' or '1,2' or '1-3'): "
     )
   except KeyboardInterrupt:
     return _CANCEL_OPTION
@@ -398,12 +413,12 @@ def get_selected_indices(string: str, limit: int = None) -> Set[int]:
   """Method which flattens and dedups the given string to a set of integer.
 
   This method is also capable to convert '5-2' to {2,3,4,5}. e.g.
-  '0, 2-5, 5-3' -> {0, 2, 3, 4, 5}
+  '1, 2-5, 5-3' -> {1, 2, 3, 4, 5}
 
   If the given string contains non-numerical string, returns an empty set.
 
   Args:
-      string: a given string, e.g. '0, 2-5'
+      string: a given string, e.g. '1, 2-5'
       limit: an integer that every parsed number cannot exceed.
 
   Returns:
