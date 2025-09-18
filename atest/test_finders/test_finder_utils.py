@@ -993,6 +993,24 @@ def search_integration_dirs(name, int_dirs):
       Ask user to select if multiple tests are found.
       None if no matched test found.
   """
+  if type(int_dirs) == list:
+    int_dirs = tuple(int_dirs)
+  return _search_integration_dirs(name, int_dirs)
+
+
+@functools.lru_cache(maxsize=102400)
+def _search_integration_dirs(name, int_dirs):
+  """Search integration dirs for name and return full path.
+
+  Args:
+      name: A string of plan name needed to be found.
+      int_dirs: A tuple of path needed to be searched.
+
+  Returns:
+      A list of the test path.
+      Ask user to select if multiple tests are found.
+      None if no matched test found.
+  """
   root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
   test_files = []
   for integration_dir in int_dirs:
