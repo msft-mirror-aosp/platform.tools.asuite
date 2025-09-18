@@ -1243,12 +1243,13 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             and i.attrib['name'] == 'android-junit:class'
             and 'value' in i.attrib
         ):
-          full_class_name = i.attrib['value']
-          if (
-              junit_class_name == full_class_name
-              or junit_class_name == full_class_name.split('.')[-1]
-          ):
-            return full_class_name
+          class_name_value = i.attrib['value']
+          for full_class_name in class_name_value.split(','):
+            if (
+                junit_class_name == full_class_name
+                or junit_class_name == full_class_name.split('.')[-1]
+            ):
+              return full_class_name
 
       include_configs = xml_root.findall('.//include')
 
