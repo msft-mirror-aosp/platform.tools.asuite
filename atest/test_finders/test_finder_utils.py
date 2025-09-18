@@ -355,7 +355,9 @@ def extract_selected_tests(
   numbered_list = ['%s: %s' % (i, name_func(t)) for i, t in enumerate(tests)]
   print(
       'Multiple tests found{0}:\n{1}'.format(
-          f' for {target_test_identifier}' if target_test_identifier else '',
+          f' for {atest_utils.mark_cyan(target_test_identifier)}'
+          if target_test_identifier
+          else '',
           '\n'.join(auxiliary_menu + numbered_list),
       )
   )
