@@ -319,7 +319,9 @@ def extract_test_path(output, methods=None):
   return extract_selected_tests(sorted(list(verified_tests)))
 
 
-def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
+def extract_selected_tests(
+    tests: Iterable, default_all=False, name_func=lambda x: x
+) -> List[str]:
   """Extract the test path from the tests.
 
   Return the test to run from tests. If more than one option, prompt the user
@@ -333,18 +335,21 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
   Args:
       tests: A string list which contains multiple test paths.
       default_all: A bool that indicates whether to select all tests.
+      name_func: A function that returns the name of the test. This is used to
+        sort the tests and print them out in the menu. Default is the identity
+        function (lambda x: x).
 
   Returns:
       A string list of paths.
   """
-  tests = sorted(list(tests))
+  tests = sorted(list(tests), key=name_func)
   count = len(tests)
   if default_all or count <= 1:
     return tests if count else None
 
   extracted_tests = set()
   auxiliary_menu = [f'{_ALL_OPTION}: All', f'{_CANCEL_OPTION}: Cancel']
-  numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(tests)]
+  numbered_list = ['%s: %s' % (i, name_func(t)) for i, t in enumerate(tests)]
   print(
       'Multiple tests found:\n{0}'.format(
           '\n'.join(auxiliary_menu + numbered_list)

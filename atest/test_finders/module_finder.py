@@ -1226,7 +1226,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
 
           test_infos.append(tinfo)
 
-    return test_infos
+    return test_finder_utils.extract_selected_tests(test_infos, name_func=lambda t: t.test_name)
 
   @functools.lru_cache(maxsize=102400)
   def _get_junit_classes_from_test_xml(
