@@ -1244,8 +1244,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         if (
             'name' in i.attrib
             and 'value' in i.attrib
-            and i.attrib['name'] == 'android-junit:class'
-            and 'value' in i.attrib
+            and i.attrib['name']
+            in ('android-junit:class', 'android-junit:include-filter')
         ):
           class_name_value = i.attrib['value']
           for full_class_name in class_name_value.split(','):
