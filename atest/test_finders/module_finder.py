@@ -1238,43 +1238,46 @@ class ModuleFinder(test_finder_base.TestFinderBase):
   ) -> str:
     """Get the junit classes from the test xml file."""
 
-    if pathlib.Path(test_xml).is_file():
-      xml_root = ET.parse(test_xml).getroot()
-      for i in xml_root:
+    if not pathlib.Path(test_xml).is_file():
+      return None
+
+    xml_root = ET.parse(test_xml).getroot()
+    for i in xml_root:
+      if (
+          'name' not in i.attrib
+          or 'value' not in i.attrib
+          or i.attrib['name']
+          not in ('android-junit:class', 'android-junit:include-filter')
+      ):
+        continue
+      class_name_value = i.attrib['value']
+      for full_class_name in class_name_value.split(','):
         if (
-            'name' in i.attrib
-            and 'value' in i.attrib
-            and i.attrib['name']
-            in ('android-junit:class', 'android-junit:include-filter')
+            junit_class_name == full_class_name
+            or junit_class_name == full_class_name.split('.')[-1]
         ):
-          class_name_value = i.attrib['value']
-          for full_class_name in class_name_value.split(','):
-            if (
-                junit_class_name == full_class_name
-                or junit_class_name == full_class_name.split('.')[-1]
-            ):
-              return full_class_name
+          return full_class_name
 
-      include_configs = xml_root.findall('.//include')
+    include_configs = xml_root.findall('.//include')
 
-      git_dir = self._get_git_path(test_xml)
-      for include_config in include_configs:
-        name = include_config.attrib['name'].strip()
-        if not os.path.splitext(os.path.basename(name))[0].endswith(
-            self._PERF_PROFILE_SUFFIX
-        ):
-          continue
+    git_dir = self._get_git_path(test_xml)
+    for include_config in include_configs:
+      name = include_config.attrib['name'].strip()
+      if not os.path.splitext(os.path.basename(name))[0].endswith(
+          self._PERF_PROFILE_SUFFIX
+      ):
+        continue
 
-        include_paths = test_finder_utils.search_integration_dirs(
-            os.path.splitext(name)[0], [git_dir]
+      include_paths = test_finder_utils.search_integration_dirs(
+          os.path.splitext(name)[0], [git_dir]
+      )
+      for include_path in include_paths:
+        found_class_name = self._get_junit_classes_from_test_xml(
+            include_path, junit_class_name
         )
-        for include_path in include_paths:
-          found_class_name = self._get_junit_classes_from_test_xml(
-              include_path, junit_class_name
-          )
-          if found_class_name:
-            return found_class_name
-      # print('test_xml done ')
+        if found_class_name:
+          return found_class_name
+    # print('test_xml done ')
     return None
 
   @staticmethod
