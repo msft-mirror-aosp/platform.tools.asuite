@@ -23,12 +23,61 @@ from atest.test_finders import test_info
 
 class TestPerfModule(unittest.TestCase):
 
-  def test_process_parsed_args_adds_iter_to_custom_args(self):
-    argv = ['--perf', '--iter', '12345', 'MyModule']
-
+  def test_set_custom_arguments_based_on_test_infos_with_iter(self):
+    argv = ['--perf', '--iter', '10', 'MyModule']
     args = arg_parser.parse_args(argv)
+    test_infos = [test_info.TestInfo('MyModule', 'runner', [])]
 
-    self.assertTrue(any('12345' in arg for arg in args.custom_args))
+    perf_mode.set_custom_arguments_based_on_test_infos(args, test_infos)
+
+    self.assertIn('--module-arg', args.custom_args)
+    module_arg = 'MyModule:{com.android.tradefed.testtype.AndroidJUnitTest}instrumentation-arg:iterations:=10'
+    self.assertIn(module_arg, args.custom_args)
+
+  def test_set_custom_arguments_based_on_test_infos_with_instr_arg(self):
+    argv = [
+        '--perf',
+        '--instr-arg',
+        'key1:=value1',
+        'MyModule',
+    ]
+    args = arg_parser.parse_args(argv)
+    test_infos = [test_info.TestInfo('MyModule', 'runner', [])]
+
+    perf_mode.set_custom_arguments_based_on_test_infos(args, test_infos)
+
+    self.assertIn('--module-arg', args.custom_args)
+    module_arg = 'MyModule:{com.android.tradefed.testtype.AndroidJUnitTest}instrumentation-arg:key1:=value1'
+    self.assertIn(module_arg, args.custom_args)
+
+  def test_set_custom_arguments_based_on_test_infos_with_class(self):
+    argv = ['--perf', '--class', 'MyClass', 'MyModule']
+    args = arg_parser.parse_args(argv)
+    test_infos = [test_info.TestInfo('MyModule', 'runner', [])]
+
+    perf_mode.set_custom_arguments_based_on_test_infos(args, test_infos)
+
+    self.assertIn('--module-arg', args.custom_args)
+    module_arg = (
+        'MyModule:{com.android.tradefed.testtype.AndroidJUnitTest}class:MyClass'
+    )
+    self.assertIn(module_arg, args.custom_args)
+
+  def test_set_custom_arguments_based_on_test_infos_with_metric_filter(self):
+    argv = [
+        '--perf',
+        '--metric-filter',
+        'json:/path/to/filter.json',
+        'MyModule',
+    ]
+    args = arg_parser.parse_args(argv)
+    test_infos = [test_info.TestInfo('MyModule', 'runner', [])]
+
+    perf_mode.set_custom_arguments_based_on_test_infos(args, test_infos)
+
+    self.assertIn('--module-arg', args.custom_args)
+    module_arg = 'MyModule:{com.android.tradefed.postprocessor.MetricFilePostProcessor}strict-include-metric-filter:json:/path/to/filter.json'
+    self.assertIn(module_arg, args.custom_args)
 
   def test_parse_args_with_perf_and_iter_sets_iter_attribute(self):
     argv = ['--perf', '--iter', '10', 'MyModule']

@@ -1038,6 +1038,7 @@ class _AtestMain:
   ) -> None:
     if perf_mode.is_perf_test(test_infos=test_infos):
       perf_mode.set_default_argument_values(args)
+      perf_mode.set_custom_arguments_based_on_test_infos(args, test_infos)
 
   def _handle_list_modules(self) -> int:
     """Print the testable modules for a given suite.
