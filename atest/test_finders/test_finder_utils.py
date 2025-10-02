@@ -176,15 +176,15 @@ def has_cc_class(test_path):
       Boolean: has cc class in test_path or not.
   """
   with open_cc(test_path) as class_file:
-    content = class_file.read()
-    if re.findall(test_filter_utils.CC_CLASS_METHOD_RE, content):
-      return True
-    if re.findall(test_filter_utils.CC_FLAG_CLASS_METHOD_RE, content):
-      return True
-    if re.findall(test_filter_utils.CC_PARAM_CLASS_RE, content):
-      return True
-    if re.findall(test_filter_utils.TYPE_CC_CLASS_RE, content):
-      return True
+    for line in class_file:
+      if re.findall(test_filter_utils.CC_CLASS_METHOD_RE, line):
+        return True
+      if re.findall(test_filter_utils.CC_FLAG_CLASS_METHOD_RE, line):
+        return True
+      if re.findall(test_filter_utils.CC_PARAM_CLASS_RE, line):
+        return True
+      if re.findall(test_filter_utils.TYPE_CC_CLASS_RE, line):
+        return True
   return False
 
 
@@ -1244,7 +1244,7 @@ def get_cc_class_info(test_path):
       A dict of class info.
   """
   with open_cc(test_path) as class_file:
-    content = class_file.read()
+    content = ''.join(class_file.readlines())
     logging.debug('Parsing: %s', test_path)
     class_info, no_test_classes = test_filter_utils.get_cc_class_info(content)
 

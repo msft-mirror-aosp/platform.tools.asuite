@@ -1946,7 +1946,7 @@ def get_full_annotation_class_name(module_info, class_name):
   for f in module_info.get(constants.MODULE_SRCS, []):
     full_path = build_top.joinpath(f)
     with open(full_path, 'r', encoding='utf-8') as cache:
-      for line in cache.readlines():
+      for line in cache:
         # Accept full class name.
         match = fullname_re.match(line)
         if match:

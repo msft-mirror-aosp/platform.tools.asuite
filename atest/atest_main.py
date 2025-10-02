@@ -166,7 +166,7 @@ def _get_args_from_config():
   # pylint: disable=global-statement:
   global HAS_IGNORED_ARGS
   with open(_config, 'r', encoding='utf8') as cache:
-    for entry in cache.readlines():
+    for entry in cache:
       # Strip comments.
       arg_in_line = entry.partition('#')[0].strip()
       # Strip test name/path.
