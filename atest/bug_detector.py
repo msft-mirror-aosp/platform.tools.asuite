@@ -127,7 +127,7 @@ class BugDetector:
       )
     if not os.path.exists(os.path.dirname(self.file)):
       os.makedirs(os.path.dirname(self.file))
-    with open(self.file, 'w') as outfile:
+    with open(self.file, 'w', encoding='utf-8') as outfile:
       try:
         json.dump(self.history, outfile, indent=0)
       except ValueError as e:

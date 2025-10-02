@@ -190,7 +190,7 @@ class TestRunnerBase:
         if self._subprocess_stdout:
           full_output = self._subprocess_stdout.read()
         elif self.test_log_file:
-          with open(self.test_log_file.name, 'r') as f:
+          with open(self.test_log_file.name, 'r', encoding='utf-8') as f:
             full_output = f.read()
         if full_output:
           print(atest_utils.mark_red('Unexpected Issue. Raw Output:'))

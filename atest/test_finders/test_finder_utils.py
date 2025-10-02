@@ -197,7 +197,7 @@ def get_parent_cls_name(file_name):
   Returns:
       A string of the parent class name or None
   """
-  with open(file_name) as data:
+  with open(file_name, encoding='utf-8') as data:
     for line in data:
       match = _PARENT_CLS_RE.match(line)
       if match:
@@ -820,7 +820,7 @@ def _get_vts_push_group_targets(push_file, rel_out_dir):
   targets = set()
   full_push_file_path = os.path.join(_VTS_PUSH_DIR, push_file)
   # pylint: disable=invalid-name
-  with open(full_push_file_path) as f:
+  with open(full_push_file_path, encoding='utf-8') as f:
     for line in f:
       target = line.strip()
       # Skip empty lines.
@@ -1183,7 +1183,7 @@ def get_java_methods(test_path):
       A set of methods.
   """
   logging.debug('Probing %s:', test_path)
-  with open(test_path) as class_file:
+  with open(test_path, encoding='utf-8') as class_file:
     content = class_file.read()
   matches = re.findall(_JAVA_METHODS_RE, content)
   if matches:
@@ -1211,7 +1211,7 @@ def open_cc(filename: str):
       )
   else:
     logging.debug('Cannot find "gcc" and unable to trim comments.')
-  with open(target_cc, 'r') as cc_obj:
+  with open(target_cc, 'r', encoding='utf-8') as cc_obj:
     yield cc_obj
 
 
@@ -1295,7 +1295,7 @@ def get_annotated_methods(annotation, file_path):
   """
   methods = set()
   annotation_name = '@' + str(annotation).split('.')[-1]
-  with open(file_path) as class_file:
+  with open(file_path, encoding='utf-8') as class_file:
     enter_annotation_block = False
     for line in class_file:
       if str(line).strip().startswith(annotation_name):

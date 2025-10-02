@@ -51,7 +51,7 @@ class BugDetectorUnittest(unittest.TestCase):
 
   def _reset_history_file(self):
     """Reset test history file."""
-    with open(self.history_file, 'w') as outfile:
+    with open(self.history_file, 'w', encoding='utf-8') as outfile:
       json.dump(TEST_DICT, outfile)
 
   def _make_test_file(self, file_size):
@@ -64,7 +64,7 @@ class BugDetectorUnittest(unittest.TestCase):
           }
       }
       temp_history.update(latest_bug)
-    with open(self.history_file2, 'w') as outfile:
+    with open(self.history_file2, 'w', encoding='utf-8') as outfile:
       json.dump(temp_history, outfile, indent=0)
 
   @mock.patch.object(bug_detector.BugDetector, 'update_history')

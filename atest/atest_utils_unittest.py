@@ -872,9 +872,9 @@ class AtestUtilsUnittests(unittest.TestCase):
 
     # 1. The manifest.xml(portal) contains 'include' directive: 'Default.xml'.
     # Search revision in .repo/manifests/Default.xml.
-    with open(portal_xml, 'w') as cache:
+    with open(portal_xml, 'w', encoding='utf-8') as cache:
       cache.write(content_portal)
-    with open(target_xml, 'w') as cache:
+    with open(target_xml, 'w', encoding='utf-8') as cache:
       cache.write(content_manifest)
     self.assertEqual('MONSTER-dev', atest_utils.get_manifest_branch())
     self.assertEqual('aosp-MONSTER-dev', atest_utils.get_manifest_branch(True))
@@ -883,23 +883,23 @@ class AtestUtilsUnittests(unittest.TestCase):
 
     # 2. The manifest.xml contains neither 'include' nor 'revision' directive,
     # keep searching revision in .repo/manifests/default.xml by default.
-    with open(portal_xml, 'w') as cache:
+    with open(portal_xml, 'w', encoding='utf-8') as cache:
       cache.write('<manifest></manifest>')
     default_xml = manifest_dir.joinpath('default.xml')
-    with open(default_xml, 'w') as cache:
+    with open(default_xml, 'w', encoding='utf-8') as cache:
       cache.write(content_manifest)
     self.assertEqual('MONSTER-dev', atest_utils.get_manifest_branch())
     os.remove(default_xml)
     os.remove(portal_xml)
 
     # 3. revision was directly defined in 'manifest.xml'.
-    with open(portal_xml, 'w') as cache:
+    with open(portal_xml, 'w', encoding='utf-8') as cache:
       cache.write(content_manifest)
     self.assertEqual('MONSTER-dev', atest_utils.get_manifest_branch())
     os.remove(portal_xml)
 
     # 4. Return None if the included xml does not exist.
-    with open(portal_xml, 'w') as cache:
+    with open(portal_xml, 'w', encoding='utf-8') as cache:
       cache.write(content_portal)
     self.assertEqual('', atest_utils.get_manifest_branch())
     os.remove(portal_xml)
@@ -1153,7 +1153,7 @@ class AtestUtilsUnittests(unittest.TestCase):
     }
     temp_dir = tempfile.TemporaryDirectory()
     tmpbp = Path(temp_dir.name).joinpath('Android.bp')
-    with open(tmpbp, 'w') as cache:
+    with open(tmpbp, 'w', encoding='utf-8') as cache:
       cache.write(content)
     self.assertEqual(
         atest_utils.get_bp_content(tmpbp, 'android_test'), expected_result
@@ -1172,7 +1172,7 @@ class AtestUtilsUnittests(unittest.TestCase):
     }
     temp_dir = tempfile.TemporaryDirectory()
     tmpbp = Path(temp_dir.name).joinpath('Android.bp')
-    with open(tmpbp, 'w') as cache:
+    with open(tmpbp, 'w', encoding='utf-8') as cache:
       cache.write(content)
     self.assertEqual(
         atest_utils.get_bp_content(tmpbp, 'android_app'), expected_result
@@ -1187,7 +1187,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         }"""
     temp_dir = tempfile.TemporaryDirectory()
     tmpbp = Path(temp_dir.name).joinpath('Android.mk')
-    with open(tmpbp, 'w') as cache:
+    with open(tmpbp, 'w', encoding='utf-8') as cache:
       cache.write(content)
     self.assertEqual(atest_utils.get_bp_content(tmpbp, 'android_app'), {})
     temp_dir.cleanup()

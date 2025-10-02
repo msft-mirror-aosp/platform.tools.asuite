@@ -473,7 +473,7 @@ class _DirSnapshot:
 
     snapshot_path = self._storage_path.joinpath(name + '_metadata.json')
     snapshot_path.parent.mkdir(parents=True, exist_ok=True)
-    with snapshot_path.open('w') as f:
+    with snapshot_path.open('w', encoding='utf-8') as f:
       json.dump(file_infos, f, default=lambda o: o.__dict__)
 
     self._blob_store.dump_cache()
@@ -500,7 +500,9 @@ class _DirSnapshot:
             - Files and directories that were deleted.
             - Files that were replaced.
     """
-    with self._storage_path.joinpath(name + '_metadata.json').open('r') as f:
+    with self._storage_path.joinpath(name + '_metadata.json').open(
+        'r', encoding='utf-8'
+    ) as f:
       file_infos_dict = {
           key: _FileInfo(**val) for key, val in json.load(f).items()
       }

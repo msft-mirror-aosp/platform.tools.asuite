@@ -57,7 +57,7 @@ def _load_vendor_config():
 
   config_path = os.environ.get('ATEST_VENDOR_CONFIG_PATH', None)
   if config_path:
-    with open(config_path, 'r') as config_file:
+    with open(config_path, 'r', encoding='utf-8') as config_file:
       globals().update(json.load(config_file))
     return
 
@@ -75,7 +75,7 @@ def _load_vendor_config():
         ' Please re-run the repo\'s envsetup script through ".'
         ' build/envsetup".\n\n\n'
     )
-    with open(config_path, 'r') as config_file:
+    with open(config_path, 'r', encoding='utf-8') as config_file:
       globals().update(json.load(config_file))
 
 
