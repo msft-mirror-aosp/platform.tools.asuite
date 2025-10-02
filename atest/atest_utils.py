@@ -1468,9 +1468,7 @@ def has_wildcard(test_name):
   if isinstance(test_name, str):
     return any(char in test_name for char in _WILDCARD_CHARS)
   if isinstance(test_name, list):
-    for name in test_name:
-      if has_wildcard(name):
-        return True
+    return any(has_wildcard(name) for name in test_name)
   return False
 
 
