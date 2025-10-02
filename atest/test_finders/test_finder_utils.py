@@ -829,7 +829,7 @@ def _get_vts_push_group_targets(push_file, rel_out_dir):
 
       # This is a push file, get the targets from it.
       if target.endswith(_VTS_PUSH_SUFFIX):
-        targets |= _get_vts_push_group_targets(line.strip(), rel_out_dir)
+        targets |= _get_vts_push_group_targets(target, rel_out_dir)
         continue
       sanitized_target = target.split(_XML_PUSH_DELIM, 1)[0].strip()
       targets.add(os.path.join(rel_out_dir, sanitized_target))
