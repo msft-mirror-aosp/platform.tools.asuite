@@ -1943,7 +1943,7 @@ def get_full_annotation_class_name(module_info, class_name):
   build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP, ''))
   for f in module_info.get(constants.MODULE_SRCS, []):
     full_path = build_top.joinpath(f)
-    with open(full_path, 'r', encoding='utf-8') as cache:
+    with open(full_path, 'r') as cache:
       for line in cache:
         # Accept full class name.
         match = fullname_re.match(line)
