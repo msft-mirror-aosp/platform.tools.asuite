@@ -1211,11 +1211,8 @@ def open_cc(filename: str):
       )
   else:
     logging.debug('Cannot find "gcc" and unable to trim comments.')
-  try:
-    cc_obj = open(target_cc, 'r')
+  with open(target_cc, 'r') as cc_obj:
     yield cc_obj
-  finally:
-    cc_obj.close()
 
 
 # pylint: disable=too-many-branches

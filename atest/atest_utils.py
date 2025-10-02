@@ -1339,7 +1339,8 @@ def get_atest_version():
     )
     version_file = Path(__file__).resolve().parent.joinpath('VERSION')
     if Path(version_file).is_file():
-      return open(version_file, encoding='utf-8').read()
+      with open(version_file, encoding='utf-8') as f:
+        return f.read()
 
   # Try fetching commit date (%ci) and commit hash (%h).
   git_cmd = 'git log -1 --pretty=format:"%ci;%h"'

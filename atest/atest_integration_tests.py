@@ -122,7 +122,8 @@ def create_test_method(testcase, log_path):
   # pylint: disable=missing-docstring
   def template_test_method(self):
     self.test_passed = self.run_test(testcase)
-    open(log_path, 'a').write('\n'.join(self.log))
+    with open(log_path, 'a') as f:
+      f.write('\n'.join(self.log))
     failed_message = 'Running command: %s failed.\n' % testcase
     failed_message += '' if self.test_passed else self.get_failed_log()
     self.assertTrue(self.test_passed, failed_message)

@@ -416,9 +416,8 @@ class AtestUtilsUnittests(unittest.TestCase):
   def test_has_colors(self):
     """Test method _has_colors."""
     # stream is file I/O
-    stream = open('/tmp/test_has_colors.txt', 'wb')
-    self.assertFalse(atest_utils._has_colors(stream))
-    stream.close()
+    with open('/tmp/test_has_colors.txt', 'wb') as stream:
+      self.assertFalse(atest_utils._has_colors(stream))
 
     # stream is not a tty(terminal).
     stream = mock.Mock()
