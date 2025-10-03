@@ -1087,7 +1087,9 @@ def get_modified_files(root_dir):
           .splitlines()
       )
       for change in modified_wo_commit:
-        modified_files.add(os.path.normpath('{}/{}'.format(git_path, change)))
+        modified_files.add(
+            os.path.normpath(os.path.join(git_path, change.lstrip(os.path.sep)))
+        )
       # Find modified files that are committed but not yet merged.
       remote_branch = _get_remote_branch(git_path)
       find_modified_files = _FIND_MODIFIED_FILES_CMDS.format(
@@ -1099,7 +1101,9 @@ def get_modified_files(root_dir):
           .splitlines()
       )
       for line in commit_modified_files:
-        modified_files.add(os.path.normpath('{}/{}'.format(git_path, line)))
+        modified_files.add(
+            os.path.normpath(os.path.join(git_path, line.lstrip(os.path.sep)))
+        )
   except (OSError, subprocess.CalledProcessError) as err:
     logging.debug('Exception raised: %s', err)
   return modified_files
