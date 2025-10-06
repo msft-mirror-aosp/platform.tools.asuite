@@ -350,7 +350,7 @@ def _contains_brackets(string: str, pair: bool = True) -> bool:
     elif char in brackets.values():
       if not stack or brackets[stack.pop()] != char:
         return False
-  return len(stack) == 0
+  return not stack
 
 
 def get_package_name(file_path):
