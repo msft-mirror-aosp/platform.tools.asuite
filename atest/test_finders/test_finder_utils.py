@@ -1019,7 +1019,7 @@ def search_integration_dirs(name, int_dirs):
       Ask user to select if multiple tests are found.
       None if no matched test found.
   """
-  if type(int_dirs) == list:
+  if isinstance(int_dirs, list):
     int_dirs = tuple(int_dirs)
   return _search_integration_dirs(name, int_dirs)
 
