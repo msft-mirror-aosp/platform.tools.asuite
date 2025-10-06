@@ -1350,7 +1350,7 @@ def _get_config_srcs_tuple_from_module_info(
   """Get test config and srcs from the given info of the module."""
   android_root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
   test_configs = mod_info.get(constants.MODULE_TEST_CONFIG, [])
-  if len(test_configs) == 0:
+  if not test_configs:
     # Check for AndroidTest.xml at the module path.
     for path in mod_info.get(constants.MODULE_PATH, []):
       config_path = os.path.join(
