@@ -2,7 +2,6 @@
 /// The current implementation parses module info and creates
 /// a map from installed file to its highest ranking "class".
 /// Later the AppClass will be mapped to a restart level.
-use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::path::Path;
 
@@ -44,12 +43,6 @@ const SOFT_RESTART_FILE_EXTS: &[&str] =
 fn can_soft_restart_based_on_filename(filename: &str) -> bool {
     let ext = Path::new(filename).extension().and_then(OsStr::to_str).unwrap_or("");
     SOFT_RESTART_FILE_EXTS.contains(&ext)
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Module {
-    pub class: Vec<String>,
-    pub installed: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
