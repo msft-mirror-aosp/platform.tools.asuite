@@ -599,7 +599,7 @@ mod tests {
 
         let expected_str =
             "adb error, Exited with status code: 1  adb: unknown command improper_cmd\n";
-        assert_eq!(expected_str, format!("{:?}", result.unwrap_err()));
+        assert_eq!(expected_str, result.unwrap_err().to_string());
     }
 
     #[test]
