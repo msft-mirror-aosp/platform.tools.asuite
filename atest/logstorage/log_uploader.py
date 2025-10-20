@@ -167,7 +167,10 @@ class _LogUploadSession:
     metadata = {
         'name': artifact_path.name,
     }
-    if artifact_path.suffix in ['.txt', '.log']:
+    if artifact_path.suffix in ['.txt', '.log', '.html']:
+      metadata['artifactType'] = 'HOST_LOG'
+      metadata['contentType'] = 'text/plain'
+    elif artifact_path.name == 'test_result':
       metadata['artifactType'] = 'HOST_LOG'
       metadata['contentType'] = 'text/plain'
     return metadata

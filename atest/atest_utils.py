@@ -1087,7 +1087,9 @@ def get_modified_files(root_dir):
           .splitlines()
       )
       for change in modified_wo_commit:
-        modified_files.add(os.path.normpath('{}/{}'.format(git_path, change)))
+        modified_files.add(
+            os.path.normpath(os.path.join(git_path, change.lstrip(os.path.sep)))
+        )
       # Find modified files that are committed but not yet merged.
       remote_branch = _get_remote_branch(git_path)
       find_modified_files = _FIND_MODIFIED_FILES_CMDS.format(
@@ -1099,7 +1101,9 @@ def get_modified_files(root_dir):
           .splitlines()
       )
       for line in commit_modified_files:
-        modified_files.add(os.path.normpath('{}/{}'.format(git_path, line)))
+        modified_files.add(
+            os.path.normpath(os.path.join(git_path, line.lstrip(os.path.sep)))
+        )
   except (OSError, subprocess.CalledProcessError) as err:
     logging.debug('Exception raised: %s', err)
   return modified_files
@@ -1339,7 +1343,8 @@ def get_atest_version():
     )
     version_file = Path(__file__).resolve().parent.joinpath('VERSION')
     if Path(version_file).is_file():
-      return open(version_file, encoding='utf-8').read()
+      with open(version_file, encoding='utf-8') as f:
+        return f.read()
 
   # Try fetching commit date (%ci) and commit hash (%h).
   git_cmd = 'git log -1 --pretty=format:"%ci;%h"'
@@ -1468,9 +1473,7 @@ def has_wildcard(test_name):
   if isinstance(test_name, str):
     return any(char in test_name for char in _WILDCARD_CHARS)
   if isinstance(test_name, list):
-    for name in test_name:
-      if has_wildcard(name):
-        return True
+    return any(has_wildcard(name) for name in test_name)
   return False
 
 
@@ -1946,7 +1949,7 @@ def get_full_annotation_class_name(module_info, class_name):
   for f in module_info.get(constants.MODULE_SRCS, []):
     full_path = build_top.joinpath(f)
     with open(full_path, 'r', encoding='utf-8') as cache:
-      for line in cache.readlines():
+      for line in cache:
         # Accept full class name.
         match = fullname_re.match(line)
         if match:

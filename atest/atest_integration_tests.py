@@ -122,7 +122,8 @@ def create_test_method(testcase, log_path):
   # pylint: disable=missing-docstring
   def template_test_method(self):
     self.test_passed = self.run_test(testcase)
-    open(log_path, 'a').write('\n'.join(self.log))
+    with open(log_path, 'a', encoding='utf-8') as f:
+      f.write('\n'.join(self.log))
     failed_message = 'Running command: %s failed.\n' % testcase
     failed_message += '' if self.test_passed else self.get_failed_log()
     self.assertTrue(self.test_passed, failed_message)
@@ -154,7 +155,7 @@ if __name__ == '__main__':
   try:
     LOG_PATH = os.path.join(create_test_run_dir(), _LOG_FILE)
     for TEST_PLANS in _INTEGRATION_TESTS:
-      with open(TEST_PLANS) as test_plans:
+      with open(TEST_PLANS, encoding='utf-8') as test_plans:
         for test in test_plans:
           # Skip test when the line startswith #.
           if not test.strip() or test.strip().startswith('#'):

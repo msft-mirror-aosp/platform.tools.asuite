@@ -166,7 +166,7 @@ def _get_test_filters(args):
     if not os.path.isfile(class_file):
       continue
 
-    with open(class_file, 'r') as f:
+    with open(class_file, 'r', encoding='utf-8') as f:
       info, _ = test_filter_utils.get_cc_class_info(trim_comments(f.read()))
 
     class_info.update(info)
@@ -206,5 +206,5 @@ if __name__ == '__main__':
   if args.class_method_reference and args.class_file:
     test_filters = _get_test_filters(args)
 
-  with open(args.out, 'w') as f:
+  with open(args.out, 'w', encoding='utf-8') as f:
     f.write(':'.join(test_filters))

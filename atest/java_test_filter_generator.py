@@ -97,5 +97,5 @@ if __name__ == '__main__':
         args.class_method_reference, args.class_file
     )
 
-  with open(args.out, 'w') as f:
+  with open(args.out, 'w', encoding='utf-8') as f:
     f.write(' '.join(test_filters))

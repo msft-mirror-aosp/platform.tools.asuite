@@ -241,7 +241,7 @@ def do_upload_flow(
     extra_args[constants.BUILD_TARGET] = build_target
     if not os.path.exists(os.path.dirname(constants.TOKEN_FILE_PATH)):
       os.makedirs(os.path.dirname(constants.TOKEN_FILE_PATH))
-    with open(constants.TOKEN_FILE_PATH, 'w') as token_file:
+    with open(constants.TOKEN_FILE_PATH, 'w', encoding='utf-8') as token_file:
       if creds.token_response:
         token_file.write(creds.token_response['access_token'])
       else:

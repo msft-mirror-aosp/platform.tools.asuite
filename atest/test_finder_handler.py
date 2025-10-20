@@ -23,8 +23,10 @@ import logging
 import re
 import sys
 
+from atest import atest_configs
 from atest import atest_utils, constants
 from atest.atest_enum import ExitCode
+from atest.crystalball import perf_mode
 from atest.test_finders import cache_finder
 from atest.test_finders import module_finder
 from atest.test_finders import suite_plan_finder
@@ -109,6 +111,10 @@ class FinderMethod(Enum):
   )
   CACHE = ('CACHE', cache_finder.CacheFinder.find_test_by_cache)
   CONFIG = ('CONFIG', module_finder.ModuleFinder.find_test_by_config_name)
+  CONFIG_JUNIT_CLASSES = (
+      'CONFIG',
+      module_finder.ModuleFinder.find_test_by_config_junit_classes,
+  )
 
   def __init__(self, name, method):
     self._name = name
@@ -278,6 +284,19 @@ def _get_test_reference_types(ref):
         FinderMethod.QUALIFIED_CLASS,
         FinderMethod.PACKAGE,
     ]
+
+  if perf_mode.is_perf_test(args=atest_configs.GLOBAL_ARGS):
+    return [
+        FinderMethod.CACHE,
+        FinderMethod.MODULE,
+        FinderMethod.INTEGRATION,
+        FinderMethod.CONFIG,
+        FinderMethod.CONFIG_JUNIT_CLASSES,
+        FinderMethod.SUITE_PLAN,
+        FinderMethod.CLASS,
+        FinderMethod.CC_CLASS,
+    ]
+
   # Note: We assume that if you're referencing a file in your cwd,
   # that file must have a '.' in its name, i.e. foo.java, foo.xml.
   # If this ever becomes not the case, then we need to include path below.

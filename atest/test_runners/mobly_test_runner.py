@@ -286,7 +286,7 @@ class MoblyResultUploader:
     """Upload a single test file to build storage."""
     invocation_id = self._invocation['invocationId']
     workunit_id = self._current_workunit['id']
-    name = os.path.relpath(path, base_dir)
+    name = os.path.join(workunit_id, os.path.relpath(path, base_dir))
     metadata = {
         'invocationId': invocation_id,
         'workUnitId': workunit_id,

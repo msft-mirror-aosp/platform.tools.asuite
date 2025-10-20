@@ -349,7 +349,7 @@ def _prepare_cache_dir(
       if proc.stdout:
         err_msg += '\n' + _decode_subprocess_err(proc.stdout)
       raise CrossBranchArtifactError(err_msg)
-    with open(build_info, 'r') as f:
+    with open(build_info, 'r', encoding='utf-8') as f:
       try:
         build_id = json.load(f)['bid']
       except (json.JSONDecodeError, KeyError) as e:

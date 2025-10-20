@@ -15,11 +15,14 @@
 """Module Finder class."""
 
 from collections import Counter
+import functools
 import logging
 import os
+import pathlib
 import shlex
 import time
 from typing import List
+import xml.etree.ElementTree as ET
 
 from atest import arg_parser
 from atest import atest_configs
@@ -50,6 +53,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
   _MOBLY_RUNNER = mobly_test_runner.MoblyTestRunner.NAME
   _ROBOLECTRIC_RUNNER = robolectric_test_runner.RobolectricTestRunner.NAME
   _VTS_TEST_RUNNER = vts_tf_test_runner.VtsTradefedTestRunner.NAME
+  _PERF_PROFILE_SUFFIX = '-profile'
 
   def __init__(self, module_info=None):
     super().__init__()
@@ -1168,14 +1172,133 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                   constants.MODULE_COMPATIBILITY_SUITES, []
               ),
           )
-          test_config_path = os.path.join(self.root_dir, test_config)
-          if test_finder_utils.need_aggregate_metrics_result(test_config_path):
-            tinfo.aggregate_metrics_result = True
           if tinfo:
             # There should have only one test_config with the same
             # name in source tree.
             return [tinfo]
     return None
+
+  def find_test_by_config_junit_classes(
+      self, junit_class_name: str
+  ) -> list[test_info.TestInfo]:
+    """Find test for the given junit class name.
+
+    Args:
+        junit_class_name: A string of the junit class name.
+
+    Returns:
+        A list of populated TestInfo namedtuple if test found, else empty list.
+    """
+    test_infos = []
+    for module_name, mod_info in self.module_info.name_to_module_info.items():
+      test_configs = mod_info.get(constants.MODULE_TEST_CONFIG, [])
+      for test_config in test_configs:
+        test_config_name = os.path.splitext(os.path.basename(test_config))[0]
+        if test_config_name.endswith(self._PERF_PROFILE_SUFFIX):
+          continue
+        test_xml = os.path.join(self.root_dir, test_config)
+        if (
+            not pathlib.Path(test_xml).is_file()
+            and pathlib.Path(test_xml).suffix == '.config'
+        ):
+          test_xml = test_xml.rsplit('.', 1)[0] + '.xml'
+
+        found_class_name = self._get_junit_classes_from_test_xml(
+            test_xml, junit_class_name
+        )
+        if found_class_name:
+          tinfo = test_info.TestInfo(
+              test_name=test_config_name,
+              test_runner=self._TEST_RUNNER,
+              build_targets=self._get_build_targets(module_name, test_config),
+              data={
+                  constants.TI_REL_CONFIG: test_config,
+                  constants.TI_FILTER: frozenset(),
+                  constants.TI_MODULE_ARG: [(
+                      f'{{com.android.tradefed.testtype.AndroidJUnitTest}}class',
+                      f'{found_class_name}',
+                  )],
+              },
+              compatibility_suites=mod_info.get(
+                  constants.MODULE_COMPATIBILITY_SUITES, []
+              ),
+          )
+
+          test_infos.append(tinfo)
+
+    return test_finder_utils.extract_selected_tests(
+        test_infos,
+        name_func=lambda t: t.test_name,
+        target_test_identifier=junit_class_name,
+    )
+
+  @functools.lru_cache(maxsize=102400)
+  def _get_junit_classes_from_test_xml(
+      self, test_xml: str, junit_class_name: str
+  ) -> str:
+    """Get the junit classes from the test xml file."""
+
+    if not pathlib.Path(test_xml).is_file():
+      return None
+
+    xml_root = ET.parse(test_xml).getroot()
+    for i in xml_root:
+      if (
+          'name' not in i.attrib
+          or 'value' not in i.attrib
+          or i.attrib['name']
+          not in ('android-junit:class', 'android-junit:include-filter')
+      ):
+        continue
+      class_name_value = i.attrib['value']
+      for full_class_name in class_name_value.split(','):
+        if (
+            junit_class_name == full_class_name
+            or junit_class_name == full_class_name.split('.')[-1]
+        ):
+          return full_class_name
+
+    include_configs = xml_root.findall('.//include')
+
+    git_dir = self._get_git_path(test_xml)
+    for include_config in include_configs:
+      name = include_config.attrib['name'].strip()
+      if not os.path.splitext(os.path.basename(name))[0].endswith(
+          self._PERF_PROFILE_SUFFIX
+      ):
+        continue
+
+      include_paths = test_finder_utils.search_integration_dirs(
+          os.path.splitext(name)[0], [git_dir]
+      )
+      for include_path in include_paths:
+        found_class_name = self._get_junit_classes_from_test_xml(
+            include_path, junit_class_name
+        )
+        if found_class_name:
+          return found_class_name
+    # print('test_xml done ')
+    return None
+
+  @staticmethod
+  @functools.lru_cache(maxsize=102400)
+  def _get_git_path(file_path: str) -> str:
+    """Get the path of the git repository for the input file.
+
+    Args:
+        file_path: A string of the path to find the git path it belongs.
+
+    Returns:
+        The path of the git repository for the input file, return the path of
+        $ANDROID_BUILD_TOP if nothing find.
+    """
+    build_top = os.environ.get(constants.ANDROID_BUILD_TOP)
+    parent = pathlib.Path(file_path).absolute().parent
+    while not parent.samefile('/') and not parent.samefile(build_top):
+      if parent.joinpath('.git').is_dir():
+        return parent.absolute()
+      parent = parent.parent
+    return build_top
 
   @staticmethod
   def _is_comparted_src(path):

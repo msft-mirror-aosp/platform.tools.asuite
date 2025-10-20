@@ -234,7 +234,7 @@ def is_parameterized_java_class(test_path):
   Returns:
       Boolean: Is parameterized class or not.
   """
-  with open(test_path) as class_file:
+  with open(test_path, encoding='utf-8') as class_file:
     for line in class_file:
       # Return immediately if the @ParameterizedTest annotation is found.
       if re.compile(r'\s*@ParameterizedTest').match(line):
@@ -350,7 +350,7 @@ def _contains_brackets(string: str, pair: bool = True) -> bool:
     elif char in brackets.values():
       if not stack or brackets[stack.pop()] != char:
         return False
-  return len(stack) == 0
+  return not stack
 
 
 def get_package_name(file_path):
@@ -362,7 +362,7 @@ def get_package_name(file_path):
   Returns:
       A string of the package name or None
   """
-  with open(file_path) as data:
+  with open(file_path, encoding='utf-8') as data:
     for line in data:
       match = _PACKAGE_RE.match(line)
       if match:

@@ -176,15 +176,15 @@ def has_cc_class(test_path):
       Boolean: has cc class in test_path or not.
   """
   with open_cc(test_path) as class_file:
-    content = class_file.read()
-    if re.findall(test_filter_utils.CC_CLASS_METHOD_RE, content):
-      return True
-    if re.findall(test_filter_utils.CC_FLAG_CLASS_METHOD_RE, content):
-      return True
-    if re.findall(test_filter_utils.CC_PARAM_CLASS_RE, content):
-      return True
-    if re.findall(test_filter_utils.TYPE_CC_CLASS_RE, content):
-      return True
+    for line in class_file:
+      if re.findall(test_filter_utils.CC_CLASS_METHOD_RE, line):
+        return True
+      if re.findall(test_filter_utils.CC_FLAG_CLASS_METHOD_RE, line):
+        return True
+      if re.findall(test_filter_utils.CC_PARAM_CLASS_RE, line):
+        return True
+      if re.findall(test_filter_utils.TYPE_CC_CLASS_RE, line):
+        return True
   return False
 
 
@@ -197,7 +197,7 @@ def get_parent_cls_name(file_name):
   Returns:
       A string of the parent class name or None
   """
-  with open(file_name) as data:
+  with open(file_name, encoding='utf-8') as data:
     for line in data:
       match = _PARENT_CLS_RE.match(line)
       if match:
@@ -319,13 +319,18 @@ def extract_test_path(output, methods=None):
   return extract_selected_tests(sorted(list(verified_tests)))
 
 
-def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
+def extract_selected_tests(
+    tests: Iterable,
+    default_all=False,
+    name_func=lambda x: x,
+    target_test_identifier=None,
+) -> List[str]:
   """Extract the test path from the tests.
 
   Return the test to run from tests. If more than one option, prompt the user
   to select multiple ones. Supporting formats:
   - A string for the auxiliary menu: A for All, C for Cancel
-  - An integer. E.g. 0
+  - An integer. E.g. 1
   - Comma-separated integers. E.g. 1,3,5
   - A range of integers denoted by the starting integer separated from
     the end integer by a dash, '-'. E.g. 1-3
@@ -333,21 +338,29 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
   Args:
       tests: A string list which contains multiple test paths.
       default_all: A bool that indicates whether to select all tests.
+      name_func: A function that returns the name of the test. This is used to
+        sort the tests and print them out in the menu. Default is the identity
+        function (lambda x: x).
 
   Returns:
       A string list of paths.
   """
-  tests = sorted(list(tests))
+  tests = sorted(list(tests), key=name_func)
   count = len(tests)
   if default_all or count <= 1:
     return tests if count else None
 
   extracted_tests = set()
   auxiliary_menu = [f'{_ALL_OPTION}: All', f'{_CANCEL_OPTION}: Cancel']
-  numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(tests)]
+  numbered_list = [
+      '%s: %s' % (i + 1, name_func(t)) for i, t in enumerate(tests)
+  ]
   print(
-      'Multiple tests found:\n{0}'.format(
-          '\n'.join(auxiliary_menu + numbered_list)
+      'Multiple tests found{0}:\n{1}'.format(
+          f' for {atest_utils.mark_cyan(target_test_identifier)}'
+          if target_test_identifier
+          else '',
+          '\n'.join(auxiliary_menu + numbered_list),
       )
   )
 
@@ -360,8 +373,8 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
     sys.exit(0)
   else:
     extracted_tests = {
-        tests[index]
-        for index in get_selected_indices(answer, limit=len(numbered_list) - 1)
+        tests[_convert_indices_to_0_based_list(index)]
+        for index in get_selected_indices(answer, limit=len(numbered_list))
     }
   metrics.LocalDetectEvent(
       detect_type=DetectType.INTERACTIVE_SELECTION,
@@ -371,13 +384,26 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
   return list(extracted_tests)
 
 
+def _convert_indices_to_0_based_list(index: int) -> int:
+  """Convert a single index to a 0-based integer.
+
+  Args:
+      index: A single index.
+
+  Returns:
+      The 0-based integer corresponding to the given index. If the index is
+      zero or less, it is returned as is.
+  """
+  return index - 1 if index > 0 else index
+
+
 def get_multiple_selection_answer() -> str:
   """Get the answer from the user input."""
   try:
     return input(
         'Please select an option.'
         '\n(multiple selection is supported, '
-        "e.g. '1' or '0,1' or '0-2'): "
+        "e.g. '1' or '1,2' or '1-3'): "
     )
   except KeyboardInterrupt:
     return _CANCEL_OPTION
@@ -387,12 +413,12 @@ def get_selected_indices(string: str, limit: int = None) -> Set[int]:
   """Method which flattens and dedups the given string to a set of integer.
 
   This method is also capable to convert '5-2' to {2,3,4,5}. e.g.
-  '0, 2-5, 5-3' -> {0, 2, 3, 4, 5}
+  '1, 2-5, 5-3' -> {1, 2, 3, 4, 5}
 
   If the given string contains non-numerical string, returns an empty set.
 
   Args:
-      string: a given string, e.g. '0, 2-5'
+      string: a given string, e.g. '1, 2-5'
       limit: an integer that every parsed number cannot exceed.
 
   Returns:
@@ -794,7 +820,7 @@ def _get_vts_push_group_targets(push_file, rel_out_dir):
   targets = set()
   full_push_file_path = os.path.join(_VTS_PUSH_DIR, push_file)
   # pylint: disable=invalid-name
-  with open(full_push_file_path) as f:
+  with open(full_push_file_path, encoding='utf-8') as f:
     for line in f:
       target = line.strip()
       # Skip empty lines.
@@ -803,7 +829,7 @@ def _get_vts_push_group_targets(push_file, rel_out_dir):
 
       # This is a push file, get the targets from it.
       if target.endswith(_VTS_PUSH_SUFFIX):
-        targets |= _get_vts_push_group_targets(line.strip(), rel_out_dir)
+        targets |= _get_vts_push_group_targets(target, rel_out_dir)
         continue
       sanitized_target = target.split(_XML_PUSH_DELIM, 1)[0].strip()
       targets.add(os.path.join(rel_out_dir, sanitized_target))
@@ -993,6 +1019,24 @@ def search_integration_dirs(name, int_dirs):
       Ask user to select if multiple tests are found.
       None if no matched test found.
   """
+  if isinstance(int_dirs, list):
+    int_dirs = tuple(int_dirs)
+  return _search_integration_dirs(name, int_dirs)
+
+
+@functools.lru_cache(maxsize=102400)
+def _search_integration_dirs(name, int_dirs):
+  """Search integration dirs for name and return full path.
+
+  Args:
+      name: A string of plan name needed to be found.
+      int_dirs: A tuple of path needed to be searched.
+
+  Returns:
+      A list of the test path.
+      Ask user to select if multiple tests are found.
+      None if no matched test found.
+  """
   root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
   test_files = []
   for integration_dir in int_dirs:
@@ -1139,7 +1183,7 @@ def get_java_methods(test_path):
       A set of methods.
   """
   logging.debug('Probing %s:', test_path)
-  with open(test_path) as class_file:
+  with open(test_path, encoding='utf-8') as class_file:
     content = class_file.read()
   matches = re.findall(_JAVA_METHODS_RE, content)
   if matches:
@@ -1167,11 +1211,8 @@ def open_cc(filename: str):
       )
   else:
     logging.debug('Cannot find "gcc" and unable to trim comments.')
-  try:
-    cc_obj = open(target_cc, 'r')
+  with open(target_cc, 'r', encoding='utf-8') as cc_obj:
     yield cc_obj
-  finally:
-    cc_obj.close()
 
 
 # pylint: disable=too-many-branches
@@ -1200,7 +1241,7 @@ def get_cc_class_info(test_path):
       A dict of class info.
   """
   with open_cc(test_path) as class_file:
-    content = class_file.read()
+    content = ''.join(class_file.readlines())
     logging.debug('Parsing: %s', test_path)
     class_info, no_test_classes = test_filter_utils.get_cc_class_info(content)
 
@@ -1254,7 +1295,7 @@ def get_annotated_methods(annotation, file_path):
   """
   methods = set()
   annotation_name = '@' + str(annotation).split('.')[-1]
-  with open(file_path) as class_file:
+  with open(file_path, encoding='utf-8') as class_file:
     enter_annotation_block = False
     for line in class_file:
       if str(line).strip().startswith(annotation_name):
@@ -1309,7 +1350,7 @@ def _get_config_srcs_tuple_from_module_info(
   """Get test config and srcs from the given info of the module."""
   android_root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
   test_configs = mod_info.get(constants.MODULE_TEST_CONFIG, [])
-  if len(test_configs) == 0:
+  if not test_configs:
     # Check for AndroidTest.xml at the module path.
     for path in mod_info.get(constants.MODULE_PATH, []):
       config_path = os.path.join(
@@ -1349,62 +1390,6 @@ def _get_config_srcs_tuple_when_no_module_info(
     if any(results):
       return results
   return None, None
-
-
-def need_aggregate_metrics_result(test_xml: str) -> bool:
-  """Check if input test config need aggregate metrics.
-
-  If the input test define metrics_collector, which means there's a need for
-  atest to have the aggregate metrics result.
-
-  Args:
-      test_xml: A string of the path for the test xml.
-
-  Returns:
-      True if input test need to enable aggregate metrics result.
-  """
-  # Due to (b/211640060) it may replace .xml with .config in the xml as
-  # workaround.
-  if not Path(test_xml).is_file():
-    if Path(test_xml).suffix == '.config':
-      test_xml = test_xml.rsplit('.', 1)[0] + '.xml'
-
-  if Path(test_xml).is_file():
-    xml_root = ET.parse(test_xml).getroot()
-    if xml_root.findall('.//metrics_collector'):
-      return True
-    # Recursively check included configs in the same git repository.
-    git_dir = get_git_path(test_xml)
-    include_configs = xml_root.findall('.//include')
-    for include_config in include_configs:
-      name = include_config.attrib[_XML_NAME].strip()
-      # Get the absolute path for the included configs.
-      include_paths = search_integration_dirs(
-          os.path.splitext(name)[0], [git_dir]
-      )
-      for include_path in include_paths:
-        if need_aggregate_metrics_result(include_path):
-          return True
-  return False
-
-
-def get_git_path(file_path: str) -> str:
-  """Get the path of the git repository for the input file.
-
-  Args:
-      file_path: A string of the path to find the git path it belongs.
-
-  Returns:
-      The path of the git repository for the input file, return the path of
-      $ANDROID_BUILD_TOP if nothing find.
-  """
-  build_top = os.environ.get(constants.ANDROID_BUILD_TOP)
-  parent = Path(file_path).absolute().parent
-  while not parent.samefile('/') and not parent.samefile(build_top):
-    if parent.joinpath('.git').is_dir():
-      return parent.absolute()
-    parent = parent.parent
-  return build_top
 
 
 def parse_test_reference(test_ref: str) -> Dict[str, str]:

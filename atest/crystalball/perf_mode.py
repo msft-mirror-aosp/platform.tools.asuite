@@ -82,56 +82,7 @@ def process_parsed_args(args: argparse.Namespace):
   Args:
     args: The arguments parsed by argparse.
   """
-  original_args = copy.deepcopy(args)
-
-  if args.instrumentation_arg:
-    module_name = args.tests[0]
-    module_arg = f'{module_name}:{{com.android.tradefed.testtype.AndroidJUnitTest}}instrumentation-arg:{args.instrumentation_arg}'
-    args.custom_args.append('--module-arg')
-    args.custom_args.append(module_arg)
-    print(
-        f'Converting argument "--instr-arg {args.instrumentation_arg}" to'
-        f' "--module-arg {module_arg}"'
-    )
-
-  if args.iter:
-    module_name = args.tests[0]
-    module_arg = f'{module_name}:{{com.android.tradefed.testtype.AndroidJUnitTest}}instrumentation-arg:iterations:={args.iter}'
-    args.custom_args.append('--module-arg')
-    args.custom_args.append(module_arg)
-    print(
-        f'Converting argument "--iter {args.iter}" to "--module-arg'
-        f' {module_arg}"'
-    )
-
-  if args.class_name:
-    module_name = args.tests[0]
-    module_arg = f'{module_name}:{{com.android.tradefed.testtype.AndroidJUnitTest}}class:{args.class_name}'
-    args.custom_args.append('--module-arg')
-    args.custom_args.append(module_arg)
-    print(
-        f'Converting argument "--class {args.class_name}" to "--module-arg'
-        f' {module_arg}"'
-    )
-
-  if args.metric_filter:
-    module_name = args.tests[0]
-    module_arg = f'{module_name}:{{com.android.tradefed.postprocessor.MetricFilePostProcessor}}strict-include-metric-filter:{args.metric_filter}'
-    args.custom_args.append('--module-arg')
-    args.custom_args.append(module_arg)
-    print(
-        f'Converting argument "--metric-filter {args.metric_filter}" to'
-        f' "--module-arg {module_arg}"'
-    )
-
-  if str(original_args) != str(args):
-    print(  # TODO(jinghuanwen): update or remove this message
-        atest_utils.mark_magenta(
-            'Perf arguments simplification experimental feature was triggered.'
-            ' If you like the change please +1 to b/347360193, or leave'
-            ' comments if you have feedbacks.'
-        )
-    )
+  pass
 
 
 def add_global_arguments(parser: argparse.ArgumentParser):
@@ -198,6 +149,64 @@ def set_default_argument_values(args: argparse.Namespace):
   """
   if not args.disable_upload_result:
     args.request_upload_result = True
+
+
+def set_custom_arguments_based_on_test_infos(
+    args: argparse.Namespace, test_infos: list[test_info.TestInfo]
+):
+  """Sets custom arguments based on test infos.
+
+  Args:
+    args: The arguments parsed by argparse.
+    test_infos: The list of TestInfo objects.
+  """
+  original_args = copy.deepcopy(args)
+  module_name = test_infos[0].test_name
+
+  if hasattr(args, 'instrumentation_arg') and args.instrumentation_arg:
+    module_arg = f'{module_name}:{{com.android.tradefed.testtype.AndroidJUnitTest}}instrumentation-arg:{args.instrumentation_arg}'
+    args.custom_args.append('--module-arg')
+    args.custom_args.append(module_arg)
+    print(
+        f'Converting argument "--instr-arg {args.instrumentation_arg}" to'
+        f' "--module-arg {module_arg}"'
+    )
+
+  if hasattr(args, 'iter') and args.iter:
+    module_arg = f'{module_name}:{{com.android.tradefed.testtype.AndroidJUnitTest}}instrumentation-arg:iterations:={args.iter}'
+    args.custom_args.append('--module-arg')
+    args.custom_args.append(module_arg)
+    print(
+        f'Converting argument "--iter {args.iter}" to "--module-arg'
+        f' {module_arg}"'
+    )
+
+  if hasattr(args, 'class_name') and args.class_name:
+    module_arg = f'{module_name}:{{com.android.tradefed.testtype.AndroidJUnitTest}}class:{args.class_name}'
+    args.custom_args.append('--module-arg')
+    args.custom_args.append(module_arg)
+    print(
+        f'Converting argument "--class {args.class_name}" to "--module-arg'
+        f' {module_arg}"'
+    )
+
+  if hasattr(args, 'metric_filter') and args.metric_filter:
+    module_arg = f'{module_name}:{{com.android.tradefed.postprocessor.MetricFilePostProcessor}}strict-include-metric-filter:{args.metric_filter}'
+    args.custom_args.append('--module-arg')
+    args.custom_args.append(module_arg)
+    print(
+        f'Converting argument "--metric-filter {args.metric_filter}" to'
+        f' "--module-arg {module_arg}"'
+    )
+
+  if str(original_args) != str(args):
+    print(  # TODO(jinghuanwen): update or remove this message
+        atest_utils.mark_magenta(
+            'Perf arguments simplification experimental feature was triggered.'
+            ' If you like the change please +1 to b/347360193, or leave'
+            ' comments if you have feedbacks.'
+        )
+    )
 
 
 def set_invocation_properties(invocation_properties: dict[str, str]):

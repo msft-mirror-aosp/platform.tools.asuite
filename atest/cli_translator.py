@@ -447,7 +447,9 @@ class CLITranslator:
       return '' if any(map(line.startswith, _COMMENTS)) else line
 
     with open(test_mapping_file, encoding='utf-8') as json_file:
-      return re.sub(_COMMENTS_RE, _replace, json_file.read())
+      return ''.join(
+          re.sub(_COMMENTS_RE, _replace, line) for line in json_file
+      )
 
   def _read_tests_in_test_mapping(self, test_mapping_file):
     """Read tests from a TEST_MAPPING file.

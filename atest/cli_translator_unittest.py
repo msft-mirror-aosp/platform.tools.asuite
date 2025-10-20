@@ -501,7 +501,7 @@ class CLITranslatorUnittests(unittest.TestCase):
     )
     test_mapping_dict = json.loads(self.ctr.filter_comments(file_with_comments))
     test_mapping_dict_gloden = None
-    with open(file_with_comments_golden) as json_file:
+    with open(file_with_comments_golden, encoding='utf-8') as json_file:
       test_mapping_dict_gloden = json.load(json_file)
 
     self.assertEqual(test_mapping_dict, test_mapping_dict_gloden)

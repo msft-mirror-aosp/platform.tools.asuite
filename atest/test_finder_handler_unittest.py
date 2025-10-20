@@ -17,11 +17,13 @@
 """Unittests for test_finder_handler."""
 
 # pylint: disable=protected-access
+import argparse
 import unittest
 from unittest import mock
 
 from atest import atest_error
 from atest import test_finder_handler
+from atest.crystalball import perf_mode
 from atest.test_finder_handler import FinderMethod as REF_TYPE
 from atest.test_finders import test_finder_base
 from atest.test_finders import test_info

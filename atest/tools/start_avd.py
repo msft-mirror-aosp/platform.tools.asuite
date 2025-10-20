@@ -90,7 +90,7 @@ def acloud_create(report_file, args, no_metrics_notice=True):
   if result:
     result[ACLOUD_DURATION] = acloud_duration
     try:
-      with open(report_file, 'w+') as _wfile:
+      with open(report_file, 'w+', encoding='utf-8') as _wfile:
         _wfile.write(json.dumps(result))
     except OSError as e:
       atest_utils.print_and_log_error(

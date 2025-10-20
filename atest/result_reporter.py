@@ -512,7 +512,7 @@ class ResultReporter:
             host_log_content = host_log_content + au.extract_zip_text(tf_log)
           else:
             with open(tf_log, 'r', encoding='utf-8') as f:
-              for line in f.readlines():
+              for line in f:
                 host_log_content = host_log_content + line
 
       # Print the content for the standard error file for a single module.
@@ -525,7 +525,7 @@ class ResultReporter:
               + au.mark_magenta(f'Logs in {os.path.basename(log_file)}:')
           )
           with open(log_file, 'r', encoding='utf-8') as f:
-            for line in f.readlines():
+            for line in f:
               print(' ' * 2 + str(line), end='')
     elif stats.failed == 0:
       passed_label = au.mark_green(passed_label)

@@ -282,7 +282,7 @@ def parse_test_log_and_send_app_installation_stats_metrics(
         continue
 
       # Open the host log and parse app installation skip metric
-      with open(f'{host_log_path}', 'r') as host_log_file:
+      with open(f'{host_log_path}', 'r', encoding='utf-8') as host_log_file:
         for line in host_log_file:
           if (
               _APP_INSTALL_SKIP_KEY in line
@@ -325,7 +325,7 @@ def append_test_info_to_invocation_pathnames(
         continue
 
       # Open the host log and parse test filter and invocation folder names.
-      with open(f'{host_log_path}', 'r') as host_log_file:
+      with open(f'{host_log_path}', 'r', encoding='utf-8') as host_log_file:
         test_filter = ''
         invocation_folder_name = ''
         for line in host_log_file:
@@ -447,7 +447,7 @@ class AtestExecutionInfo:
   def __enter__(self):
     """Create and return information file object."""
     try:
-      self.result_file_obj = open(self.test_result, 'w')
+      self.result_file_obj = open(self.test_result, 'w', encoding='utf-8')
     except IOError:
       atest_utils.print_and_log_error('Cannot open file %s', self.test_result)
 
