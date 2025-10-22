@@ -50,8 +50,8 @@ class IndexTargetUnittests(unittest.TestCase):
       with mock.patch.dict('os.environ', ENVIRONMENT, clear=True):
         indices = indexing.Indices()
 
-        # 0. Test run_updatedb() is functional.
-        indexing.run_updatedb(indices.locate_db, prunepaths=PRUNEPATHS)
+        # 0. Test _run_updatedb() is functional.
+        indexing._run_updatedb(indices.locate_db, prunepaths=PRUNEPATHS)
         self.assertTrue(indices.locate_db.exists())
 
         indexing._index_targets(indices, 0.0)
