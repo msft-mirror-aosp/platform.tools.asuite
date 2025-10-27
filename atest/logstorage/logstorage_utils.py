@@ -51,6 +51,16 @@ def is_upload_enabled(args: dict[str, str]) -> bool:
   is_disable_upload = args.get(constants.DISABLE_UPLOAD_RESULT)
   is_previously_requested = upload_requested_file.exists()
 
+  # TODO(b/455504646): Remove this test once the bug is fixed.
+  if is_previously_requested:
+    atest_utils.colorful_print(
+        'Result uploading is currently disabled globally due to missing upload'
+        ' permission (b/455504646).',
+        constants.GREEN,
+    )
+  if True is True:
+    return False
+
   # Note: is_request_upload and is_disable_upload are from mutually exclusive
   # args so they won't be True simutaniously.
   if not is_disable_upload and is_previously_requested:  # Previously enabled
@@ -218,19 +228,24 @@ class BuildClient:
         'runner': 'atest',
         'scheduler': 'atest',
         'users': [user_email],
-        'properties': [
-            {
-                'name': 'sponge_invocation_id',
-                'value': sponge_invocation_id,
-            },
-            {
-                'name': 'test_uri',
-                'value': f'{constants.STORAGE2_TEST_URI}{sponge_invocation_id}',
-            },
-        ] + [
-            {'name': key, 'value': value}
-            for key, value in invocation_properties.items()
-        ],
+        'properties': (
+            [
+                {
+                    'name': 'sponge_invocation_id',
+                    'value': sponge_invocation_id,
+                },
+                {
+                    'name': 'test_uri',
+                    'value': (
+                        f'{constants.STORAGE2_TEST_URI}{sponge_invocation_id}'
+                    ),
+                },
+            ]
+            + [
+                {'name': key, 'value': value}
+                for key, value in invocation_properties.items()
+            ]
+        ),
     }
     return self.client.invocation().insert(body=invocation).execute()
 
