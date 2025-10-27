@@ -100,7 +100,7 @@ def debug_log(func):
   return wrapper
 
 
-def run_updatedb(output_cache: Path, prunepaths: List[str] = None) -> bool:
+def _run_updatedb(output_cache: Path, prunepaths: List[str] = None) -> bool:
   """Run updatedb and generate cache in $ANDROID_HOST_OUT/indices/plocate.db
 
   Args:
@@ -125,14 +125,15 @@ def run_updatedb(output_cache: Path, prunepaths: List[str] = None) -> bool:
   # Support scanning bind mounts as well.
   updatedb_cmd.extend(['--prune-bind-mounts', 'no'])
 
-  logging.debug('Running updatedb... ')
   try:
     full_env_vars = os.environ.copy()
-    logging.debug('Executing: %s', updatedb_cmd)
+    logging.debug('Running updatedb: executing cmd [%s]', updatedb_cmd)
     result = subprocess.run(
         updatedb_cmd, env=full_env_vars, capture_output=True, check=True
     )
-    logging.debug('Completed executing updatedb: %s', result.stdout)
+    logging.debug(
+        'Completed executing cmd: "%s". Result: %s', updatedb_cmd, result.stdout
+    )
     return True
   except (KeyboardInterrupt, SystemExit):
     atest_utils.print_and_log_error('Process interrupted or failure.')
@@ -197,8 +198,9 @@ def get_cc_result(indices: Indices):
       f"{LOCATE} -id{indices.locate_db} --regex '/*.test.*\\.(cc|cpp)$'"
       f"| xargs egrep -sH '{constants.CC_GREP_RE}' 2>/dev/null || true"
   )
-  logging.debug('Probing CC classes:\n %s', find_cc_cmd)
+  logging.debug('Probing CC classes: executing cmd [%s]', find_cc_cmd)
   result = subprocess.getoutput(find_cc_cmd)
+  logging.debug('completed executing cmd [%s]', find_cc_cmd)
 
   au.start_threading(
       target=_index_cc_classes, args=[result, indices.cc_classes_idx]
@@ -220,8 +222,9 @@ def get_java_result(indices: Indices):
       # (b/204398677) suppress stderr when indexing target terminated.
       f"| xargs egrep -sH '{package_grep_re}' 2>/dev/null|| true"
   )
-  logging.debug('Probing Java classes:\n %s', find_java_cmd)
+  logging.debug('Probing Java classes: executing cmd [%s]', find_java_cmd)
   result = subprocess.getoutput(find_java_cmd)
+  logging.debug('completed executing cmd [%s]', find_java_cmd)
 
   au.start_threading(
       target=_index_java_classes, args=[result, indices.classes_idx]
@@ -343,6 +346,7 @@ def index_targets():
   PACKAGE and QUALIFIED_CLASS.
   """
   start = time.time()
+  logging.debug('index_targets start')
   unavailable_cmds = [
       cmd for cmd in [UPDATEDB, LOCATE] if not au.has_command(cmd)
   ]
@@ -358,12 +362,14 @@ def index_targets():
   get_num_cmd = f'{LOCATE} -d{output_cache} --count /'
   pre_number = 0
   if output_cache.exists():
+    logging.debug('index_targets: executing cmd [%s]', get_num_cmd)
     ret, pre_number = subprocess.getstatusoutput(get_num_cmd)
+    logging.debug('completed executing cmd [%s]', get_num_cmd)
     if ret != 0:
-      logging.debug('Found a broken db: %s', output_cache)
+      logging.debug('Found a broken db: "%s"', output_cache)
       pre_number = sys.maxsize
 
-  if run_updatedb(output_cache):
+  if _run_updatedb(output_cache):
     if not indices.has_all_indices():
       logging.debug('Missing essential indices; will re-index targets.')
       return _index_targets(indices, start)
@@ -372,7 +378,9 @@ def index_targets():
     # to determining whether the source tree had changed. Therefore, when
     # fulfilling the following conditions, Atest will trigger indexing:
     #  1. different file numbers in current and previous plocate.db.
+    logging.debug('index_targets: executing cmd [%s]', get_num_cmd)
     same_number_of_files = pre_number == subprocess.getoutput(get_num_cmd)
+    logging.debug('completed executing cmd [%s]', get_num_cmd)
     if not same_number_of_files:
       logging.debug('Found file number changed; will re-index targets.')
       return _index_targets(indices, start)
