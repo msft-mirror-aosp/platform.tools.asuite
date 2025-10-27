@@ -56,7 +56,7 @@ def is_upload_enabled(args: dict[str, str]) -> bool:
     atest_utils.colorful_print(
         'Result uploading is currently disabled globally due to missing upload'
         ' permission (b/455504646).',
-        constants.GREEN,
+        constants.RED,
     )
   if True is True:
     return False
