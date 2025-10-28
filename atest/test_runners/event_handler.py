@@ -351,6 +351,7 @@ class EventHandler:
           end_event_name == EVENT_NAMES['module_ended']
           and start_event == EVENT_NAMES['run_started']
       ):
+        # This may no longe be expected to happen due to changes in tradefed.
         _handle_crashed_test(
             'Test run started but did not end. This often happens when the test'
             ' binary/app such as android instrumentation app process died.'
@@ -361,6 +362,7 @@ class EventHandler:
           end_event_name == EVENT_NAMES['run_ended']
           and start_event == EVENT_NAMES['test_started']
       ):
+        # This may no longer be expected to happen due to changes in tradefed.
         _handle_crashed_test(
             'Test started but did not end. This often happens when the test'
             ' binary/app such as android instrumentation app process died.'
