@@ -30,9 +30,7 @@ class LogstorageUtilsTest(fake_filesystem_unittest.TestCase):
   def test_is_upload_enabled_request_upload_returns_True(self):
     res = logstorage_utils.is_upload_enabled(self._get_request_upload_args())
 
-    # TODO(b/455504646): Re-enable this test once the bug is fixed.
-    self.assertFalse(res)
-    # self.assertTrue(res)
+    self.assertTrue(res)
 
   @patch('atest.constants.GTF_TARGETS', {'google-tradefed'})
   @patch('atest.constants.CREDENTIAL_FILE_NAME', 'creds.txt')
@@ -68,9 +66,7 @@ class LogstorageUtilsTest(fake_filesystem_unittest.TestCase):
         self._get_unspecified_upload_args()
     )
 
-    # TODO(b/455504646): Re-enable this test once the bug is fixed.
-    self.assertFalse(res)
-    # self.assertTrue(res)
+    self.assertTrue(res)
 
   @patch('atest.constants.GTF_TARGETS', {'google-tradefed'})
   @patch('atest.constants.CREDENTIAL_FILE_NAME', 'creds.txt')
