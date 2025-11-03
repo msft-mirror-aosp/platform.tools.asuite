@@ -75,7 +75,7 @@ class DeviceAndroidTestTest(atest_integration_test.AtestTestCase):
     verifiers = [
         _Verifier(
             lambda test_case, result: test_case.assertIn(
-                'instrumentation app process died',
+                'Instrumentation run failed',
                 result.get_stdout(),
             ),
             'process_died',

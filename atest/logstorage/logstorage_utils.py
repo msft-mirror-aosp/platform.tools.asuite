@@ -218,19 +218,24 @@ class BuildClient:
         'runner': 'atest',
         'scheduler': 'atest',
         'users': [user_email],
-        'properties': [
-            {
-                'name': 'sponge_invocation_id',
-                'value': sponge_invocation_id,
-            },
-            {
-                'name': 'test_uri',
-                'value': f'{constants.STORAGE2_TEST_URI}{sponge_invocation_id}',
-            },
-        ] + [
-            {'name': key, 'value': value}
-            for key, value in invocation_properties.items()
-        ],
+        'properties': (
+            [
+                {
+                    'name': 'sponge_invocation_id',
+                    'value': sponge_invocation_id,
+                },
+                {
+                    'name': 'test_uri',
+                    'value': (
+                        f'{constants.STORAGE2_TEST_URI}{sponge_invocation_id}'
+                    ),
+                },
+            ]
+            + [
+                {'name': key, 'value': value}
+                for key, value in invocation_properties.items()
+            ]
+        ),
     }
     return self.client.invocation().insert(body=invocation).execute()
 
