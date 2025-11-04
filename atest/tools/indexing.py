@@ -195,7 +195,8 @@ def get_cc_result(indices: Indices):
       indices: an Indices object.
   """
   find_cc_cmd = (
-      f"{LOCATE} -id{indices.locate_db} --regex '/*.test.*\\.(cc|cpp)$'"
+      f'{LOCATE} -id{indices.locate_db}'
+      f" --regex '{au.get_build_top()}/.*test.*\\.(cc|cpp)$'"
       f"| xargs egrep -sH '{constants.CC_GREP_RE}' 2>/dev/null || true"
   )
   logging.debug('Probing CC classes: executing cmd [%s]', find_cc_cmd)
@@ -218,7 +219,8 @@ def get_java_result(indices: Indices):
   """
   package_grep_re = r'^\s*package\s+[a-z][[:alnum:]]+[^{]'
   find_java_cmd = (
-      f"{LOCATE} -id{indices.locate_db} --regex '/*.test.*\\.(java|kt)$' "
+      f'{LOCATE} -id{indices.locate_db}'
+      f" --regex '{au.get_build_top()}/.*test.*\\.(java|kt)$' "
       # (b/204398677) suppress stderr when indexing target terminated.
       f"| xargs egrep -sH '{package_grep_re}' 2>/dev/null|| true"
   )
