@@ -409,8 +409,8 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
     reporter.silent = False
     uploader = MoblyResultUploader(extra_args)
 
-    for tinfo in test_infos:
-      try:
+    try:
+      for tinfo in test_infos:
         # Pre-test setup
         test_files = self._get_test_files(tinfo)
         py_executable = self._setup_python_env(test_files.requirements_txt)
@@ -433,11 +433,11 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         ret_code |= self._run_and_handle_results(
             mobly_command, tinfo, rerun_options, mobly_args, reporter, uploader
         )
-      finally:
-        self._cleanup()
-        if uploader.enabled:
-          uploader.finalize_invocation()
-          uploader.add_result_link(reporter)
+    finally:
+      self._cleanup()
+      if uploader.enabled:
+        uploader.finalize_invocation()
+        uploader.add_result_link(reporter)
     return ret_code
 
   def host_env_check(self) -> None:
@@ -605,7 +605,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
     config[CONFIG_KEY_MOBLY_PARAMS] = {
         CONFIG_KEY_LOG_PATH: log_path,
     }
-    os.makedirs(log_path)
+    os.makedirs(log_path, exist_ok=True)
     config_path = os.path.join(log_path, CONFIG_FILE)
     logging.debug('Generating Mobly config at %s', config_path)
     with open(config_path, 'w', encoding='utf-8') as f:
