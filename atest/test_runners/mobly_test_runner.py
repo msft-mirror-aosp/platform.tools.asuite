@@ -414,7 +414,10 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         # Pre-test setup
         test_files = self._get_test_files(tinfo)
         py_executable = self._setup_python_env(test_files.requirements_txt)
-        serials = atest_configs.GLOBAL_ARGS.serial or self._get_cvd_serials()
+        if atest_configs.GLOBAL_ARGS and atest_configs.GLOBAL_ARGS.serial:
+          serials = atest_configs.GLOBAL_ARGS.serial
+        else:
+          serials = self._get_cvd_serials()
         if constants.DISABLE_INSTALL not in extra_args:
           self._install_apks(test_files.test_apks, serials)
         mobly_config = self._generate_mobly_config(
@@ -694,7 +697,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
 
     Returns: List of test cases for the Mobly command.
     """
-    if not tinfo.data['filter']:
+    if not tinfo.data.get('filter', None):
       return []
     (test_filter,) = tinfo.data['filter']
     if test_filter.methods:
