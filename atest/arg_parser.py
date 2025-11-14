@@ -21,6 +21,7 @@ import logging
 
 from atest import atest_utils
 from atest import constants
+from atest.acme import acme_utils
 from atest.atest_utils import BuildOutputMode
 from atest.crystalball import perf_mode
 
@@ -262,6 +263,7 @@ def create_atest_arg_parser():
           ' need to be setup again with "-i".'
       ),
   )
+  acme_utils.add_global_arguments(parser)
   parser.add_argument(
       '--sts',
       default=False,
