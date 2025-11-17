@@ -26,6 +26,7 @@ from atest import arg_parser
 from atest import atest_configs
 from atest import constants
 from atest import result_reporter
+from atest import result_reporter_unittest
 from atest import unittest_constants
 from atest.test_finders import test_info
 from atest.test_runners import mobly_test_runner
@@ -156,6 +157,58 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     )
     self.reporter = result_reporter.ResultReporter()
     self.mobly_args = argparse.Namespace(config='', testbed='', testparam=[])
+
+  @mock.patch('atest.test_runners.mobly_test_runner.MoblyResultUploader')
+  @mock.patch.object(
+      mobly_test_runner.MoblyTestRunner,
+      '_get_test_files',
+      return_value=MOCK_TEST_FILES,
+  )
+  @mock.patch.object(mobly_test_runner.MoblyTestRunner, '_setup_python_env')
+  @mock.patch.object(
+      mobly_test_runner.MoblyTestRunner, '_get_cvd_serials', return_value=[]
+  )
+  @mock.patch.object(mobly_test_runner.MoblyTestRunner, '_install_apks')
+  @mock.patch.object(
+      mobly_test_runner.MoblyTestRunner, '_generate_mobly_config'
+  )
+  @mock.patch.object(mobly_test_runner.MoblyTestRunner, '_get_mobly_command')
+  @mock.patch.object(
+      mobly_test_runner.MoblyTestRunner, '_run_mobly_command', return_value=0
+  )
+  @mock.patch.object(
+      mobly_test_runner.MoblyTestRunner, '_process_test_results_from_summary'
+  )
+  @mock.patch.object(mobly_test_runner.MoblyTestRunner, '_cleanup')
+  def test_run_tests_with_multiple_modules(
+      self, mock_cleanup, mock_process_results, *unused_mocks
+  ) -> None:
+    """Tests run_tests with multiple test modules."""
+    mock_uploader_cls = unused_mocks[-1]
+    mock_uploader = mock_uploader_cls.return_value
+    mock_uploader.enabled = True
+    tinfo1 = test_info.TestInfo('Test1', '', [])
+    tinfo2 = test_info.TestInfo('Test2', '', [])
+    test_infos = [tinfo1, tinfo2]
+    extra_args = {}
+    reporter = result_reporter.ResultReporter()
+
+    result1 = result_reporter_unittest.RESULT_PASSED_TEST
+    result2 = result_reporter_unittest.RESULT_PASSED_TEST_MODULE_2
+    mock_process_results.side_effect = [[result1], [result2]]
+
+    self.runner.run_tests(test_infos, extra_args, reporter)
+
+    # Assert that logic for each test_info has run by checking for its
+    # observable outcome (results being processed).
+    self.assertIn(result1, reporter.all_test_results)
+    self.assertIn(result2, reporter.all_test_results)
+
+    # Assert that cleanup and finalization are called only once after all
+    # tests have run.
+    mock_cleanup.assert_called_once()
+    mock_uploader.finalize_invocation.assert_called_once()
+    mock_uploader.add_result_link.assert_called_once_with(reporter)
 
   @mock.patch.object(pathlib.Path, 'is_file')
   def test_get_test_files_all_files_present(self, is_file) -> None:

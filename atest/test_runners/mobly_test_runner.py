@@ -409,12 +409,15 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
     reporter.silent = False
     uploader = MoblyResultUploader(extra_args)
 
-    for tinfo in test_infos:
-      try:
+    try:
+      for tinfo in test_infos:
         # Pre-test setup
         test_files = self._get_test_files(tinfo)
         py_executable = self._setup_python_env(test_files.requirements_txt)
-        serials = atest_configs.GLOBAL_ARGS.serial or self._get_cvd_serials()
+        if atest_configs.GLOBAL_ARGS and atest_configs.GLOBAL_ARGS.serial:
+          serials = atest_configs.GLOBAL_ARGS.serial
+        else:
+          serials = self._get_cvd_serials()
         if constants.DISABLE_INSTALL not in extra_args:
           self._install_apks(test_files.test_apks, serials)
         mobly_config = self._generate_mobly_config(
@@ -433,11 +436,11 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         ret_code |= self._run_and_handle_results(
             mobly_command, tinfo, rerun_options, mobly_args, reporter, uploader
         )
-      finally:
-        self._cleanup()
-        if uploader.enabled:
-          uploader.finalize_invocation()
-          uploader.add_result_link(reporter)
+    finally:
+      self._cleanup()
+      if uploader.enabled:
+        uploader.finalize_invocation()
+        uploader.add_result_link(reporter)
     return ret_code
 
   def host_env_check(self) -> None:
@@ -605,7 +608,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
     config[CONFIG_KEY_MOBLY_PARAMS] = {
         CONFIG_KEY_LOG_PATH: log_path,
     }
-    os.makedirs(log_path)
+    os.makedirs(log_path, exist_ok=True)
     config_path = os.path.join(log_path, CONFIG_FILE)
     logging.debug('Generating Mobly config at %s', config_path)
     with open(config_path, 'w', encoding='utf-8') as f:
@@ -694,7 +697,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
 
     Returns: List of test cases for the Mobly command.
     """
-    if not tinfo.data['filter']:
+    if not tinfo.data.get('filter', None):
       return []
     (test_filter,) = tinfo.data['filter']
     if test_filter.methods:
