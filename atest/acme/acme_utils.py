@@ -26,6 +26,9 @@ from test_configs_proto import test_configs_pb2
 
 RUN_AFFECTED_ARG_NAME = '--run-affected'
 REDUCE_TEST_CONFIGS_CMD = 'build/soong/testconfigs/scripts/reduce-test-configs'
+REDUCE_TEST_CONFIGS_OUTPUT_SUB_PATH = (
+    'soong/test-configs-reduced/test_configs.pb'
+)
 
 
 def add_global_arguments(parser: argparse.ArgumentParser):
@@ -50,7 +53,7 @@ def _get_affected_test_execution_plans() -> (
       REDUCE_TEST_CONFIGS_CMD, cwd=atest_utils.get_build_top(), check=True
   )
   output_path = atest_utils.get_build_out_dir(
-      'soong/test-configs/test_configs.pb'
+      REDUCE_TEST_CONFIGS_OUTPUT_SUB_PATH
   )
   with open(output_path, 'rb') as f:
     test_configs = test_configs_pb2.TestConfigs()
