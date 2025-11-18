@@ -1298,13 +1298,13 @@ class _AtestMain:
 
     invalid_arg_exit_code = self._check_envs_and_args()
     if invalid_arg_exit_code is not None:
-      sys.exit(invalid_arg_exit_code)
+      return invalid_arg_exit_code
 
     self._send_start_event()
 
     no_action_exit_code = self._check_no_action_argument()
     if no_action_exit_code is not None:
-      sys.exit(no_action_exit_code)
+      return no_action_exit_code
 
     if self._args.list_modules:
       return self._handle_list_modules()
