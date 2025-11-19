@@ -786,15 +786,9 @@ class _AtestMain:
         )
         return ExitCode.OUTSIDE_REPO
 
-    any_cross_branch_arg = (
-        self._args.test_build_target
-        or self._args.test_branch
-        or self._args.test_build_id
-    )
-    required_cross_branch_args = self._args.test_build_target and (
+    if bool(self._args.test_build_target) != bool(
         self._args.test_branch or self._args.test_build_id
-    )
-    if any_cross_branch_arg and not required_cross_branch_args:
+    ):
       atest_utils.colorful_print(
           'Cross branch testing is enabled. --test_build_target and one of'
           ' either --test_branch or --test_build_id are required.',
