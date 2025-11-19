@@ -155,12 +155,8 @@ def _get_args_from_config():
     with open(_config, 'w+', encoding='utf8') as cache:
       cache.write(constants.ATEST_EXAMPLE_ARGS)
     return args
-  warning = 'Line {} contains {} and will be ignored.'
   print(
-      '\n{} {}'.format(
-          atest_utils.mark_cyan('Reading config:'),
-          _config,
-      )
+      f'\n{atest_utils.mark_cyan("Reading config:")} {_config}'
   )
   # pylint: disable=global-statement:
   global HAS_IGNORED_ARGS
@@ -177,18 +173,16 @@ def _get_args_from_config():
           if END_OF_OPTION in arg_in_line.split():
             HAS_IGNORED_ARGS = True
             print(
-                warning.format(
-                    atest_utils.mark_yellow(arg_in_line), END_OF_OPTION
-                )
+                f'Line {atest_utils.mark_yellow(arg_in_line)} contains '
+                f'{END_OF_OPTION} and will be ignored.'
             )
           args.extend(arg_in_line.split())
         else:
           if END_OF_OPTION == arg_in_line:
             HAS_IGNORED_ARGS = True
             print(
-                warning.format(
-                    atest_utils.mark_yellow(arg_in_line), END_OF_OPTION
-                )
+                f'Line {atest_utils.mark_yellow(arg_in_line)} contains '
+                f'{END_OF_OPTION} and will be ignored.'
             )
           args.append(arg_in_line)
   return args
