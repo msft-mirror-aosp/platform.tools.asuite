@@ -65,7 +65,6 @@ from atest.metrics import metrics_utils
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
 from atest.test_finders.smart_test_finder import smart_test_finder
-from atest.test_finders.test_info import TestInfo
 from atest.test_runner_invocation import TestRunnerInvocation
 from atest.tools import fetch_artifact
 from atest.tools import indexing
@@ -358,7 +357,7 @@ def get_extra_args(args) -> Dict[str, str]:
   return extra_args
 
 
-def _validate_exec_mode(args, test_infos: list[TestInfo], host_tests=None):
+def _validate_exec_mode(args, test_infos: list[test_info.TestInfo], host_tests=None):
   """Validate all test execution modes are not in conflict.
 
   Exit the program with INVALID_EXEC_MODE code if the desired is a host-side
