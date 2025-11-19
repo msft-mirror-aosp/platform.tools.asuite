@@ -88,7 +88,6 @@ RUN_HEADER_FMT = '\nRunning %(test_count)d %(test_type)s.'
 TEST_COUNT = 'test_count'
 TEST_TYPE = 'test_type'
 END_OF_OPTION = '--'
-HAS_IGNORED_ARGS = False
 # Conditions that atest should exit without sending result to metrics.
 EXIT_CODES_BEFORE_TEST = [
     ExitCode.ENV_NOT_SETUP,
@@ -145,7 +144,7 @@ def _get_args_from_config():
   config file for it without any effective options.
 
   Returns:
-      A list read from the config file.
+      A tuple of (list of args, bool if args were ignored).
   """
   _config = atest_utils.get_config_folder().joinpath('config')
   if not _config.parent.is_dir():
@@ -154,12 +153,11 @@ def _get_args_from_config():
   if not _config.is_file():
     with open(_config, 'w+', encoding='utf8') as cache:
       cache.write(constants.ATEST_EXAMPLE_ARGS)
-    return args
+    return args, False
   print(
       f'\n{atest_utils.mark_cyan("Reading config:")} {_config}'
   )
-  # pylint: disable=global-statement:
-  global HAS_IGNORED_ARGS
+  has_ignored_args = False
   with open(_config, 'r', encoding='utf8') as cache:
     for entry in cache:
       # Strip comments.
@@ -170,13 +168,13 @@ def _get_args_from_config():
         # e.g. ["--serial foo"] -> ["--serial", "foo"]
         split_arg_in_line = arg_in_line.split()
         if END_OF_OPTION in split_arg_in_line:
-          HAS_IGNORED_ARGS = True
+          has_ignored_args = True
           print(
               f'Line {atest_utils.mark_yellow(arg_in_line)} contains '
               f'{END_OF_OPTION} and will be ignored.'
           )
         args.extend(split_arg_in_line)
-  return args
+  return args, has_ignored_args
 
 
 def _parse_args(argv: List[str]) -> argparse.Namespace:
@@ -653,15 +651,16 @@ class _AtestMain:
   def run(self):
     self._results_dir = make_test_run_dir()
 
+    config_args, has_ignored_args = _get_args_from_config()
     if END_OF_OPTION in self._argv:
       end_position = self._argv.index(END_OF_OPTION)
       final_args = [
           *self._argv[1:end_position],
-          *_get_args_from_config(),
+          *config_args,
           *self._argv[end_position:],
       ]
     else:
-      final_args = [*self._argv[1:], *_get_args_from_config()]
+      final_args = [*self._argv[1:], *config_args]
     if final_args != self._argv[1:]:
       print(
           'The actual cmd will be: \n\t{}\n'.format(
@@ -669,7 +668,7 @@ class _AtestMain:
           )
       )
       metrics.LocalDetectEvent(detect_type=DetectType.ATEST_CONFIG, result=1)
-      if HAS_IGNORED_ARGS:
+      if has_ignored_args:
         atest_utils.colorful_print(
             'Please correct the config and try again.', constants.YELLOW
         )
