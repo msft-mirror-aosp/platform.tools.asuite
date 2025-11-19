@@ -923,10 +923,7 @@ class _AtestMain:
     Returns:
         A set of dependencies for the device update method.
     """
-    if not self._args.update_device:
-      return set()
-
-    if (
+    if not self._args.update_device or (
         self._test_execution_plan
         and not self._test_execution_plan.requires_device_update()
     ):
