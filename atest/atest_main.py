@@ -762,13 +762,11 @@ class _AtestMain:
     Returns:
         Exit code if any setup or arg is invalid. None otherwise.
     """
-    if (
-        not os.getenv(constants.ANDROID_BUILD_TOP, ' ') in os.getcwd()
-    ):  # Not under android root.
+    android_build_top = os.getenv(constants.ANDROID_BUILD_TOP)
+    if not android_build_top or android_build_top not in os.getcwd():
+      # Not under android root.
       atest_utils.colorful_print(
-          '\nAtest must always work under ${}!'.format(
-              constants.ANDROID_BUILD_TOP
-          ),
+          f'\nAtest must always work under ${constants.ANDROID_BUILD_TOP}!',
           constants.RED,
       )
       return ExitCode.OUTSIDE_ROOT
