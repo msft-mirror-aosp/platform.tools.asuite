@@ -175,11 +175,7 @@ def _get_args_from_config():
               f'Line {atest_utils.mark_yellow(arg_in_line)} contains '
               f'{END_OF_OPTION} and will be ignored.'
           )
-        if len(split_arg_in_line) > 1:
-          # remove "--" to avoid messing up atest/tradefed commands.
-          args.extend(split_arg_in_line)
-        else:
-          args.append(arg_in_line)
+        args.extend(split_arg_in_line)
   return args
 
 
