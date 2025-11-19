@@ -1633,23 +1633,17 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
 
   def execute(self) -> ExitCode:
 
+    reporter_kwargs = {
+        'collect_only': self.extra_args.get(constants.COLLECT_TESTS_ONLY),
+        'wait_for_debugger': atest_configs.GLOBAL_ARGS.wait_for_debugger,
+        'args': self._args,
+        'test_infos': self._test_infos,
+        'class_level_report': self._args.class_level_report,
+    }
     if self._args.smart_test_selection:
-      reporter = result_reporter.ResultReporter(
-          collect_only=self.extra_args.get(constants.COLLECT_TESTS_ONLY),
-          wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
-          args=self._args,
-          test_infos=self._test_infos,
-          class_level_report=True,
-          runner_errors_as_warnings=True,
-      )
-    else:
-      reporter = result_reporter.ResultReporter(
-          collect_only=self.extra_args.get(constants.COLLECT_TESTS_ONLY),
-          wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
-          args=self._args,
-          test_infos=self._test_infos,
-          class_level_report=self._args.class_level_report,
-      )
+      reporter_kwargs['class_level_report'] = True
+      reporter_kwargs['runner_errors_as_warnings'] = True
+    reporter = result_reporter.ResultReporter(**reporter_kwargs)
     reporter.print_starting_text()
 
     exit_code = ExitCode.SUCCESS
