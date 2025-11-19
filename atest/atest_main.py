@@ -785,20 +785,21 @@ class _AtestMain:
         )
         return ExitCode.OUTSIDE_REPO
 
-    if (
+    any_cross_branch_arg = (
         self._args.test_build_target
         or self._args.test_branch
         or self._args.test_build_id
-    ):
-      if not self._args.test_build_target or not (
-          self._args.test_branch or self._args.test_build_id
-      ):
-        atest_utils.colorful_print(
-            'Cross branch testing is enabled. --test_build_target and one of'
-            ' either --test_branch or --test_build_id are required.',
-            constants.RED,
-        )
-        return ExitCode.INVALID_CROSS_BRANCH_ARGS
+    )
+    required_cross_branch_args = self._args.test_build_target and (
+        self._args.test_branch or self._args.test_build_id
+    )
+    if any_cross_branch_arg and not required_cross_branch_args:
+      atest_utils.colorful_print(
+          'Cross branch testing is enabled. --test_build_target and one of'
+          ' either --test_branch or --test_build_id are required.',
+          constants.RED,
+      )
+      return ExitCode.INVALID_CROSS_BRANCH_ARGS
 
     # Checks whether ANDROID_SERIAL environment variable is set to an empty string.
     if 'ANDROID_SERIAL' in os.environ and not os.environ['ANDROID_SERIAL']:
