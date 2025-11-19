@@ -169,22 +169,16 @@ def _get_args_from_config():
         # Process argument that contains whitespaces.
         # e.g. ["--serial foo"] -> ["--serial", "foo"]
         split_arg_in_line = arg_in_line.split()
+        if END_OF_OPTION in split_arg_in_line:
+          HAS_IGNORED_ARGS = True
+          print(
+              f'Line {atest_utils.mark_yellow(arg_in_line)} contains '
+              f'{END_OF_OPTION} and will be ignored.'
+          )
         if len(split_arg_in_line) > 1:
           # remove "--" to avoid messing up atest/tradefed commands.
-          if END_OF_OPTION in split_arg_in_line:
-            HAS_IGNORED_ARGS = True
-            print(
-                f'Line {atest_utils.mark_yellow(arg_in_line)} contains '
-                f'{END_OF_OPTION} and will be ignored.'
-            )
           args.extend(split_arg_in_line)
         else:
-          if END_OF_OPTION == arg_in_line:
-            HAS_IGNORED_ARGS = True
-            print(
-                f'Line {atest_utils.mark_yellow(arg_in_line)} contains '
-                f'{END_OF_OPTION} and will be ignored.'
-            )
           args.append(arg_in_line)
   return args
 
