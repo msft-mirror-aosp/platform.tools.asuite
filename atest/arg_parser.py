@@ -604,7 +604,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
   for module in modules_to_process:
     module.process_parsed_args(parsed_args)
 
-  if _INCLUDE_PREVIEW_TESTS_FLAG not in argv:
+  if not parsed_args.include_preview_tests:
     # By default (if we're not using the flag to include preview tests), we'll
     # exclude them.  We quote these args to match the behavior in
     # atest_main._parse_args() for custom args.
