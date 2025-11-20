@@ -173,7 +173,8 @@ def _get_args_from_config():
             f'Line {atest_utils.mark_yellow(arg_in_line)} contains '
             f'{END_OF_OPTION} and will be ignored.'
         )
-      args.extend(split_arg_in_line)
+      else:
+        args.extend(split_arg_in_line)
   return args, has_ignored_args
 
 
