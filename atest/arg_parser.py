@@ -239,7 +239,10 @@ def create_atest_arg_parser():
       const=2,
       type=_positive_int,
       default=0,
-      help='Option to specify sharding count. (default: 2)',
+      help=(
+          'Option to specify sharding count. If specified without a value, '
+          'defaults to 2. If omitted, sharding is disabled (0).'
+      ),
   )
   parser.add_argument(
       '--sqlite-module-cache',
