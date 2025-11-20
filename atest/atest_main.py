@@ -925,10 +925,11 @@ class _AtestMain:
     if self._args.rebuild_module_info:
       return True
     logging.debug('Examinating the consistency of build files...')
-    if not atest_utils.build_files_integrity_is_ok():
-      logging.debug('Found build files were changed.')
-      return True
-    return False
+    if atest_utils.build_files_integrity_is_ok():
+      return False
+
+    logging.debug('Found build files were changed.')
+    return True
 
   def _load_module_info(self):
     self._is_out_clean_before_module_info_build = not os.path.exists(
