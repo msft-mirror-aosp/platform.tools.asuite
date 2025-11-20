@@ -186,16 +186,17 @@ def _parse_args(argv: List[str]) -> argparse.Namespace:
       A Namespace holding parsed args
   """
   # Store everything after '--' in custom_args.
-  pruned_argv = argv
-  custom_args_index = None
-  if CUSTOM_ARG_FLAG in argv:
+  try:
     custom_args_index = argv.index(CUSTOM_ARG_FLAG)
     pruned_argv = argv[:custom_args_index]
+    custom_args = argv[custom_args_index + 1 :]
+  except ValueError:
+    pruned_argv = argv
+    custom_args = []
   args = arg_parser.parse_args(pruned_argv)
-  if custom_args_index is not None:
-    for arg in argv[custom_args_index + 1 :]:
-      logging.debug('Quoting regex argument %s', arg)
-      args.custom_args.append(atest_utils.quote(arg))
+  for arg in custom_args:
+    logging.debug('Quoting regex argument %s', arg)
+    args.custom_args.append(atest_utils.quote(arg))
 
   return args
 
