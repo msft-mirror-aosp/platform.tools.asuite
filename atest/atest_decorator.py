@@ -26,7 +26,6 @@ def static_var(varname, value):
   """
 
   def fun_var_decorate(func):
-    """Set the static variable in a function."""
     setattr(func, varname, value)
     return func
 
