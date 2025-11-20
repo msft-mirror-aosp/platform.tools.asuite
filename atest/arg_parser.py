@@ -32,14 +32,14 @@ _EXTRA_MODULE_MAP = {
 _INCLUDE_PREVIEW_TESTS_FLAG = '--include-preview-tests'
 
 # LINT.IfChange
-_EXCLUDE_PREVIEW_TESTS_CUSTOM_ARGS = [
+_EXCLUDE_PREVIEW_TESTS_CUSTOM_ARGS = (
     '--test-arg',
     'com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:com.android.compatibility.common.util.PreviewOnly',
     '--test-arg',
     'com.android.compatibility.common.tradefed.testtype.JarHostTest:exclude-annotation:com.android.compatibility.common.util.PreviewOnly',
     '--test-arg',
     'com.android.tradefed.testtype.HostTest:exclude-annotation:com.android.compatibility.common.util.PreviewOnly',
-]
+)
 # LINT.ThenChange(//test/suite_harness/common/host-side/tradefed/res/config/exclude-preview-only.xml)
 
 
