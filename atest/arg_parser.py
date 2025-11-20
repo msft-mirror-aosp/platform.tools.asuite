@@ -50,11 +50,11 @@ def _output_mode_msg() -> str:
       BuildOutputMode.LOGGED: 'print build output to a log file.',
   }
   msg = []
-  for _, value in BuildOutputMode.__members__.items():
-    if value in mode_descriptions:
-      msg.append(f'\t\t{value.value}: {mode_descriptions[value]}')
+  for mode in BuildOutputMode:
+    if mode in mode_descriptions:
+      msg.append(f'\t\t{mode.value}: {mode_descriptions[mode]}')
     else:
-      raise RuntimeError('Found unknown attribute!')
+      raise RuntimeError(f'Description missing for BuildOutputMode.{mode.name}')
   return '\n'.join(msg)
 
 
