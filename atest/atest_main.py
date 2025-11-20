@@ -230,12 +230,15 @@ def _configure_logging(verbose: bool, results_dir: str):
 
     def write(self, buf: str) -> None:
       self._printer.write(buf)
-
-      if len(buf) == 1 and buf[0] == '\n' and self._buffers:
-        self._logger.log(self._log_level, ''.join(self._buffers))
-        self._buffers.clear()
-      else:
-        self._buffers.append(buf)
+      if not buf:
+        return
+      full_str = ''.join(self._buffers) + buf
+      self._buffers.clear()
+      lines = full_str.split('\n')
+      for line in lines[:-1]:
+        self._logger.log(self._log_level, line)
+      if lines[-1]:
+        self._buffers.append(lines[-1])
 
     def flush(self) -> None:
       self._printer.flush()
