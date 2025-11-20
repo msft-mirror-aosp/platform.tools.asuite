@@ -16,7 +16,7 @@
 
 
 def static_var(varname, value):
-  """Decorator to cache static variable.
+  """Decorator to add a static variable to a function.
 
   Args:
       varname: Variable name you want to use.
