@@ -1072,7 +1072,6 @@ class _AtestMain:
           )
       )
 
-    all_run_cmds = []
     for test_runner, tests in test_runner_handler.group_tests_by_test_runners(
         self._test_infos
     ):
@@ -1085,7 +1084,6 @@ class _AtestMain:
           tests, self._test_execution_plan.extra_args
       )
       for run_cmd in run_cmds:
-        all_run_cmds.append(run_cmd)
         logging.debug(_DRY_RUN_COMMAND_LOG_PREFIX + run_cmd)
         print(
             'Would run test via command: %s' % (atest_utils.mark_green(run_cmd))
