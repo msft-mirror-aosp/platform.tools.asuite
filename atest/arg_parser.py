@@ -578,6 +578,7 @@ def create_atest_arg_parser():
       '--',
       dest='custom_args',
       nargs='*',
+      default=[],
       help=(
           'Specify custom args for the test runners. Everything after -- will'
           ' be consumed as custom args.'
@@ -598,8 +599,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     module.add_arguments(parser)
 
   parsed_args = parser.parse_args(argv)
-  if not parsed_args.custom_args:
-    parsed_args.custom_args = []
 
   for module in modules_to_process:
     module.process_parsed_args(parsed_args)
