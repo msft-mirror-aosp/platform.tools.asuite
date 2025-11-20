@@ -1264,6 +1264,24 @@ class _AtestMain:
         hostname=platform.node(),
     )
 
+  def _handle_special_commands(self) -> int | None:
+    """Method for special commands such as --version, --history, --list-modules, etc.
+
+    Returns:
+        Exit code if a special command was handled. None otherwise.
+    """
+    no_action_exit_code = self._check_no_action_argument()
+    if no_action_exit_code is not None:
+      return no_action_exit_code
+
+    if self._args.list_modules:
+      return self._handle_list_modules()
+
+    if self._args.dry_run:
+      return self._handle_dry_run()
+
+    return None
+
   def _run_all_steps(self) -> int:
     """Executes the atest script.
 
@@ -1280,15 +1298,9 @@ class _AtestMain:
 
     self._send_start_event()
 
-    no_action_exit_code = self._check_no_action_argument()
-    if no_action_exit_code is not None:
-      return no_action_exit_code
-
-    if self._args.list_modules:
-      return self._handle_list_modules()
-
-    if self._args.dry_run:
-      return self._handle_dry_run()
+    exit_code = self._handle_special_commands()
+    if exit_code is not None:
+      return exit_code
 
     self._start_acloud_if_requested()
 
