@@ -105,6 +105,31 @@ _DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
 _SMART_TEST_SELECTION_FLAG = '--sts'
 
 
+class _StreamToLogger:
+  """A file like class to that redirect writes to a printer and logger."""
+
+  def __init__(self, logger, log_level, printer):
+    self._logger = logger
+    self._log_level = log_level
+    self._printer = printer
+    self._buffers = []
+
+  def write(self, buf: str) -> None:
+    self._printer.write(buf)
+    if not buf:
+      return
+    full_str = ''.join(self._buffers) + buf
+    self._buffers.clear()
+    lines = full_str.split('\n')
+    for line in lines[:-1]:
+      self._logger.log(self._log_level, line)
+    if lines[-1]:
+      self._buffers.append(lines[-1])
+
+  def flush(self) -> None:
+    self._printer.flush()
+
+
 @dataclasses.dataclass
 class Steps:
   """A dataclass that stores enabled steps."""
@@ -221,30 +246,6 @@ def _configure_logging(verbose: bool, results_dir: str):
   logging.basicConfig(
       filename=log_path, level=logging.DEBUG, format=log_fmat, datefmt=date_fmt
   )
-
-  class _StreamToLogger:
-    """A file like class to that redirect writes to a printer and logger."""
-
-    def __init__(self, logger, log_level, printer):
-      self._logger = logger
-      self._log_level = log_level
-      self._printer = printer
-      self._buffers = []
-
-    def write(self, buf: str) -> None:
-      self._printer.write(buf)
-      if not buf:
-        return
-      full_str = ''.join(self._buffers) + buf
-      self._buffers.clear()
-      lines = full_str.split('\n')
-      for line in lines[:-1]:
-        self._logger.log(self._log_level, line)
-      if lines[-1]:
-        self._buffers.append(lines[-1])
-
-    def flush(self) -> None:
-      self._printer.flush()
 
   stdout_log_level = 25
   stderr_log_level = 45
