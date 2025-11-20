@@ -885,12 +885,13 @@ class _AtestMain:
     Returns:
         A set of dependencies for the device update method.
     """
-    if not self._args.update_device or (
+    if not self._args.update_device:
+      return set()
+    if (
         self._test_execution_plan
         and not self._test_execution_plan.requires_device_update()
     ):
       return set()
-
     return self._get_device_update_method().dependencies()
 
   def _need_rebuild_module_info(self) -> bool:
