@@ -43,16 +43,17 @@ _EXCLUDE_PREVIEW_TESTS_CUSTOM_ARGS = (
 # LINT.ThenChange(//test/suite_harness/common/host-side/tradefed/res/config/exclude-preview-only.xml)
 
 
+_BUILD_OUTPUT_MODE_DESCRIPTIONS = {
+    BuildOutputMode.STREAMED: 'full output like what "m" does. (default)',
+    BuildOutputMode.LOGGED: 'print build output to a log file.',
+}
+
 def _output_mode_msg() -> str:
   """Generate helper strings for BuildOutputMode."""
-  mode_descriptions = {
-      BuildOutputMode.STREAMED: 'full output like what "m" does. (default)',
-      BuildOutputMode.LOGGED: 'print build output to a log file.',
-  }
   msg = []
   for mode in BuildOutputMode:
-    if mode in mode_descriptions:
-      msg.append(f'\t\t{mode.value}: {mode_descriptions[mode]}')
+    if mode in _BUILD_OUTPUT_MODE_DESCRIPTIONS:
+      msg.append(f'\t\t{mode.value}: {_BUILD_OUTPUT_MODE_DESCRIPTIONS[mode]}')
     else:
       raise RuntimeError(f'Description missing for BuildOutputMode.{mode.name}')
   return '\n'.join(msg)
