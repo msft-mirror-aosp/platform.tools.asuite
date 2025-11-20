@@ -68,7 +68,7 @@ def _positive_int(value):
       int of value, if it is a positive integer.
       Otherwise, raise argparse.ArgumentTypeError.
   """
-  err_msg = "invalid positive int value: '%s'" % value
+  err_msg = f"invalid positive int value: '{value}'"
   try:
     converted_value = int(value)
     if converted_value < 1:
