@@ -21,7 +21,6 @@ from enum import Enum, IntEnum, unique
 class DetectType(IntEnum):
   """Enum for local_detect_event detection types."""
 
-  # Detect type for local_detect_event; next expansion: 60
   BUG_DETECTED = 0
   ACLOUD_CREATE = 1
   FIND_BUILD = 2
@@ -133,6 +132,7 @@ class DetectType(IntEnum):
   HAS_NO_TEST_RUN_ISSUE = 70
   # Whether no tests are returned with smart test selection
   STS_SELECT_NO_TEST = 71
+  # Next expansion: 72
 
 
 @unique
