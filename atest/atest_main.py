@@ -331,10 +331,11 @@ def get_extra_args(args) -> Dict[str, str]:
   # The key and its value of the dict can be called via:
   # if args.aaaa:
   #     extra_args[constants.AAAA] = args.aaaa
-  not_match = [k for k in _ARG_TO_CONST_MAP if k not in vars(args)]
-  if not_match:
+  missing_args = set(_ARG_TO_CONST_MAP).difference(vars(args))
+  if missing_args:
     raise AttributeError(
-        f'{type(args).__name__} object has no attribute {not_match}'
+        f'{type(args).__name__} object has no attribute '
+        f'{sorted(missing_args)}'
     )
   for arg_name, const_name in _ARG_TO_CONST_MAP.items():
     arg_value = getattr(args, arg_name, None)
