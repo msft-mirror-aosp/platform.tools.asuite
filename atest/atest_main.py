@@ -734,7 +734,7 @@ class _AtestMain:
 
     sys.exit(exit_code)
 
-  def _check_no_action_argument(self) -> int:
+  def _check_no_action_argument(self) -> int | None:
     """Method for non-action arguments such as --version, --history, --latest_result, etc.
 
     Returns:
