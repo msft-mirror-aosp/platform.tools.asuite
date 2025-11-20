@@ -764,7 +764,14 @@ class _AtestMain:
             constants.RED,
         )
         return ExitCode.INPUT_TEST_REFERENCE_ERROR
-      if subprocess.run(['git', 'branch'], capture_output=True).returncode != 0:
+      if (
+          subprocess.run(
+              ['git', 'rev-parse', '--is-inside-work-tree'],
+              stdout=subprocess.DEVNULL,
+              stderr=subprocess.DEVNULL,
+          ).returncode
+          != 0
+      ):
         atest_utils.colorful_print(
             'Smart test selection must work under a repo',
             constants.RED,
