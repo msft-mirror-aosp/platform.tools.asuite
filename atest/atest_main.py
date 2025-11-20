@@ -558,15 +558,15 @@ def _exclude_modules_in_targets(build_targets):
   Returns:
       A set of build targets that excludes MODULES-IN-*.
   """
-  shrank_build_targets = build_targets.copy()
   logging.debug(
       'Will exclude all "%s*" from the build targets.', constants.MODULES_IN
   )
-  for target in build_targets:
-    if target.startswith(constants.MODULES_IN):
-      logging.debug('Ignore %s.', target)
-      shrank_build_targets.remove(target)
-  return shrank_build_targets
+  modules_to_exclude = {
+      t for t in build_targets if t.startswith(constants.MODULES_IN)
+  }
+  for target in modules_to_exclude:
+    logging.debug('Ignore %s.', target)
+  return build_targets - modules_to_exclude
 
 
 def get_device_count_config(test_infos, mod_info):
