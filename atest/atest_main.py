@@ -334,7 +334,7 @@ def get_extra_args(args) -> Dict[str, str]:
   not_match = [k for k in _ARG_TO_CONST_MAP if k not in vars(args)]
   if not_match:
     raise AttributeError(
-        '%s object has no attribute %s' % (type(args).__name__, not_match)
+        f'{type(args).__name__} object has no attribute {not_match}'
     )
   for arg_name, const_name in _ARG_TO_CONST_MAP.items():
     arg_value = getattr(args, arg_name, None)
