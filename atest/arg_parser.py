@@ -78,6 +78,16 @@ def _positive_int(value):
     raise argparse.ArgumentTypeError(err_msg) from value_err
 
 
+def _comma_separated_list_to_set(value):
+  """Parse comma-separated string into a set."""
+  return set(value.split(','))
+
+
+def _comma_separated_list(value):
+  """Parse comma-separated string into a list."""
+  return value.split(',')
+
+
 def create_atest_arg_parser():
   """Creates an instance of the default Atest arg parser."""
 
@@ -112,7 +122,7 @@ def create_atest_arg_parser():
   parser.add_argument(
       '--update:modules',
       dest='update_modules',
-      type=lambda value: value.split(','),
+      type=_comma_separated_list,
       help=(
           'Modules that are built if the device is being updated. '
           'Modules should be separated by comma.'
@@ -149,7 +159,7 @@ def create_atest_arg_parser():
 
   parser.add_argument(
       '--code-under-test',
-      type=lambda value: set(value.split(',')),
+      type=_comma_separated_list_to_set,
       help=(
           'Comma-separated list of modules whose sources should be included in'
           ' the code coverage report. The dependencies of these modules are not'
