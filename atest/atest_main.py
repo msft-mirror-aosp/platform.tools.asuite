@@ -340,10 +340,11 @@ def get_extra_args(args) -> Dict[str, str]:
         f'{type(args).__name__} object has no attribute '
         f'{sorted(missing_args)}'
     )
-  for arg_name, const_name in _ARG_TO_CONST_MAP.items():
-    arg_value = getattr(args, arg_name, None)
-    if arg_value:
-      extra_args[const_name] = arg_value
+  extra_args.update({
+      const_name: arg_value
+      for arg_name, const_name in _ARG_TO_CONST_MAP.items()
+      if (arg_value := getattr(args, arg_name, None))
+  })
   return extra_args
 
 
