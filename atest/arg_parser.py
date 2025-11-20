@@ -45,18 +45,14 @@ _EXCLUDE_PREVIEW_TESTS_CUSTOM_ARGS = [
 
 def _output_mode_msg() -> str:
   """Generate helper strings for BuildOutputMode."""
+  mode_descriptions = {
+      BuildOutputMode.STREAMED: 'full output like what "m" does. (default)',
+      BuildOutputMode.LOGGED: 'print build output to a log file.',
+  }
   msg = []
   for _, value in BuildOutputMode.__members__.items():
-    if value == BuildOutputMode.STREAMED:
-      msg.append(
-          f'\t\t{BuildOutputMode.STREAMED.value}: '
-          'full output like what "m" does. (default)'
-      )
-    elif value == BuildOutputMode.LOGGED:
-      msg.append(
-          f'\t\t{BuildOutputMode.LOGGED.value}: '
-          'print build output to a log file.'
-      )
+    if value in mode_descriptions:
+      msg.append(f'\t\t{value.value}: {mode_descriptions[value]}')
     else:
       raise RuntimeError('Found unknown attribute!')
   return '\n'.join(msg)
