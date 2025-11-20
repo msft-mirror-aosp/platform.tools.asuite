@@ -282,6 +282,36 @@ def make_test_run_dir() -> str:
   return test_result_dir
 
 
+_ARG_TO_CONST_MAP = {
+    'all_abi': constants.ALL_ABI,
+    'annotation_filter': constants.ANNOTATION_FILTER,
+    'collect_tests_only': constants.COLLECT_TESTS_ONLY,
+    'experimental_coverage': constants.COVERAGE,
+    'custom_args': constants.CUSTOM_ARGS,
+    'device_only': constants.DEVICE_ONLY,
+    'disable_teardown': constants.DISABLE_TEARDOWN,
+    'disable_upload_result': constants.DISABLE_UPLOAD_RESULT,
+    'dry_run': constants.DRY_RUN,
+    'host': constants.HOST,
+    'instant': constants.INSTANT,
+    'iterations': constants.ITERATIONS,
+    'request_upload_result': constants.REQUEST_UPLOAD_RESULT,
+    'rerun_until_failure': constants.RERUN_UNTIL_FAILURE,
+    'retry_any_failure': constants.RETRY_ANY_FAILURE,
+    'serial': constants.SERIAL,
+    'sharding': constants.SHARDING,
+    'test_filter': constants.TEST_FILTER,
+    'test_timeout': constants.TEST_TIMEOUT,
+    'tf_debug': constants.TF_DEBUG,
+    'tf_template': constants.TF_TEMPLATE,
+    'user_type': constants.USER_TYPE,
+    'verbose': constants.VERBOSE,
+    'use_tf_min_base_template': constants.USE_TF_MIN_BASE_TEMPLATE,
+    'smart_test_selection': constants.SMART_TEST_SELECTION,
+    'class_level_report': constants.CLASS_LEVEL_REPORT,
+}
+
+
 def get_extra_args(args) -> Dict[str, str]:
   """Get extra args for test runners.
 
@@ -301,40 +331,12 @@ def get_extra_args(args) -> Dict[str, str]:
   # The key and its value of the dict can be called via:
   # if args.aaaa:
   #     extra_args[constants.AAAA] = args.aaaa
-  arg_maps = {
-      'all_abi': constants.ALL_ABI,
-      'annotation_filter': constants.ANNOTATION_FILTER,
-      'collect_tests_only': constants.COLLECT_TESTS_ONLY,
-      'experimental_coverage': constants.COVERAGE,
-      'custom_args': constants.CUSTOM_ARGS,
-      'device_only': constants.DEVICE_ONLY,
-      'disable_teardown': constants.DISABLE_TEARDOWN,
-      'disable_upload_result': constants.DISABLE_UPLOAD_RESULT,
-      'dry_run': constants.DRY_RUN,
-      'host': constants.HOST,
-      'instant': constants.INSTANT,
-      'iterations': constants.ITERATIONS,
-      'request_upload_result': constants.REQUEST_UPLOAD_RESULT,
-      'rerun_until_failure': constants.RERUN_UNTIL_FAILURE,
-      'retry_any_failure': constants.RETRY_ANY_FAILURE,
-      'serial': constants.SERIAL,
-      'sharding': constants.SHARDING,
-      'test_filter': constants.TEST_FILTER,
-      'test_timeout': constants.TEST_TIMEOUT,
-      'tf_debug': constants.TF_DEBUG,
-      'tf_template': constants.TF_TEMPLATE,
-      'user_type': constants.USER_TYPE,
-      'verbose': constants.VERBOSE,
-      'use_tf_min_base_template': constants.USE_TF_MIN_BASE_TEMPLATE,
-      'smart_test_selection': constants.SMART_TEST_SELECTION,
-      'class_level_report': constants.CLASS_LEVEL_REPORT,
-  }
-  not_match = [k for k in arg_maps if k not in vars(args)]
+  not_match = [k for k in _ARG_TO_CONST_MAP if k not in vars(args)]
   if not_match:
     raise AttributeError(
         '%s object has no attribute %s' % (type(args).__name__, not_match)
     )
-  for arg_name, const_name in arg_maps.items():
+  for arg_name, const_name in _ARG_TO_CONST_MAP.items():
     arg_value = getattr(args, arg_name, None)
     if arg_value:
       extra_args[const_name] = arg_value
