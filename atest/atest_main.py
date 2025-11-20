@@ -36,6 +36,7 @@ import itertools
 import logging
 import os
 import platform
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -165,7 +166,7 @@ def _get_args_from_config():
     if arg_in_line.startswith('-'):
       # Process argument that contains whitespaces.
       # e.g. ["--serial foo"] -> ["--serial", "foo"]
-      split_arg_in_line = arg_in_line.split()
+      split_arg_in_line = shlex.split(arg_in_line)
       if END_OF_OPTION in split_arg_in_line:
         has_ignored_args = True
         print(
