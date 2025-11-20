@@ -332,9 +332,6 @@ def get_extra_args(args) -> Dict[str, str]:
     extra_args[constants.DISABLE_INSTALL] = None
   if args.test_build_target and (args.test_branch or args.test_build_id):
     extra_args[constants.SKIP_BUILDING_TEST] = True
-  # The key and its value of the dict can be called via:
-  # if args.aaaa:
-  #     extra_args[constants.AAAA] = args.aaaa
   missing_args = set(_ARG_TO_CONST_MAP).difference(vars(args))
   if missing_args:
     raise AttributeError(
