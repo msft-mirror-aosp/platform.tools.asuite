@@ -738,27 +738,6 @@ class _AtestMain:
 
     sys.exit(exit_code)
 
-  def _check_no_action_argument(self) -> int | None:
-    """Method for non-action arguments such as --version, --history, --latest_result, etc.
-
-    Returns:
-        Exit code if no action. None otherwise.
-    """
-    if self._args.version:
-      print(atest_utils.get_atest_version())
-      return ExitCode.SUCCESS
-    if self._args.history:
-      atest_execution_info.print_test_result(
-          constants.ATEST_RESULT_ROOT, self._args.history
-      )
-      return ExitCode.SUCCESS
-    if self._args.latest_result:
-      atest_execution_info.print_test_result_by_path(
-          constants.LATEST_RESULT_FILE
-      )
-      return ExitCode.SUCCESS
-    return None
-
   def _check_envs_and_args(self) -> int:
     """Validate environment variables and args.
 
@@ -1271,9 +1250,19 @@ class _AtestMain:
     Returns:
         Exit code if a special command was handled. None otherwise.
     """
-    no_action_exit_code = self._check_no_action_argument()
-    if no_action_exit_code is not None:
-      return no_action_exit_code
+    if self._args.version:
+      print(atest_utils.get_atest_version())
+      return ExitCode.SUCCESS
+    if self._args.history:
+      atest_execution_info.print_test_result(
+          constants.ATEST_RESULT_ROOT, self._args.history
+      )
+      return ExitCode.SUCCESS
+    if self._args.latest_result:
+      atest_execution_info.print_test_result_by_path(
+          constants.LATEST_RESULT_FILE
+      )
+      return ExitCode.SUCCESS
 
     if self._args.list_modules:
       return self._handle_list_modules()
