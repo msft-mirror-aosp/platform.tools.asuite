@@ -168,21 +168,11 @@ def create_atest_arg_parser():
 
   parser.add_argument(
       '--group-test',
+      action=argparse.BooleanOptionalAction,
       default=True,
-      action='store_true',
       help=(
-          'Group tests by module name during the test run (default: True). To'
-          ' run tests in the same order as they are input, use'
-          ' `--no-group-test`'
-      ),
-  )
-  parser.add_argument(
-      '--no-group-test',
-      dest='group_test',
-      action='store_false',
-      help=(
-          'Group the tests by module name for running the test, if you want'
-          ' to run the test using the same input order, use --no-group-test.'
+          'Group tests by module name during the test run (default: True). Use'
+          ' --no-group-test to disable it.'
       ),
   )
 
