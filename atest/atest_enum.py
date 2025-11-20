@@ -19,7 +19,7 @@ from enum import Enum, IntEnum, unique
 
 @unique
 class DetectType(IntEnum):
-  """An Enum class for local_detect_event."""
+  """Enum for local_detect_event detection types."""
 
   # Detect type for local_detect_event; next expansion: 60
   BUG_DETECTED = 0
