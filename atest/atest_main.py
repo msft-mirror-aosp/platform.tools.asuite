@@ -149,31 +149,30 @@ def _get_args_from_config():
   _config = atest_utils.get_config_folder().joinpath('config')
   if not _config.parent.is_dir():
     _config.parent.mkdir(parents=True)
-  args = []
   if not _config.is_file():
-    with open(_config, 'w+', encoding='utf8') as cache:
-      cache.write(constants.ATEST_EXAMPLE_ARGS)
-    return args, False
+    _config.write_text(constants.ATEST_EXAMPLE_ARGS, encoding='utf8')
+    return [], False
+
   print(
       f'\n{atest_utils.mark_cyan("Reading config:")} {_config}'
   )
+  args = []
   has_ignored_args = False
-  with open(_config, 'r', encoding='utf8') as cache:
-    for entry in cache:
-      # Strip comments.
-      arg_in_line = entry.partition('#')[0].strip()
-      # Strip test name/path.
-      if arg_in_line.startswith('-'):
-        # Process argument that contains whitespaces.
-        # e.g. ["--serial foo"] -> ["--serial", "foo"]
-        split_arg_in_line = arg_in_line.split()
-        if END_OF_OPTION in split_arg_in_line:
-          has_ignored_args = True
-          print(
-              f'Line {atest_utils.mark_yellow(arg_in_line)} contains '
-              f'{END_OF_OPTION} and will be ignored.'
-          )
-        args.extend(split_arg_in_line)
+  for entry in _config.read_text(encoding='utf8').splitlines():
+    # Strip comments.
+    arg_in_line = entry.partition('#')[0].strip()
+    # Strip test name/path.
+    if arg_in_line.startswith('-'):
+      # Process argument that contains whitespaces.
+      # e.g. ["--serial foo"] -> ["--serial", "foo"]
+      split_arg_in_line = arg_in_line.split()
+      if END_OF_OPTION in split_arg_in_line:
+        has_ignored_args = True
+        print(
+            f'Line {atest_utils.mark_yellow(arg_in_line)} contains '
+            f'{END_OF_OPTION} and will be ignored.'
+        )
+      args.extend(split_arg_in_line)
   return args, has_ignored_args
 
 
