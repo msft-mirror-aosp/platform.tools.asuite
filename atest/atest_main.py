@@ -310,6 +310,7 @@ _ARG_TO_CONST_MAP = {
     'tf_template': constants.TF_TEMPLATE,
     'user_type': constants.USER_TYPE,
     'verbose': constants.VERBOSE,
+    'wait_for_debugger': constants.WAIT_FOR_DEBUGGER,
     'use_tf_min_base_template': constants.USE_TF_MIN_BASE_TEMPLATE,
     'smart_test_selection': constants.SMART_TEST_SELECTION,
     'class_level_report': constants.CLASS_LEVEL_REPORT,
@@ -326,8 +327,6 @@ def get_extra_args(args) -> Dict[str, str]:
       Dict of extra args for test runners to utilize.
   """
   extra_args = {}
-  if args.wait_for_debugger:
-    extra_args[constants.WAIT_FOR_DEBUGGER] = None
   if not parse_steps(args).install:
     extra_args[constants.DISABLE_INSTALL] = None
   if args.test_build_target and (args.test_branch or args.test_build_id):
