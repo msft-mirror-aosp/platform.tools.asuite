@@ -592,11 +592,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
   """Parses the command line arguments."""
   parser = create_atest_arg_parser()
 
-  modules_to_process = []
-  for arg, module in _EXTRA_MODULE_MAP.items():
-    if arg in argv:
-      module.add_arguments(parser)
-      modules_to_process.append(module)
+  modules_to_process = [
+      module for arg, module in _EXTRA_MODULE_MAP.items() if arg in argv
+  ]
+  for module in modules_to_process:
+    module.add_arguments(parser)
 
   parsed_args = parser.parse_args(argv)
   if not parsed_args.custom_args:
