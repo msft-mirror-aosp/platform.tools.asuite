@@ -793,7 +793,7 @@ class _AtestMain:
       return ExitCode.INVALID_CROSS_BRANCH_ARGS
 
     # Checks whether ANDROID_SERIAL environment variable is set to an empty string.
-    if 'ANDROID_SERIAL' in os.environ and not os.environ['ANDROID_SERIAL']:
+    if os.environ.get('ANDROID_SERIAL') == '':
       atest_utils.print_and_log_warning(
           'Empty device serial detected in the ANDROID_SERIAL environment'
           ' variable. This may causes unexpected behavior in TradeFed. If not'
