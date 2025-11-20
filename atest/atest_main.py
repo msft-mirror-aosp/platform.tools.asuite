@@ -664,20 +664,21 @@ class _AtestMain:
       ]
     else:
       final_args = [*self._argv[1:], *config_args]
-    if final_args != self._argv[1:]:
+    has_config_args = final_args != self._argv[1:]
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.ATEST_CONFIG, result=int(has_config_args)
+    )
+    if has_config_args:
       print(
           'The actual cmd will be: \n\t{}\n'.format(
               atest_utils.mark_cyan('atest ' + ' '.join(final_args))
           )
       )
-      metrics.LocalDetectEvent(detect_type=DetectType.ATEST_CONFIG, result=1)
       if has_ignored_args:
         atest_utils.colorful_print(
             'Please correct the config and try again.', constants.YELLOW
         )
         sys.exit(ExitCode.EXIT_BEFORE_MAIN)
-    else:
-      metrics.LocalDetectEvent(detect_type=DetectType.ATEST_CONFIG, result=0)
 
     if _SMART_TEST_SELECTION_FLAG in final_args:
       if CUSTOM_ARG_FLAG not in final_args:
