@@ -380,13 +380,13 @@ def _validate_exec_mode(args, test_infos: list[test_info.TestInfo], host_tests=N
     )
   # In the case of '$atest <host-only> <device-only> --host' or
   # '$atest <host-only> <device-only>', exit.
-  if (
+  elif (
       host_only_test_detected
       and device_only_test_detected
       and not args.smart_test_selection
   ):
     err_msg = 'There are host-only and device-only tests in command.'
-  if host_tests is False and host_only_test_detected:
+  elif host_tests is False and host_only_test_detected:
     err_msg = 'There are host-only tests in command.'
   if err_msg:
     atest_utils.print_and_log_error(err_msg)
