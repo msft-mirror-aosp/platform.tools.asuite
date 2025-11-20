@@ -69,13 +69,12 @@ def _positive_int(value):
       Otherwise, raise argparse.ArgumentTypeError.
   """
   err_msg = f"invalid positive int value: '{value}'"
-  try:
-    converted_value = int(value)
-    if converted_value < 1:
-      raise argparse.ArgumentTypeError(err_msg)
-    return converted_value
-  except ValueError as value_err:
-    raise argparse.ArgumentTypeError(err_msg) from value_err
+  if not value.isdigit():
+    raise argparse.ArgumentTypeError(err_msg)
+  converted_value = int(value)
+  if converted_value < 1:
+    raise argparse.ArgumentTypeError(err_msg)
+  return converted_value
 
 
 def _comma_separated_list_to_set(value):
