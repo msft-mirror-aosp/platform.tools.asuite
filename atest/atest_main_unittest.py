@@ -313,21 +313,29 @@ class AtestMainUnitTests(unittest.TestCase):
     )
     args_original = atest_main._parse_args([])
 
-    with self.subTest(name='does not inject default args for non-perf tests'):
-      args = atest_main._parse_args([])
-      atest_main._AtestMain._inject_default_arguments_based_on_test_infos(
-          [non_perf_test_info], args
-      )
+    test_cases = [
+        (
+            'does not inject default args for non-perf tests',
+            non_perf_test_info,
+            True,
+        ),
+        (
+            'injects default args for perf tests',
+            perf_test_info,
+            False,
+        ),
+    ]
 
-      self.assertEqual(args_original, args)
-
-    with self.subTest(name='injects default args for perf tests'):
-      args = atest_main._parse_args([])
-      atest_main._AtestMain._inject_default_arguments_based_on_test_infos(
-          [perf_test_info], args
-      )
-
-      self.assertNotEqual(args_original, args)
+    for name, t_info, should_be_equal in test_cases:
+      with self.subTest(name=name):
+        args = atest_main._parse_args([])
+        atest_main._AtestMain._inject_default_arguments_based_on_test_infos(
+            [t_info], args
+        )
+        if should_be_equal:
+          self.assertEqual(args_original, args)
+        else:
+          self.assertNotEqual(args_original, args)
 
   @mock.patch.object(
       atest_main._AtestMain, '_get_build_targets', return_value=None
