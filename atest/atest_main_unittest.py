@@ -74,13 +74,12 @@ class AtestUnittests(unittest.TestCase):
         f"'{arg0}' is not immediately followed by '{arg1}' in {arg_list}",
     )
 
-  def test_parse_args(self):
-    """Test _parse_args parses command line args."""
+  def test_parse_args_with_tests(self):
+    """Test _parse_args with test arguments."""
     test_one = 'test_name_one'
     test_two = 'test_name_two'
     custom_arg = '--custom_arg'
     custom_arg_val = 'custom_arg_val'
-    pos_custom_arg = 'pos_custom_arg'
 
     # Test out test and custom args are properly retrieved.
     args = [test_one, test_two, '--', custom_arg, custom_arg_val]
@@ -89,6 +88,11 @@ class AtestUnittests(unittest.TestCase):
     self.assert_args_in_order(
         parsed_args.custom_args, custom_arg, custom_arg_val
     )
+
+  def test_parse_args_no_tests(self):
+    """Test _parse_args with no test arguments."""
+    custom_arg_val = 'custom_arg_val'
+    pos_custom_arg = 'pos_custom_arg'
 
     # Test out custom positional args with no test args.
     args = ['--', pos_custom_arg, custom_arg_val]
