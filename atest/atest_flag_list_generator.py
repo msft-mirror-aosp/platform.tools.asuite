@@ -26,7 +26,9 @@ def _get_optional_args(parser: argparse.ArgumentParser) -> list[str]:
       A list of optional arguments.
   """
   return [
-      option for arg in parser._get_optional_actions() for option in arg.option_strings
+      option
+      for action in parser._get_optional_actions()
+      for option in action.option_strings
   ]
 
 
