@@ -130,11 +130,10 @@ class SendIncrementalSetupStatTests(fake_filesystem_unittest.TestCase):
 Installing apk android.CtsApp
 [ApkChangeDetector] Skipping the uninstallation of SystemUIApp"""
 
-  _HOST_LOG_2_CONTENT = (
-      '[ApkChangeDetector] Skipping the installation of SysUIRobolectricApp\n'
-      ' Installing apk a.b.c.d  \n [UnrelatedClass] Skipping the installation'
-      ' of SomeClass'
-  )
+  _HOST_LOG_2_CONTENT = """\
+[ApkChangeDetector] Skipping the installation of SysUIRobolectricApp
+ Installing apk a.b.c.d
+ [UnrelatedClass] Skipping the installation of SomeClass"""
 
   def setUp(self):
     super().setUp()
