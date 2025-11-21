@@ -349,7 +349,7 @@ class AtestMainUnitTests(unittest.TestCase):
   @mock.patch('os.getenv', return_value='/tmp/my_android_build_root')
   @mock.patch('os.getcwd', return_value='/tmp/my_android_build_root/tools')
   def test_check_envs_and_args_smart_test_selection_and_test_refs_specified(
-      self, _, __, ___
+      self, _mock_getcwd, _mock_getenv, _mock_missing_env
   ):
     pseudo_atest_main = atest_main._AtestMain(argv=[])
     pseudo_atest_main._args = atest_main._parse_args(
