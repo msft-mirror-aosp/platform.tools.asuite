@@ -402,12 +402,8 @@ class AtestExecutionInfo:
         args,
         work_dir,
     )
-    self._start_time = start_time if start_time is not None else time.time()
-    self._repo_out_dir = (
-        repo_out_dir
-        if repo_out_dir is not None
-        else atest_utils.get_build_out_dir()
-    )
+    self._start_time = start_time or time.time()
+    self._repo_out_dir = repo_out_dir or atest_utils.get_build_out_dir()
 
   def __enter__(self):
     """Create and return information file object."""
