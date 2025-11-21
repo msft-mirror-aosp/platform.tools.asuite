@@ -40,11 +40,6 @@ from atest.metrics import metrics_utils
 from atest.test_finders import test_info
 from pyfakefs import fake_filesystem_unittest
 
-GREEN = '\x1b[1;32m'
-CYAN = '\x1b[1;36m'
-MAGENTA = '\x1b[1;35m'
-END = '\x1b[0m'
-
 
 # pylint: disable=protected-access
 class AtestUnittests(unittest.TestCase):
