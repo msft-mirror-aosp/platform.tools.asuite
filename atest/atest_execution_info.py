@@ -56,7 +56,7 @@ _UUID_LEN = 30
 _RESULT_LEN = 20
 _RESULT_URL_LEN = 35
 _COMMAND_LEN = 50
-_LOGCAT_FMT = '{}/log/invocation_*/{}*device_logcat_test*'
+
 _APK_CHANGE_DETECTOR_CLASSNAME = 'ApkChangeDetector'
 _APP_INSTALL_SKIP_KEY = 'Skipping the installation of'
 _APP_INSTALL_KEY = 'Installing apk'
@@ -175,9 +175,8 @@ def print_test_result_by_path(path):
         for fail in test_details.get(_STATUS_FAILED_KEY, []):
           print(atest_utils.mark_red(f'{fail.get(_TEST_NAME_KEY)}'))
           failure_files = glob.glob(
-              _LOGCAT_FMT.format(
-                  os.path.dirname(path), fail.get(_TEST_NAME_KEY)
-              )
+              f'{os.path.dirname(path)}/log/invocation_*/'
+              f'{fail.get(_TEST_NAME_KEY)}*device_logcat_test*'
           )
           if failure_files:
             print(
