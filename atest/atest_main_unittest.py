@@ -497,7 +497,7 @@ class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
       build_targets=None,
   ):
     """Create a test_info.TestInfo object."""
-    if not build_targets:
+    if build_targets is None:
       build_targets = set()
     return test_info.TestInfo(test_name, test_runner, build_targets)
 
