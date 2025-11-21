@@ -332,7 +332,9 @@ class AtestMainUnitTests(unittest.TestCase):
   @mock.patch.object(
       atest_main._AtestMain, '_get_build_targets', return_value=None
   )
-  def test_run_build_step_exits_normally_when_no_build_target(self, _):
+  def test_run_build_step_exits_normally_when_no_build_target(
+      self, _mock_get_build_targets
+  ):
     pseudo_atest_main = atest_main._AtestMain(argv=[])
     pseudo_atest_main._args = atest_main._parse_args(argv=[])
 
