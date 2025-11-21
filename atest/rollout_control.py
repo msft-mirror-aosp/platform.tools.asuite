@@ -190,9 +190,6 @@ rolling_tf_subprocess_output = RolloutControlledFeature(
     print_message=(
         atest_utils.mark_magenta(
             'Rolling subprocess output feature is enabled.'
-            ' Note that b/407065783 may cause test results to only appear'
-            ' after all tests have finished, and it is unrelated to this'
-            ' feature.'
         )
     ),
 )
