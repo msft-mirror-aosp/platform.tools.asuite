@@ -501,20 +501,20 @@ class PrintModuleInfoTest(AtestUnittestFixture):
   def tearDown(self):
     sys.stdout = sys.__stdout__
 
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
   def test_has_valid_test_mapping_args_is_test_mapping_detect_event_send_1(
-      self,
+      self, mock_event
   ):
     # Arrange
     expected_detect_type = DetectType.IS_TEST_MAPPING
     expected_result = 1
-    metrics.LocalDetectEvent = mock.MagicMock()
     args = arg_parser.create_atest_arg_parser().parse_args([])
 
     # Act
     atest_main._has_valid_test_mapping_args(args)
 
     # Assert
-    metrics.LocalDetectEvent.assert_called_once_with(
+    mock_event.assert_called_once_with(
         detect_type=expected_detect_type, result=expected_result
     )
 
