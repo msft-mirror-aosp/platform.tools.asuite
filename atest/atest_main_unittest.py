@@ -45,15 +45,18 @@ from pyfakefs import fake_filesystem_unittest
 class AtestUnittests(unittest.TestCase):
   """Unit tests for atest_main.py"""
 
-  @mock.patch('os.environ.get', return_value=None)
-  def test_missing_environment_variables_uninitialized(self, _):
-    """Test _has_environment_variables when no env vars."""
-    self.assertTrue(atest_main._missing_environment_variables())
+  @mock.patch('os.environ.get')
+  def test_missing_environment_variables(self, mock_env_get):
+    """Test _missing_environment_variables method."""
+    test_cases = [
+        ('uninitialized', None, True),
+        ('initialized', 'out/testcases/', False),
+    ]
 
-  @mock.patch('os.environ.get', return_value='out/testcases/')
-  def test_missing_environment_variables_initialized(self, _):
-    """Test _has_environment_variables when env vars."""
-    self.assertFalse(atest_main._missing_environment_variables())
+    for name, return_value, expected in test_cases:
+      with self.subTest(name=name):
+        mock_env_get.return_value = return_value
+        self.assertEqual(bool(atest_main._missing_environment_variables()), expected)
 
   def _assert_args_in_order(self, arg_list: List[str], arg0: str, arg1: str):
     self.assertIn(arg0, arg_list)
