@@ -57,7 +57,7 @@ class AtestUnittests(unittest.TestCase):
 
   def _assert_args_in_order(self, arg_list: List[str], arg0: str, arg1: str):
     index = arg_list.index(arg0)
-    self.assertNotEqual(
+    self.assertLess(
         index,
         len(arg_list) - 1,
         f"'{arg0}' is last argument in {arg_list}",
