@@ -119,6 +119,7 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
   def _is_dir_contains_files_with_prefix(
       self, dir: pathlib.Path, prefix: str
   ) -> bool:
+    """Returns True if dir contains any file that starts with prefix."""
     return any(file.is_file() and file.name.startswith(prefix) for file in dir.iterdir())
 
 
