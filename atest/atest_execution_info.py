@@ -203,7 +203,7 @@ def print_test_result_by_path(path):
       test_dict = test_runner.get(runner_name, {})
       for test_name in test_dict:
         test_details = test_dict.get(test_name, {})
-        for fail in test_details.get(_STATUS_FAILED_KEY):
+        for fail in test_details.get(_STATUS_FAILED_KEY, []):
           print(atest_utils.mark_red(f'{fail.get(_TEST_NAME_KEY)}'))
           failure_files = glob.glob(
               _LOGCAT_FMT.format(
