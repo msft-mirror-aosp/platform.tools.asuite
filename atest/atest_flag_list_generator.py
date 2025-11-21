@@ -26,11 +26,9 @@ def _get_optional_args(parser: argparse.ArgumentParser) -> Iterator[str]:
   Returns:
       A generator of optional arguments.
   """
-  return (
-      option
-      for action in parser._get_optional_actions()
-      for option in action.option_strings
-  )
+  for action in parser._get_optional_actions():
+    for option in action.option_strings:
+      yield option
 
 
 if __name__ == '__main__':
