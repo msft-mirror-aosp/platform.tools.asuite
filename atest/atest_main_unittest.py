@@ -509,38 +509,28 @@ class HasValidTestMappingArgsTest(AtestUnittestFixture):
   """Test _has_valid_test_mapping_args metric event sending."""
 
   @mock.patch('atest.metrics.metrics.LocalDetectEvent')
-  def test_has_valid_test_mapping_args_is_test_mapping_detect_event_send_1(
-      self, mock_event
-  ):
-    # Arrange
-    expected_detect_type = DetectType.IS_TEST_MAPPING
-    expected_result = 1
-    args = arg_parser.create_atest_arg_parser().parse_args([])
+  def test_has_valid_test_mapping_args_metric_event_sending(self, mock_event):
+    """Test _has_valid_test_mapping_args metric event sending."""
+    test_cases = [
+        ('no_tests', [], 1),
+        ('with_tests', ['test1'], 0),
+    ]
 
-    # Act
-    atest_main._has_valid_test_mapping_args(args)
+    for name, test_args, expected_result in test_cases:
+        with self.subTest(name=name):
+            # Arrange
+            expected_detect_type = DetectType.IS_TEST_MAPPING
+            args = arg_parser.create_atest_arg_parser().parse_args(test_args)
 
-    # Assert
-    mock_event.assert_called_once_with(
-        detect_type=expected_detect_type, result=expected_result
-    )
+            # Act
+            atest_main._has_valid_test_mapping_args(args)
 
-  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
-  def test_has_valid_test_mapping_args_mpt_test_mapping_detect_event_send_0(
-      self, mock_event
-  ):
-    # Arrange
-    expected_detect_type = DetectType.IS_TEST_MAPPING
-    expected_result = 0
-    args = arg_parser.create_atest_arg_parser().parse_args(['test1'])
-
-    # Act
-    atest_main._has_valid_test_mapping_args(args)
-
-    # Assert
-    mock_event.assert_called_once_with(
-        detect_type=expected_detect_type, result=expected_result
-    )
+            # Assert
+            mock_event.assert_called_once_with(
+                detect_type=expected_detect_type, result=expected_result
+            )
+            # Reset mock for the next subtest
+            mock_event.reset_mock()
 
 
 if __name__ == '__main__':
