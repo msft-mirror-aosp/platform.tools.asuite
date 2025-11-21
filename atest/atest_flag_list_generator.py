@@ -25,12 +25,9 @@ def _get_optional_args(parser: argparse.ArgumentParser) -> list[str]:
   Returns:
       A list of optional arguments.
   """
-  argument_list = []
-  # The output of _get_optional_actions(): [['-t', '--test']]
-  # return an argument list: ['-t', '--test']
-  for arg in parser._get_optional_actions():
-    argument_list.extend(arg.option_strings)
-  return argument_list
+  return [
+      option for arg in parser._get_optional_actions() for option in arg.option_strings
+  ]
 
 
 if __name__ == '__main__':
