@@ -55,7 +55,7 @@ class AtestUnittests(unittest.TestCase):
     """Test _has_environment_variables when env vars."""
     self.assertFalse(atest_main._missing_environment_variables())
 
-  def assert_args_in_order(self, arg_list: List[str], arg0: str, arg1: str):
+  def _assert_args_in_order(self, arg_list: List[str], arg0: str, arg1: str):
     index = arg_list.index(arg0)
     self.assertNotEqual(
         index,
@@ -79,7 +79,7 @@ class AtestUnittests(unittest.TestCase):
     args = [test_one, test_two, '--', custom_arg, custom_arg_val]
     parsed_args = atest_main._parse_args(args)
     self.assertEqual(parsed_args.tests, [test_one, test_two])
-    self.assert_args_in_order(
+    self._assert_args_in_order(
         parsed_args.custom_args, custom_arg, custom_arg_val
     )
 
@@ -92,7 +92,7 @@ class AtestUnittests(unittest.TestCase):
     args = ['--', pos_custom_arg, custom_arg_val]
     parsed_args = atest_main._parse_args(args)
     self.assertEqual(parsed_args.tests, [])
-    self.assert_args_in_order(
+    self._assert_args_in_order(
         parsed_args.custom_args, pos_custom_arg, custom_arg_val
     )
 
