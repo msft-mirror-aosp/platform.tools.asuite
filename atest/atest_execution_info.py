@@ -118,63 +118,37 @@ def print_test_result(root, history_arg):
   target = '%s/20*_*_*' % root
   paths = glob.glob(target)
   paths.sort(reverse=True)
-  if has_url_results():
-    print(
-        '{:-^{uuid_len}} {:-^{result_len}} {:-^{result_url_len}}'
-        ' {:-^{command_len}}'.format(
-            'uuid',
-            'result',
-            'result_url',
-            'command',
-            uuid_len=_UUID_LEN,
-            result_len=_RESULT_LEN,
-            result_url_len=_RESULT_URL_LEN,
-            command_len=_COMMAND_LEN,
-        )
+  urls_exist = has_url_results()
+  if urls_exist:
+    header = (
+        f'{"uuid":-^{_UUID_LEN}} {"result":-^{_RESULT_LEN}} '
+        f'{"result_url":-^{_RESULT_URL_LEN}} {"command":-^{_COMMAND_LEN}}'
     )
   else:
-    print(
-        '{:-^{uuid_len}} {:-^{result_len}} {:-^{command_len}}'.format(
-            'uuid',
-            'result',
-            'command',
-            uuid_len=_UUID_LEN,
-            result_len=_RESULT_LEN,
-            command_len=_COMMAND_LEN,
-        )
+    header = (
+        f'{"uuid":-^{_UUID_LEN}} {"result":-^{_RESULT_LEN}} '
+        f'{"command":-^{_COMMAND_LEN}}'
     )
+  print(header)
   for path in paths[0 : int(history_arg) + 1]:
     result_path = os.path.join(path, 'test_result')
     result = atest_utils.load_json_safely(result_path)
     total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
     summary_str = ', '.join(
-        [k[:1] + ':' + str(v) for k, v in total_summary.items()]
+        [f'{k[:1]}:{v}' for k, v in total_summary.items()]
     )
     test_result_url = result.get(_TEST_RESULT_LINK, '')
-    if has_url_results():
+    args_str = result.get(_ARGS_KEY, '')
+    basename = os.path.basename(path)
+    if urls_exist:
       print(
-          '{:<{uuid_len}} {:<{result_len}} '
-          '{:<{result_url_len}} atest {:<{command_len}}'.format(
-              os.path.basename(path),
-              summary_str,
-              test_result_url,
-              result.get(_ARGS_KEY, ''),
-              uuid_len=_UUID_LEN,
-              result_len=_RESULT_LEN,
-              result_url_len=_RESULT_URL_LEN,
-              command_len=_COMMAND_LEN,
-          )
+          f'{basename:<{_UUID_LEN}} {summary_str:<{_RESULT_LEN}} '
+          f'{test_result_url:<{_RESULT_URL_LEN}} atest {args_str:<{_COMMAND_LEN}}'
       )
     else:
       print(
-          '{:<{uuid_len}} {:<{result_len}} atest {:<{command_len}}'.format(
-              os.path.basename(path),
-              summary_str,
-              result.get(_ARGS_KEY, ''),
-              uuid_len=_UUID_LEN,
-              result_len=_RESULT_LEN,
-              command_len=_COMMAND_LEN,
-          )
+          f'{basename:<{_UUID_LEN}} {summary_str:<{_RESULT_LEN}} '
+          f'atest {args_str:<{_COMMAND_LEN}}'
       )
 
 
