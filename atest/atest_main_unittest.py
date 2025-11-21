@@ -117,7 +117,7 @@ class AtestUnittests(unittest.TestCase):
         parsed_args = atest_main._parse_args(args)
         self.assertFalse(
             atest_main._has_valid_test_mapping_args(parsed_args),
-            'Failed to validate: %s' % args,
+            f'Failed to validate: {args}',
         )
 
   @mock.patch.object(atest_utils, 'get_adb_devices')
