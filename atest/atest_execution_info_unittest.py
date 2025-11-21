@@ -156,12 +156,12 @@ class SendIncrementalSetupStatTests(fake_filesystem_unittest.TestCase):
     host_log_path2 = self._log_path / 'invocation' / 'host_log_2.txt'
     self.fs.create_file(
         host_log_path1,
-        contents=self.__class__._HOST_LOG_1_CONTENT,
+        contents=self._HOST_LOG_1_CONTENT,
         create_missing_dirs=True,
     )
     self.fs.create_file(
         host_log_path2,
-        contents=self.__class__._HOST_LOG_2_CONTENT,
+        contents=self._HOST_LOG_2_CONTENT,
         create_missing_dirs=True,
     )
     expected_calls = [
