@@ -532,44 +532,5 @@ class HasValidTestMappingArgsTest(AtestUnittestFixture):
     )
 
 
-# pylint: disable=too-many-arguments
-def module(
-    name=None,
-    path=None,
-    installed=None,
-    classes=None,
-    auto_test_config=None,
-    test_config=None,
-    shared_libs=None,
-    dependencies=None,
-    runtime_dependencies=None,
-    data=None,
-    data_dependencies=None,
-    compatibility_suites=None,
-    host_dependencies=None,
-    srcs=None,
-):
-  name = name or 'libhello'
-
-  m = {}
-
-  m['module_name'] = name
-  m['class'] = classes
-  m['path'] = [path or '']
-  m['installed'] = installed or []
-  m['is_unit_test'] = 'false'
-  m['auto_test_config'] = auto_test_config or []
-  m['test_config'] = test_config or []
-  m['shared_libs'] = shared_libs or []
-  m['runtime_dependencies'] = runtime_dependencies or []
-  m['dependencies'] = dependencies or []
-  m['data'] = data or []
-  m['data_dependencies'] = data_dependencies or []
-  m['compatibility_suites'] = compatibility_suites or []
-  m['host_dependencies'] = host_dependencies or []
-  m['srcs'] = srcs or []
-  return m
-
-
 if __name__ == '__main__':
   unittest.main()
