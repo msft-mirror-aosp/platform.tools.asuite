@@ -418,7 +418,7 @@ class AtestExecutionInfoUnittests(unittest.TestCase):
     self.assertEqual(expect_total_summary, info_dict[aei._TOTAL_SUMMARY_KEY])
 
   def _create_test_result(self, **kwargs):
-    """A Helper to create TestResult"""
+    """Helper to create a TestResult object, optionally overriding default values."""
     test_info = test_runner_base.TestResult(**RESULT_TEST_TEMPLATE._asdict())
     return test_info._replace(**kwargs)
 
