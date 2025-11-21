@@ -19,9 +19,8 @@ from enum import Enum, IntEnum, unique
 
 @unique
 class DetectType(IntEnum):
-  """An Enum class for local_detect_event."""
+  """Enum for local_detect_event detection types."""
 
-  # Detect type for local_detect_event; next expansion: 60
   BUG_DETECTED = 0
   ACLOUD_CREATE = 1
   FIND_BUILD = 2
@@ -57,9 +56,7 @@ class DetectType(IntEnum):
   FOUND_INSTRUMENTATION_TEST = 26
   FOUND_TARGET_ARTIFACTS = 27
   FIND_TEST_IN_DEPS = 28
-  FULL_GENERATE_BAZEL_WORKSPACE_TIME = (
-      29  # Deprecated. Bazel mode has been removed.
-  )
+  FULL_GENERATE_BAZEL_WORKSPACE_TIME = 29  # Deprecated. Bazel mode has been removed.
   # Below detect types are used for determine build conditions:
   # 1. *_CLEAN_OUT: when out/ dir is empty or does not exist.
   # 2. *_BPMK_CHANGE: when any Android.bp/Android.mk has changed.
@@ -133,6 +130,7 @@ class DetectType(IntEnum):
   HAS_NO_TEST_RUN_ISSUE = 70
   # Whether no tests are returned with smart test selection
   STS_SELECT_NO_TEST = 71
+  # Next expansion: 72
 
 
 @unique
