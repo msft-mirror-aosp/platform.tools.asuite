@@ -240,7 +240,6 @@ class AtestUnittests(unittest.TestCase):
     """Test make_test_run_dir."""
     tmp_dir = tempfile.mkdtemp()
     constants.ATEST_RESULT_ROOT = tmp_dir
-    date_time = None
 
     work_dir = atest_main.make_test_run_dir()
     folder_name = os.path.basename(work_dir)
