@@ -488,7 +488,7 @@ def _has_valid_test_mapping_args(args):
   for arg_value, arg in options_to_validate:
     if arg_value:
       atest_utils.print_and_log_error(
-          atest_utils.mark_red(OPTION_NOT_FOR_TEST_MAPPING.format(arg))
+          atest_utils.mark_red(f'Option "{arg}" does not work for running tests in TEST_MAPPING files')
       )
       return False
   return True
