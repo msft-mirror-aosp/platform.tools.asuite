@@ -124,8 +124,9 @@ def create_test_method(testcase, log_path):
     self.test_passed = self.run_test(testcase)
     with open(log_path, 'a', encoding='utf-8') as f:
       f.write('\n'.join(self.log))
-    failed_message = 'Running command: %s failed.\n' % testcase
-    failed_message += '' if self.test_passed else self.get_failed_log()
+    failed_message = f'Running command: {testcase} failed.\n'
+    if not self.test_passed:
+      failed_message += self.get_failed_log()
     self.assertTrue(self.test_passed, failed_message)
 
   return test_function_name, template_test_method
