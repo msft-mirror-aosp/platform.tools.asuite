@@ -317,9 +317,9 @@ class AtestMainUnitTests(unittest.TestCase):
         compatibility_suites=['performance-tests'],
     )
     args_original = atest_main._parse_args([])
-    args = atest_main._parse_args([])
 
     with self.subTest(name='does not inject default args for non-perf tests'):
+      args = atest_main._parse_args([])
       atest_main._AtestMain._inject_default_arguments_based_on_test_infos(
           [non_perf_test_info], args
       )
@@ -327,6 +327,7 @@ class AtestMainUnitTests(unittest.TestCase):
       self.assertEqual(args_original, args)
 
     with self.subTest(name='injects default args for perf tests'):
+      args = atest_main._parse_args([])
       atest_main._AtestMain._inject_default_arguments_based_on_test_infos(
           [perf_test_info], args
       )
