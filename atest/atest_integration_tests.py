@@ -117,7 +117,7 @@ def create_test_method(testcase, log_path):
   Returns:
       A created test method, and a test function name.
   """
-  test_function_name = 'test_%s' % testcase.replace(' ', '_')
+  test_function_name = f'test_{testcase.replace(' ', '_')}'
 
   # pylint: disable=missing-docstring
   def template_test_method(self):
