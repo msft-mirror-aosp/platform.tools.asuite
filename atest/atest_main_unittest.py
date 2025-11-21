@@ -123,7 +123,6 @@ class AtestUnittests(unittest.TestCase):
   def test_validate_exec_mode(self, _send_exit, _devs):
     """Test _validate_exec_mode."""
     _devs.return_value = ['127.0.0.1:34556']
-    args = []
     no_install_test_info = test_info.TestInfo(
         'mod',
         '',
@@ -158,7 +157,7 @@ class AtestUnittests(unittest.TestCase):
     )
 
     # $atest <Both-support>
-    parsed_args = atest_main._parse_args(args)
+    parsed_args = atest_main._parse_args([])
     test_infos = [host_test_info]
     atest_main._validate_exec_mode(parsed_args, test_infos)
     self.assertFalse(parsed_args.host)
