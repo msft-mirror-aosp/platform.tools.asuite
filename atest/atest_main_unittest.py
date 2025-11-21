@@ -61,24 +61,17 @@ class AtestUnittests(unittest.TestCase):
     self.assertFalse(atest_main._missing_environment_variables())
 
   def assert_args_in_order(self, arg_list: List[str], arg0: str, arg1: str):
-    self.assertTrue(
-        arg0 in arg_list, "'" + arg0 + "' is not in " + str(arg_list)
-    )
+    self.assertTrue(arg0 in arg_list, f"'{arg0}' is not in {arg_list}")
     index = arg_list.index(arg0)
     self.assertNotEqual(
         index,
         len(arg_list) - 1,
-        "'" + arg0 + "' is last argument in " + str(arg_list),
+        f"'{arg0}' is last argument in {arg_list}",
     )
     self.assertEqual(
         arg_list[index + 1],
         arg1,
-        "'"
-        + arg0
-        + "' is not immediately followed by '"
-        + arg1
-        + "' in "
-        + str(arg_list),
+        f"'{arg0}' is not immediately followed by '{arg1}' in {arg_list}",
     )
 
   def test_parse_args(self):
