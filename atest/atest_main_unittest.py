@@ -56,6 +56,7 @@ class AtestUnittests(unittest.TestCase):
     self.assertFalse(atest_main._missing_environment_variables())
 
   def _assert_args_in_order(self, arg_list: List[str], arg0: str, arg1: str):
+    self.assertIn(arg0, arg_list)
     index = arg_list.index(arg0)
     self.assertLess(
         index,
