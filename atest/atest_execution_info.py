@@ -235,12 +235,14 @@ def has_non_test_options(args: argparse.ArgumentParser):
       True, if args has at least one non-test option.
       False, otherwise.
   """
-  return (
-      args.collect_tests_only
-      or args.dry_run
-      or args.history
-      or args.version
-      or args.latest_result
+  return any(
+      (
+          args.collect_tests_only,
+          args.dry_run,
+          args.history,
+          args.version,
+          args.latest_result,
+      )
   )
 
 
