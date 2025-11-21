@@ -74,17 +74,12 @@ class AtestUnittests(unittest.TestCase):
 
   def test_parse_args_with_tests(self):
     """Test _parse_args with test arguments."""
-    test_one = 'test_name_one'
-    test_two = 'test_name_two'
-    custom_arg = '--custom_arg'
-    custom_arg_val = 'custom_arg_val'
-
     # Test out test and custom args are properly retrieved.
-    args = [test_one, test_two, '--', custom_arg, custom_arg_val]
+    args = ['test_name_one', 'test_name_two', '--', '--custom_arg', 'custom_arg_val']
     parsed_args = atest_main._parse_args(args)
-    self.assertEqual(parsed_args.tests, [test_one, test_two])
+    self.assertEqual(parsed_args.tests, ['test_name_one', 'test_name_two'])
     self._assert_args_in_order(
-        parsed_args.custom_args, custom_arg, custom_arg_val
+        parsed_args.custom_args, '--custom_arg', 'custom_arg_val'
     )
 
   def test_parse_args_no_tests(self):
