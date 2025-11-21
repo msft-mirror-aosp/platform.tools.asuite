@@ -161,16 +161,16 @@ def print_test_result_by_path(path):
   result = atest_utils.load_json_safely(path)
   if not result:
     return
-  print('\natest {}'.format(result.get(_ARGS_KEY, '')))
+  print(f'\natest {result.get(_ARGS_KEY, "")}')
   test_result_url = result.get(_TEST_RESULT_LINK, '')
   if test_result_url:
-    print('\nTest Result Link: {}'.format(test_result_url))
-  print('\nTotal Summary:\n{}'.format(atest_utils.delimiter('-')))
+    print(f'\nTest Result Link: {test_result_url}')
+  print(f'\nTotal Summary:\n{atest_utils.delimiter("-")}')
   total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
-  print(', '.join([(k + ':' + str(v)) for k, v in total_summary.items()]))
+  print(', '.join([f'{k}:{v}' for k, v in total_summary.items()]))
   fail_num = total_summary.get(_STATUS_FAILED_KEY)
-  if fail_num > 0:
-    message = '%d test failed' % fail_num
+  if fail_num and fail_num > 0:
+    message = f'{fail_num} test failed'
     print(f'\n{atest_utils.mark_red(message)}\n{"-" * len(message)}')
     test_runner = result.get(_TEST_RUNNER_KEY, {})
     for runner_name in test_runner.keys():
@@ -186,16 +186,12 @@ def print_test_result_by_path(path):
           )
           if failure_files:
             print(
-                '{} {}'.format(
-                    atest_utils.mark_cyan('LOGCAT-ON-FAILURES:'),
-                    failure_files[0],
-                )
+                f'{atest_utils.mark_cyan("LOGCAT-ON-FAILURES:")} '
+                f'{failure_files[0]}'
             )
           print(
-              '{} {}'.format(
-                  atest_utils.mark_cyan('STACKTRACE:\n'),
-                  fail.get(_TEST_DETAILS_KEY),
-              )
+              f'{atest_utils.mark_cyan("STACKTRACE:\\n")} '
+              f'{fail.get(_TEST_DETAILS_KEY)}'
           )
 
 
