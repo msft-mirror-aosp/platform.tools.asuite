@@ -241,7 +241,6 @@ def has_non_test_options(args: argparse.ArgumentParser):
       or args.history
       or args.version
       or args.latest_result
-      or args.history
   )
 
 
