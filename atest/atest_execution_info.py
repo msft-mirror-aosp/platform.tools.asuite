@@ -169,7 +169,7 @@ def print_test_result_by_path(path):
   total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
   print(', '.join([f'{k}:{v}' for k, v in total_summary.items()]))
   fail_num = total_summary.get(_STATUS_FAILED_KEY)
-  if fail_num and fail_num > 0:
+  if fail_num:
     message = f'{fail_num} test failed'
     print(f'\n{atest_utils.mark_red(message)}\n{"-" * len(message)}')
     test_runner = result.get(_TEST_RUNNER_KEY, {})
