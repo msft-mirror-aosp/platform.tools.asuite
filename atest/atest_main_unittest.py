@@ -392,7 +392,7 @@ class AtestMainUnitTests(unittest.TestCase):
   @mock.patch('os.getenv', return_value='/tmp/my_android_build_root')
   @mock.patch('os.getcwd', return_value='/tmp/my_android_build_root/tools')
   def test_check_envs_and_args_cross_branch_args_valid_with_bid(
-      self, _, __, ___
+      self, _mock_getcwd, _mock_getenv, _mock_missing_env
   ):
     """Tests cross-branch args are valid with build target and bid."""
     pseudo_atest_main = atest_main._AtestMain(argv=[])
@@ -413,7 +413,7 @@ class AtestMainUnitTests(unittest.TestCase):
   @mock.patch('os.getenv', return_value='/tmp/my_android_build_root')
   @mock.patch('os.getcwd', return_value='/tmp/my_android_build_root/tools')
   def test_check_envs_and_args_cross_branch_args_valid_with_branch(
-      self, _, __, ___
+      self, _mock_getcwd, _mock_getenv, _mock_missing_env
   ):
     """Tests cross-branch args are valid with build target and branch."""
     pseudo_atest_main = atest_main._AtestMain(argv=[])
@@ -433,7 +433,9 @@ class AtestMainUnitTests(unittest.TestCase):
   )
   @mock.patch('os.getenv', return_value='/tmp/my_android_build_root')
   @mock.patch('os.getcwd', return_value='/tmp/my_android_build_root/tools')
-  def test_check_envs_and_args_cross_branch_args_no_target(self, _, __, ___):
+  def test_check_envs_and_args_cross_branch_args_no_target(
+      self, _mock_getcwd, _mock_getenv, _mock_missing_env
+  ):
     """Tests cross-branch args are invalid without build target."""
     pseudo_atest_main = atest_main._AtestMain(argv=[])
     pseudo_atest_main._args = atest_main._parse_args(
@@ -456,7 +458,7 @@ class AtestMainUnitTests(unittest.TestCase):
   @mock.patch('os.getenv', return_value='/tmp/my_android_build_root')
   @mock.patch('os.getcwd', return_value='/tmp/my_android_build_root/tools')
   def test_check_envs_and_args_cross_branch_args_no_bid_branch(
-      self, _, __, ___
+      self, _mock_getcwd, _mock_getenv, _mock_missing_env
   ):
     """Tests cross-branch args are invalid without branch and bid."""
     pseudo_atest_main = atest_main._AtestMain(argv=[])
