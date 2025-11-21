@@ -250,7 +250,7 @@ class AtestUnittests(unittest.TestCase):
         '_'.join(folder_name.split('_')[0:2]), atest_main.TEST_RUN_DIR_PREFIX
     )
     reload(constants)
-    self.assertTrue(date_time)
+    self.assertIsNotNone(date_time)
 
   def test_has_set_sufficient_devices_no_device_no_require(self):
     required_num = 0
