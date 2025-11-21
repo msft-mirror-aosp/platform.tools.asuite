@@ -139,7 +139,7 @@ def create_test_run_dir():
       A string of the directory path.
   """
   utc_epoch_time = int(time.time())
-  return tempfile.mkdtemp(prefix=f'atest_integration_tests_{utc_epoch_time}_')
+  return tempfile.mkdtemp(prefix=_TEST_RUN_DIR_PREFIX % utc_epoch_time)
 
 
 if __name__ == '__main__':
