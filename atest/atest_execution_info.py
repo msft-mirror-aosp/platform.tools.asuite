@@ -331,16 +331,16 @@ def append_test_info_to_invocation_pathnames(
         invocation_folder_name = ''
         for line in host_log_file:
           if not test_filter:
-            include_filters = []
-            for match in _INCLUDE_FILTER_REGEX.finditer(line):
-              single_test_filter = (
-                  match.group('include_filter')
-                  .replace(':', '_')
-                  .replace('#', '_')
-                  .replace('?', '_')
-                  .replace('*', '_')
-              )
-              include_filters.append(single_test_filter)
+            include_filters = [
+                (
+                    match.group('include_filter')
+                    .replace(':', '_')
+                    .replace('#', '_')
+                    .replace('?', '_')
+                    .replace('*', '_')
+                )
+                for match in _INCLUDE_FILTER_REGEX.finditer(line)
+            ]
             if include_filters:
               test_filter = '_'.join(include_filters)
           if not invocation_folder_name:
