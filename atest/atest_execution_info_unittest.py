@@ -125,11 +125,10 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
 
 class SendIncrementalSetupStatTests(fake_filesystem_unittest.TestCase):
 
-  _HOST_LOG_1_CONTENT = (
-      '[ApkChangeDetector] Skipping the installation of SystemUIApp\nInstalling'
-      ' apk android.CtsApp\n[ApkChangeDetector] Skipping the uninstallation of'
-      ' SystemUIApp'
-  )
+  _HOST_LOG_1_CONTENT = """\
+[ApkChangeDetector] Skipping the installation of SystemUIApp
+Installing apk android.CtsApp
+[ApkChangeDetector] Skipping the uninstallation of SystemUIApp"""
 
   _HOST_LOG_2_CONTENT = (
       '[ApkChangeDetector] Skipping the installation of SysUIRobolectricApp\n'
