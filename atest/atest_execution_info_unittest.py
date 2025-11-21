@@ -119,10 +119,7 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
   def _is_dir_contains_files_with_prefix(
       self, dir: pathlib.Path, prefix: str
   ) -> bool:
-    for file in dir.iterdir():
-      if file.is_file() and file.name.startswith(prefix):
-        return True
-    return False
+    return any(file.is_file() and file.name.startswith(prefix) for file in dir.iterdir())
 
 
 class SendIncrementalSetupStatTests(fake_filesystem_unittest.TestCase):
