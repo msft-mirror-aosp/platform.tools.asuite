@@ -442,20 +442,15 @@ class AtestExecutionInfo:
 
     build_log_path = log_path / 'build_logs'
     build_log_path.mkdir()
-    AtestExecutionInfo._copy_build_artifacts_to_log_dir(
-        self._start_time,
-        time.time(),
-        self._repo_out_dir,
-        build_log_path,
-        'build.trace',
-    )
-    AtestExecutionInfo._copy_build_artifacts_to_log_dir(
-        self._start_time,
-        time.time(),
-        self._repo_out_dir,
-        build_log_path,
-        'verbose.log',
-    )
+    end_time = time.time()
+    for file_name_prefix in ('build.trace', 'verbose.log'):
+      AtestExecutionInfo._copy_build_artifacts_to_log_dir(
+          self._start_time,
+          end_time,
+          self._repo_out_dir,
+          build_log_path,
+          file_name_prefix,
+      )
 
     if self.get_exit_code_func:
       main_exit_code = self.get_exit_code_func()
