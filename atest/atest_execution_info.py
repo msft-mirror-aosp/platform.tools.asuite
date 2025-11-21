@@ -119,17 +119,14 @@ def print_test_result(root, history_arg):
   paths = glob.glob(target)
   paths.sort(reverse=True)
   urls_exist = has_url_results()
+  header_parts = [
+      f'{"uuid":-^{_UUID_LEN}}',
+      f'{"result":-^{_RESULT_LEN}}',
+  ]
   if urls_exist:
-    header = (
-        f'{"uuid":-^{_UUID_LEN}} {"result":-^{_RESULT_LEN}} '
-        f'{"result_url":-^{_RESULT_URL_LEN}} {"command":-^{_COMMAND_LEN}}'
-    )
-  else:
-    header = (
-        f'{"uuid":-^{_UUID_LEN}} {"result":-^{_RESULT_LEN}} '
-        f'{"command":-^{_COMMAND_LEN}}'
-    )
-  print(header)
+    header_parts.append(f'{"result_url":-^{_RESULT_URL_LEN}}')
+  header_parts.append(f'{"command":-^{_COMMAND_LEN}}')
+  print(' '.join(header_parts))
   for path in paths[0 : int(history_arg) + 1]:
     result_path = os.path.join(path, 'test_result')
     result = atest_utils.load_json_safely(result_path)
@@ -140,16 +137,14 @@ def print_test_result(root, history_arg):
     test_result_url = result.get(_TEST_RESULT_LINK, '')
     args_str = result.get(_ARGS_KEY, '')
     basename = os.path.basename(path)
+    line_parts = [
+        f'{basename:<{_UUID_LEN}}',
+        f'{summary_str:<{_RESULT_LEN}}',
+    ]
     if urls_exist:
-      print(
-          f'{basename:<{_UUID_LEN}} {summary_str:<{_RESULT_LEN}} '
-          f'{test_result_url:<{_RESULT_URL_LEN}} atest {args_str:<{_COMMAND_LEN}}'
-      )
-    else:
-      print(
-          f'{basename:<{_UUID_LEN}} {summary_str:<{_RESULT_LEN}} '
-          f'atest {args_str:<{_COMMAND_LEN}}'
-      )
+      line_parts.append(f'{test_result_url:<{_RESULT_URL_LEN}}')
+    line_parts.append(f'atest {args_str:<{_COMMAND_LEN}}')
+    print(' '.join(line_parts))
 
 
 def print_test_result_by_path(path):
