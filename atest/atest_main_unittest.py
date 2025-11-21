@@ -495,11 +495,8 @@ class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
     return test_info.TestInfo(test_name, test_runner, build_targets)
 
 
-class PrintModuleInfoTest(AtestUnittestFixture):
-  """Test conditions for _print_module_info."""
-
-  def tearDown(self):
-    sys.stdout = sys.__stdout__
+class HasValidTestMappingArgsTest(AtestUnittestFixture):
+  """Test _has_valid_test_mapping_args metric event sending."""
 
   @mock.patch('atest.metrics.metrics.LocalDetectEvent')
   def test_has_valid_test_mapping_args_is_test_mapping_detect_event_send_1(
