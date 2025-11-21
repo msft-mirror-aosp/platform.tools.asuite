@@ -656,14 +656,14 @@ class AtestExecutionInfo:
         group.setdefault(test.status, []).append(result_dict)
 
     total_test_group_summary = _SUMMARY_MAP_TEMPLATE.copy()
-    for runner in info_dict[_TEST_RUNNER_KEY]:
-      for group in info_dict[_TEST_RUNNER_KEY][runner]:
+    for runner_data in info_dict[_TEST_RUNNER_KEY].values():
+      for group_data in runner_data.values():
         group_summary = _SUMMARY_MAP_TEMPLATE.copy()
-        for status in info_dict[_TEST_RUNNER_KEY][runner][group]:
-          count = len(info_dict[_TEST_RUNNER_KEY][runner][group][status])
+        for status, results in group_data.items():
           if status in _SUMMARY_MAP_TEMPLATE:
+            count = len(results)
             group_summary[status] = count
             total_test_group_summary[status] += count
-        info_dict[_TEST_RUNNER_KEY][runner][group][_SUMMARY_KEY] = group_summary
+        group_data[_SUMMARY_KEY] = group_summary
     info_dict[_TOTAL_SUMMARY_KEY] = total_test_group_summary
     return info_dict
