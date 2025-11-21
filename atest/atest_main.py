@@ -282,7 +282,7 @@ def make_test_run_dir() -> str:
     os.makedirs(constants.ATEST_RESULT_ROOT)
   ctime = time.strftime(TEST_RUN_DIR_PREFIX, time.localtime())
   test_result_dir = tempfile.mkdtemp(
-      prefix='%s_' % ctime, dir=constants.ATEST_RESULT_ROOT
+      prefix=f'{ctime}_', dir=constants.ATEST_RESULT_ROOT
   )
   print(_RESULTS_DIR_PRINT_PREFIX + test_result_dir)
   return test_result_dir
