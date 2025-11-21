@@ -115,7 +115,7 @@ def print_test_result(root, history_arg):
     path = os.path.join(constants.ATEST_RESULT_ROOT, history_arg, 'test_result')
     print_test_result_by_path(path)
     return
-  target = '%s/20*_*_*' % root
+  target = f'{root}/20*_*_*'
   paths = glob.glob(target)
   paths.sort(reverse=True)
   urls_exist = has_url_results()
