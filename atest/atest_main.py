@@ -374,7 +374,7 @@ def _validate_exec_mode(
     err_msg = (
         'Specified --host, but the following tests are device-only:\n  '
         f'{"\n  ".join(sorted(device_only_tests))}\n'
-        'Please remove the  option when running device-only tests.'
+        'Please remove the --host option when running device-only tests.'
     )
   # In the case of '$atest <host-only> <device-only> --host' or
   # '$atest <host-only> <device-only>', exit.
