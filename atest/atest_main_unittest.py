@@ -457,8 +457,9 @@ class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
 
   # pylint: disable=protected-access
   def create_empty_module_info(self):
-    fake_temp_file_name = next(tempfile._get_candidate_names())
-    self.fs.create_file(fake_temp_file_name, contents='{}')
+    fd, fake_temp_file_name = tempfile.mkstemp()
+    with os.fdopen(fd, 'w') as tmp:
+        tmp.write('{}')
     return module_info.load_from_file(module_file=fake_temp_file_name)
 
   def create_module_info(self, modules=None):
