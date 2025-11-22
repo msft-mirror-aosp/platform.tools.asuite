@@ -42,7 +42,7 @@ import sys
 import tempfile
 import threading
 import time
-from typing import Any, Dict, List, Set
+from typing import Any
 
 from atest import arg_parser
 from atest import atest_configs
@@ -201,7 +201,7 @@ def _get_args_from_config():
   return args, has_ignored_args
 
 
-def _parse_args(argv: List[str]) -> argparse.Namespace:
+def _parse_args(argv: list[str]) -> argparse.Namespace:
   """Parse command line arguments.
 
   Args:
@@ -316,7 +316,7 @@ _ARG_TO_CONST_MAP = {
 }
 
 
-def get_extra_args(args) -> Dict[str, str]:
+def get_extra_args(args) -> dict[str, str]:
   """Get extra args for test runners.
 
   Args:
@@ -439,8 +439,8 @@ def _validate_adb_devices(args, test_infos):
 
 def _validate_tm_tests_exec_mode(
     args: argparse.Namespace,
-    device_test_infos: List[test_info.TestInfo],
-    host_test_infos: List[test_info.TestInfo],
+    device_test_infos: list[test_info.TestInfo],
+    host_test_infos: list[test_info.TestInfo],
 ):
   """Validate all test execution modes are not in conflict.
 
@@ -589,7 +589,7 @@ def get_device_count_config(test_infos, mod_info):
 
 
 def has_set_sufficient_devices(
-    required_amount: int, serial: List[str] = None
+    required_amount: int, serial: list[str] = None
 ) -> bool:
   """Detect whether sufficient device serial is set for test."""
   given_amount = len(serial) if serial else 0
@@ -1327,7 +1327,7 @@ class _TestExecutionPlan(abc.ABC):
   @staticmethod
   def create(
       args: argparse.Namespace,
-      test_infos: List[test_info.TestInfo],
+      test_infos: list[test_info.TestInfo],
       results_dir: str,
       mod_info: module_info.ModuleInfo,
   ) -> _TestExecutionPlan:
@@ -1361,15 +1361,15 @@ class _TestExecutionPlan(abc.ABC):
   def __init__(
       self,
       args: argparse.Namespace,
-      extra_args: Dict[str, Any],
-      test_infos: List[test_info.TestInfo],
+      extra_args: dict[str, Any],
+      test_infos: list[test_info.TestInfo],
   ):
     self._args = args
     self._extra_args = extra_args
     self._test_infos = test_infos
 
   @property
-  def extra_args(self) -> Dict[str, Any]:
+  def extra_args(self) -> dict[str, Any]:
     return self._extra_args
 
   @abc.abstractmethod
@@ -1377,7 +1377,7 @@ class _TestExecutionPlan(abc.ABC):
     """Executes all test runner invocations in this plan."""
 
   @abc.abstractmethod
-  def required_build_targets(self) -> Set[str]:
+  def required_build_targets(self) -> set[str]:
     """Returns the list of build targets required by this plan."""
 
   @abc.abstractmethod
@@ -1391,9 +1391,9 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
   def __init__(
       self,
       args: argparse.Namespace,
-      extra_args: Dict[str, Any],
-      test_infos: List[test_info.TestInfo],
-      test_type_to_invocations: Dict[str, List[TestRunnerInvocation]],
+      extra_args: dict[str, Any],
+      test_infos: list[test_info.TestInfo],
+      test_type_to_invocations: dict[str, list[TestRunnerInvocation]],
   ):
     super().__init__(args, extra_args, test_infos)
     self._test_type_to_invocations = test_type_to_invocations
@@ -1401,7 +1401,7 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
   @staticmethod
   def create(
       args: argparse.Namespace,
-      test_infos: List[test_info.TestInfo],
+      test_infos: list[test_info.TestInfo],
       results_dir: str,
       mod_info: module_info.ModuleInfo,
   ) -> _TestMappingExecutionPlan:
@@ -1485,7 +1485,7 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
         )
     )
 
-  def required_build_targets(self) -> Set[str]:
+  def required_build_targets(self) -> set[str]:
     build_targets = set()
     for invocation in itertools.chain.from_iterable(
         self._test_type_to_invocations.values()
@@ -1556,9 +1556,9 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
   def __init__(
       self,
       args: argparse.Namespace,
-      extra_args: Dict[str, Any],
-      test_infos: List[test_info.TestInfo],
-      test_runner_invocations: List[TestRunnerInvocation],
+      extra_args: dict[str, Any],
+      test_infos: list[test_info.TestInfo],
+      test_runner_invocations: list[TestRunnerInvocation],
   ):
     super().__init__(args, extra_args, test_infos)
     self._test_runner_invocations = test_runner_invocations
@@ -1566,7 +1566,7 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
   @staticmethod
   def create(
       args: argparse.Namespace,
-      test_infos: List[test_info.TestInfo],
+      test_infos: list[test_info.TestInfo],
       results_dir: str,
       mod_info: module_info.ModuleInfo,
   ) -> _TestModuleExecutionPlan:
@@ -1610,7 +1610,7 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
         inv.requires_device_update() for inv in self._test_runner_invocations
     )
 
-  def required_build_targets(self) -> Set[str]:
+  def required_build_targets(self) -> set[str]:
     build_targets = set()
     for test_runner_invocation in self._test_runner_invocations:
       build_targets |= test_runner_invocation.get_test_runner_reqs()
