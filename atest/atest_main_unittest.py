@@ -483,7 +483,7 @@ class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
     return test_info.TestInfo(test_name, test_runner, build_targets)
 
 
-class HasValidTestMappingArgsTest(AtestUnittestFixture):
+class HasValidTestMappingArgsTest(unittest.TestCase):
   """Test _has_valid_test_mapping_args metric event sending."""
 
   @mock.patch('atest.metrics.metrics.LocalDetectEvent')
