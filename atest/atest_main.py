@@ -82,10 +82,6 @@ OPTION_NOT_FOR_TEST_MAPPING = (
 
 DEVICE_TESTS = 'tests that require device'
 HOST_TESTS = 'tests that do NOT require device'
-RESULT_HEADER_FMT = '\nResults from %(test_type)s:'
-RUN_HEADER_FMT = '\nRunning %(test_count)d %(test_type)s.'
-TEST_COUNT = 'test_count'
-TEST_TYPE = 'test_type'
 END_OF_OPTION = '--'
 # Conditions that atest should exit without sending result to metrics.
 EXIT_CODES_BEFORE_TEST = [
@@ -1478,7 +1474,7 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
       )
       if not tests:
         continue
-      header = RUN_HEADER_FMT % {TEST_COUNT: len(tests), TEST_TYPE: test_type}
+      header = f'\nRunning {len(tests)} {test_type}.'
       atest_utils.colorful_print(header, constants.MAGENTA)
       logging.debug('\n'.join(str(info) for info in tests))
 
@@ -1501,7 +1497,7 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
     failed_tests = []
     for tests_exit_code, reporter, test_type in test_results:
       atest_utils.colorful_print(
-          RESULT_HEADER_FMT % {TEST_TYPE: test_type}, constants.MAGENTA
+          f'\nResults from {test_type}:', constants.MAGENTA
       )
       result = tests_exit_code | reporter.print_summary()
       if result:
