@@ -1018,15 +1018,15 @@ class _AtestMain:
         self._args.list_modules
     )
     print(
-        '\n%s'
-        % atest_utils.mark_cyan(
-            '%s Testable %s modules'
-            % (len(testable_modules), self._args.list_modules)
+        '\n'
+        + atest_utils.mark_cyan(
+            f'{len(testable_modules)} Testable {self._args.list_modules} '
+            'modules'
         )
     )
     print(atest_utils.delimiter('-'))
     for module in sorted(testable_modules):
-      print('\t%s' % module)
+      print(f'\t{module}')
 
     return ExitCode.SUCCESS
 
