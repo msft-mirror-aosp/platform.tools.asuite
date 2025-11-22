@@ -173,8 +173,7 @@ def _get_args_from_config():
       A tuple of (list of args, bool if args were ignored).
   """
   _config = atest_utils.get_config_folder().joinpath('config')
-  if not _config.parent.is_dir():
-    _config.parent.mkdir(parents=True)
+  _config.parent.mkdir(parents=True, exist_ok=True)
   if not _config.is_file():
     _config.write_text(constants.ATEST_EXAMPLE_ARGS, encoding='utf8')
     return [], False
