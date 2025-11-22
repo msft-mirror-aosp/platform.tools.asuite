@@ -51,20 +51,15 @@ def get_test_modules():
   Returns:
       List of strings (the testable module import path).
   """
-  testable_modules = set()
   package = unittest_constants.ATEST_PKG_DIR
   base_path = os.path.dirname(package)
 
-  for dirpath, _, files in os.walk(package):
-    for f in files:
-      if f.endswith('_unittest.py') or f.endswith('_unittest.pyc'):
-        # Now transform it into a no-absolute import path.
-        full_file_path = os.path.join(dirpath, f)
-        rel_file_path = os.path.relpath(full_file_path, base_path)
-        rel_file_path, _ = os.path.splitext(rel_file_path)
-        rel_file_path = rel_file_path.replace(os.sep, '.')
-        testable_modules.add(rel_file_path)
-
+  testable_modules = {
+      os.path.splitext(os.path.relpath(os.path.join(dirpath, f), base_path))[0].replace(os.sep, '.')
+      for dirpath, _, files in os.walk(package)
+      for f in files
+      if f.endswith('_unittest.py') or f.endswith('_unittest.pyc')
+  }
   return list(testable_modules)
 
 
