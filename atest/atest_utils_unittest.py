@@ -364,7 +364,7 @@ class AtestUtilsUnittests(unittest.TestCase):
 
     self.assertFalse(
                   atest_utils.is_test_mapping(args),
-                  f'Option {host_unit_test_arg} indicates NOT a test_mapping!',
+                  'Option --host-unit-test-only indicates NOT a test_mapping!',
               )
   def test_is_test_mapping_smart_test_selection_specified(self):
     """Test method is_test_mapping."""
