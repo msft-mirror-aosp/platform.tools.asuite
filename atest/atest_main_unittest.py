@@ -33,7 +33,6 @@ from atest import constants
 from atest import module_info
 from atest.atest_enum import DetectType
 from atest.atest_enum import ExitCode
-from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.test_finders import test_info
 from pyfakefs import fake_filesystem_unittest
@@ -57,16 +56,8 @@ class AtestUnittests(unittest.TestCase):
         self.assertEqual(bool(atest_main._missing_environment_variables()), expected)
 
   def _assert_args_in_order(self, arg_list: List[str], arg0: str, arg1: str):
-    self.assertIn(arg0, arg_list)
-    index = arg_list.index(arg0)
-    self.assertLess(
-        index,
-        len(arg_list) - 1,
-        f"'{arg0}' is last argument in {arg_list}",
-    )
-    self.assertEqual(
-        arg_list[index + 1],
-        arg1,
+    self.assertTrue(
+        (arg0, arg1) in zip(arg_list, arg_list[1:]),
         f"'{arg0}' is not immediately followed by '{arg1}' in {arg_list}",
     )
 
@@ -96,24 +87,20 @@ class AtestUnittests(unittest.TestCase):
   def test_has_valid_test_mapping_args(self):
     """Test _has_valid_test_mapping_args method."""
     # Test test mapping related args are not mixed with incompatible args.
-    options_no_tm_support = [
-        (
-            '--annotation-filter',
-            'androidx.test.filters.SmallTest',
-        ),
+    test_cases = [
+        ('with_test_mapping',
+         ['--test-mapping', '--annotation-filter', 'androidx.test.filters.SmallTest']),
+        ('with_include_subdirs',
+         ['--include-subdirs', '--annotation-filter', 'androidx.test.filters.SmallTest']),
     ]
-    tm_options = ['--test-mapping', '--include-subdirs']
 
-    for tm_option in tm_options:
-      for no_tm_option, no_tm_option_value in options_no_tm_support:
-        args = [tm_option, no_tm_option]
-        if no_tm_option_value:
-          args.append(no_tm_option_value)
-        parsed_args = atest_main._parse_args(args)
-        self.assertFalse(
-            atest_main._has_valid_test_mapping_args(parsed_args),
-            f'Failed to validate: {args}',
-        )
+    for name, args in test_cases:
+        with self.subTest(name=name):
+            parsed_args = atest_main._parse_args(args)
+            self.assertFalse(
+                atest_main._has_valid_test_mapping_args(parsed_args),
+                f'Failed to validate: {args}',
+            )
 
   @mock.patch.object(atest_utils, 'get_adb_devices')
   @mock.patch.object(metrics_utils, 'send_exit_event')
@@ -163,7 +150,6 @@ class AtestUnittests(unittest.TestCase):
     parsed_args = atest_main._parse_args([])
     test_infos = [host_test_info]
     atest_main._validate_exec_mode(parsed_args, test_infos, host_tests=True)
-    # Make sure the host option is not set.
     self.assertFalse(parsed_args.host)
 
     # $atest <Both-support> with host_tests set to False
@@ -300,23 +286,22 @@ class AtestMainUnitTests(unittest.TestCase):
         (
             'does not inject default args for non-perf tests',
             non_perf_test_info,
-            True,
+            self.assertEqual,
         ),
         (
             'injects default args for perf tests',
             perf_test_info,
-            False,
+            self.assertNotEqual,
         ),
     ]
 
-    for name, t_info, should_be_equal in test_cases:
+    for name, t_info, assert_func in test_cases:
       with self.subTest(name=name):
         args = atest_main._parse_args([])
         atest_main._AtestMain._inject_default_arguments_based_on_test_infos(
             [t_info], args
         )
-        are_equal = args_original == args
-        self.assertEqual(should_be_equal, are_equal)
+        assert_func(args_original, args)
 
   @mock.patch.object(
       atest_main._AtestMain, '_get_build_targets', return_value=None
@@ -462,9 +447,9 @@ class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
 
   # pylint: disable=protected-access
   def create_empty_module_info(self):
-    fake_temp_file_name = next(tempfile._get_candidate_names())
-    self.fs.create_file(fake_temp_file_name, contents='{}')
-    return module_info.load_from_file(module_file=fake_temp_file_name)
+    fake_module_info_path = '/tmp/module-info.json'
+    self.fs.create_file(fake_module_info_path, contents='{}')
+    return module_info.load_from_file(module_file=fake_module_info_path)
 
   def create_module_info(self, modules=None):
     mod_info = self.create_empty_module_info()
@@ -488,7 +473,7 @@ class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
     return test_info.TestInfo(test_name, test_runner, build_targets)
 
 
-class HasValidTestMappingArgsTest(AtestUnittestFixture):
+class HasValidTestMappingArgsTest(unittest.TestCase):
   """Test _has_valid_test_mapping_args metric event sending."""
 
   @mock.patch('atest.metrics.metrics.LocalDetectEvent')
@@ -499,10 +484,10 @@ class HasValidTestMappingArgsTest(AtestUnittestFixture):
         ('with_tests', ['test1'], 0),
     ]
 
+    expected_detect_type = DetectType.IS_TEST_MAPPING
     for name, test_args, expected_result in test_cases:
         with self.subTest(name=name):
             # Arrange
-            expected_detect_type = DetectType.IS_TEST_MAPPING
             args = arg_parser.create_atest_arg_parser().parse_args(test_args)
 
             # Act
