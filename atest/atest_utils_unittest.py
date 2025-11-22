@@ -449,13 +449,13 @@ class AtestUtilsUnittests(unittest.TestCase):
     converted_str = atest_utils.colorize(
         original_str, green_no, bp_color=constants.RED
     )
-    green_highlight_string = '\x1b[1;32;41m%s\x1b[0m' % original_str
+    green_highlight_string = f'\x1b[1;32;41m{original_str}\x1b[0m'
     self.assertEqual(green_highlight_string, converted_str)
 
     # Green text, no background.
     mock_has_colors.return_value = True
     converted_str = atest_utils.colorize(original_str, green_no)
-    green_no_highlight_string = '\x1b[1;32m%s\x1b[0m' % original_str
+    green_no_highlight_string = f'\x1b[1;32m{original_str}\x1b[0m'
     self.assertEqual(green_no_highlight_string, converted_str)
 
   @mock.patch('atest.atest_utils.colorful_print')
@@ -534,7 +534,7 @@ class AtestUtilsUnittests(unittest.TestCase):
     sys.stdout = capture_output
     atest_utils.colorful_print(testing_str, green_no, auto_wrap=False)
     sys.stdout = sys.__stdout__
-    green_no_high_no_wrap_string = '\x1b[1;32m%s\x1b[0m' % testing_str
+    green_no_high_no_wrap_string = f'\x1b[1;32m{testing_str}\x1b[0m'
     self.assertEqual(capture_output.getvalue(), green_no_high_no_wrap_string)
 
     # Green text with red background and wrap.
