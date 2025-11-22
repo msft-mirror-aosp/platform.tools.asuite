@@ -315,8 +315,10 @@ class AtestMainUnitTests(unittest.TestCase):
         atest_main._AtestMain._inject_default_arguments_based_on_test_infos(
             [t_info], args
         )
-        are_equal = args_original == args
-        self.assertEqual(should_be_equal, are_equal)
+        if should_be_equal:
+            self.assertEqual(args_original, args)
+        else:
+            self.assertNotEqual(args_original, args)
 
   @mock.patch.object(
       atest_main._AtestMain, '_get_build_targets', return_value=None
