@@ -1038,23 +1038,19 @@ class _AtestMain:
       return error_code
 
     print(
-        'Would build the following targets: %s'
-        % (atest_utils.mark_green('%s' % self._get_build_targets()))
+        'Would build the following targets: '
+        f'{atest_utils.mark_green(str(self._get_build_targets()))}'
     )
 
     if self._args.test_build_target:
+      artifacts_info = {
+          'build_target': self._args.test_build_target,
+          'branch': self._args.test_branch,
+          'build_id': self._args.test_build_id or 'latest',
+      }
       print(
-          'Would download test artifacts from: %s'
-          % (
-              atest_utils.mark_green(
-                  '%s'
-                  % ({
-                      'build_target': self._args.test_build_target,
-                      'branch': self._args.test_branch,
-                      'build_id': self._args.test_build_id or 'latest',
-                  })
-              )
-          )
+          'Would download test artifacts from: '
+          f'{atest_utils.mark_green(str(artifacts_info))}'
       )
 
     for test_runner, tests in test_runner_handler.group_tests_by_test_runners(
@@ -1070,9 +1066,7 @@ class _AtestMain:
       )
       for run_cmd in run_cmds:
         logging.debug(_DRY_RUN_COMMAND_LOG_PREFIX + run_cmd)
-        print(
-            'Would run test via command: %s' % (atest_utils.mark_green(run_cmd))
-        )
+        print(f'Would run test via command: {atest_utils.mark_green(run_cmd)}')
 
     return ExitCode.SUCCESS
 
