@@ -53,9 +53,9 @@ TEST_INFO_A = test_info.TestInfo(
     TEST_DATA_A,
     TEST_SUITE_A,
     TEST_MODULE_CLASS_A,
-    TEST_INSTALL_LOC_A,
+        TEST_INSTALL_LOC_A,
+    test_finder=TEST_FINDER_A,
 )
-TEST_INFO_A.test_finder = TEST_FINDER_A
 TEST_ZIP_DATA_DIR = 'zip_files'
 TEST_SINGLE_ZIP_NAME = 'single_file.zip'
 TEST_MULTI_ZIP_NAME = 'multi_file.zip'
