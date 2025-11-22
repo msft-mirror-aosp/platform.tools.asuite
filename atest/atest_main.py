@@ -276,8 +276,7 @@ def make_test_run_dir() -> str:
   Returns:
       A string of the dir path.
   """
-  if not os.path.exists(constants.ATEST_RESULT_ROOT):
-    os.makedirs(constants.ATEST_RESULT_ROOT)
+  os.makedirs(constants.ATEST_RESULT_ROOT, exist_ok=True)
   ctime = time.strftime(TEST_RUN_DIR_PREFIX, time.localtime())
   test_result_dir = tempfile.mkdtemp(
       prefix=f'{ctime}_', dir=constants.ATEST_RESULT_ROOT
