@@ -247,33 +247,21 @@ class AtestUnittests(unittest.TestCase):
     reload(constants)
     self.assertIsNotNone(date_time)
 
-  def test_has_set_sufficient_devices_no_device_no_require(self):
-    required_num = 0
-    self.assertTrue(atest_main.has_set_sufficient_devices(required_num))
+  def test_has_set_sufficient_devices(self):
+    """Test has_set_sufficient_devices method."""
+    test_cases = [
+        ('no_device_no_require', 0, None, True),
+        ('equal_required_attached_devices', 2, ['serial1', 'serial2'], True),
+        ('attached_devices_more_than_required',
+         2, ['serial1', 'serial2', 'serial3'], True),
+        ('not_enough_devices', 2, ['serial1'], False),
+    ]
 
-  def test_has_set_sufficient_devices_equal_required_attached_devices(self):
-    required_num = 2
-    attached_devices = ['serial1', 'serial2']
-
-    self.assertTrue(
-        atest_main.has_set_sufficient_devices(required_num, attached_devices)
-    )
-
-  def test_has_set_sufficient_devices_attached_devices_more_than_required(self):
-    required_num = 2
-    attached_devices = ['serial1', 'serial2', 'serial3']
-
-    self.assertTrue(
-        atest_main.has_set_sufficient_devices(required_num, attached_devices)
-    )
-
-  def test_has_set_sufficient_devices_not_enough_devices(self):
-    required_num = 2
-    attached_devices = ['serial1']
-
-    self.assertFalse(
-        atest_main.has_set_sufficient_devices(required_num, attached_devices)
-    )
+    for name, required_num, attached_devices, expected in test_cases:
+      with self.subTest(name=name):
+        result = atest_main.has_set_sufficient_devices(
+            required_num, attached_devices)
+        self.assertEqual(result, expected)
 
   def test_ravenwood_tests_is_deviceless(self):
     ravenwood_test_info = test_info.TestInfo(
