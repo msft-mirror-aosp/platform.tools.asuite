@@ -25,7 +25,6 @@ atest is designed to support any test types that can be ran by TradeFederation.
 # pylint: disable=too-many-lines
 
 from __future__ import annotations
-from __future__ import print_function
 
 import abc
 import argparse
