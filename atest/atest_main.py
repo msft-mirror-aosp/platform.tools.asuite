@@ -282,7 +282,7 @@ def make_test_run_dir() -> str:
     os.makedirs(constants.ATEST_RESULT_ROOT)
   ctime = time.strftime(TEST_RUN_DIR_PREFIX, time.localtime())
   test_result_dir = tempfile.mkdtemp(
-      prefix='%s_' % ctime, dir=constants.ATEST_RESULT_ROOT
+      prefix=f'{ctime}_', dir=constants.ATEST_RESULT_ROOT
   )
   print(_RESULTS_DIR_PRINT_PREFIX + test_result_dir)
   return test_result_dir
@@ -488,7 +488,7 @@ def _has_valid_test_mapping_args(args):
   for arg_value, arg in options_to_validate:
     if arg_value:
       atest_utils.print_and_log_error(
-          atest_utils.mark_red(OPTION_NOT_FOR_TEST_MAPPING.format(arg))
+          atest_utils.mark_red(f'Option "{arg}" does not work for running tests in TEST_MAPPING files')
       )
       return False
   return True
