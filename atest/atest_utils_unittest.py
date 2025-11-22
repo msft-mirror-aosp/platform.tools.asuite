@@ -363,9 +363,9 @@ class AtestUtilsUnittests(unittest.TestCase):
     args = arg_parser.create_atest_arg_parser().parse_args([host_unit_test_arg])
 
     self.assertFalse(
-                  atest_utils.is_test_mapping(args),
-                  'Option --host-unit-test-only indicates NOT a test_mapping!',
-              )
+        atest_utils.is_test_mapping(args),
+        'Option --host-unit-test-only indicates NOT a test_mapping!',
+    )
   def test_is_test_mapping_smart_test_selection_specified(self):
     """Test method is_test_mapping."""
     smart_test_selection_arg = '--sts'
