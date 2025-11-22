@@ -159,7 +159,6 @@ class AtestUnittests(unittest.TestCase):
     parsed_args = atest_main._parse_args([])
     test_infos = [host_test_info]
     atest_main._validate_exec_mode(parsed_args, test_infos, host_tests=True)
-    # Make sure the host option is not set.
     self.assertFalse(parsed_args.host)
 
     # $atest <Both-support> with host_tests set to False
