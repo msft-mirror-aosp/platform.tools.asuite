@@ -401,11 +401,12 @@ def _validate_exec_mode(
 def _validate_adb_devices(args, test_infos):
   """Validate the availability of connected devices via adb command.
 
-  Exit the program with error code if have device-only and host-only.
+  Exit the program with error code if device tests are requested but no device
+  is found.
 
   Args:
       args: parsed args object.
-      test_infos: TestInfo object.
+      test_infos: A list of TestInfo objects.
   """
   # No need to check device availability if the user does not acquire to test.
   if not parse_steps(args).test:
