@@ -179,9 +179,7 @@ def _get_args_from_config():
     _config.write_text(constants.ATEST_EXAMPLE_ARGS, encoding='utf8')
     return [], False
 
-  print(
-      f'\n{atest_utils.mark_cyan("Reading config:")} {_config}'
-  )
+  print(f'\n{atest_utils.mark_cyan("Reading config:")} {_config}')
   args = []
   has_ignored_args = False
   for entry in _config.read_text(encoding='utf8').splitlines():
@@ -336,8 +334,7 @@ def get_extra_args(args) -> Dict[str, str]:
   missing_args = set(_ARG_TO_CONST_MAP).difference(vars(args))
   if missing_args:
     raise AttributeError(
-        f'{type(args).__name__} object has no attribute '
-        f'{sorted(missing_args)}'
+        f'{type(args).__name__} object has no attribute {sorted(missing_args)}'
     )
   extra_args.update({
       const_name: arg_value
@@ -347,7 +344,9 @@ def get_extra_args(args) -> Dict[str, str]:
   return extra_args
 
 
-def _validate_exec_mode(args, test_infos: list[test_info.TestInfo], host_tests=None):
+def _validate_exec_mode(
+    args, test_infos: list[test_info.TestInfo], host_tests=None
+):
   """Validate all test execution modes are not in conflict.
 
   Exit the program with INVALID_EXEC_MODE code if the desired is a host-side
@@ -375,9 +374,9 @@ def _validate_exec_mode(args, test_infos: list[test_info.TestInfo], host_tests=N
         if x.get_supported_exec_mode() == constants.DEVICE_TEST
     ]
     err_msg = (
-        f'Specified --host, but the following tests are device-only:\n  '
+        'Specified --host, but the following tests are device-only:\n  '
         f'{"\n  ".join(sorted(device_only_tests))}\n'
-        f'Please remove the  option when running device-only tests.'
+        'Please remove the  option when running device-only tests.'
     )
   # In the case of '$atest <host-only> <device-only> --host' or
   # '$atest <host-only> <device-only>', exit.
@@ -488,7 +487,10 @@ def _has_valid_test_mapping_args(args):
   for arg_value, arg in options_to_validate:
     if arg_value:
       atest_utils.print_and_log_error(
-          atest_utils.mark_red(f'Option "{arg}" does not work for running tests in TEST_MAPPING files')
+          atest_utils.mark_red(
+              f'Option "{arg}" does not work for running tests in TEST_MAPPING'
+              ' files'
+          )
       )
       return False
   return True

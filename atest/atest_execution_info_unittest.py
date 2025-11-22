@@ -120,7 +120,10 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
       self, directory_path: pathlib.Path, prefix: str
   ) -> bool:
     """Returns True if dir contains any file that starts with prefix."""
-    return any(file.is_file() and file.name.startswith(prefix) for file in directory_path.iterdir())
+    return any(
+        file.is_file() and file.name.startswith(prefix)
+        for file in directory_path.iterdir()
+    )
 
 
 class SendIncrementalSetupStatTests(fake_filesystem_unittest.TestCase):

@@ -56,7 +56,9 @@ class DetectType(IntEnum):
   FOUND_INSTRUMENTATION_TEST = 26
   FOUND_TARGET_ARTIFACTS = 27
   FIND_TEST_IN_DEPS = 28
-  FULL_GENERATE_BAZEL_WORKSPACE_TIME = 29  # Deprecated. Bazel mode has been removed.
+  FULL_GENERATE_BAZEL_WORKSPACE_TIME = (
+      29  # Deprecated. Bazel mode has been removed.
+  )
   # Below detect types are used for determine build conditions:
   # 1. *_CLEAN_OUT: when out/ dir is empty or does not exist.
   # 2. *_BPMK_CHANGE: when any Android.bp/Android.mk has changed.

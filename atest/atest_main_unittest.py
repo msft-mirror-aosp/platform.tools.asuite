@@ -53,7 +53,9 @@ class AtestUnittests(unittest.TestCase):
     for name, return_value, expected in test_cases:
       with self.subTest(name=name):
         mock_env_get.return_value = return_value
-        self.assertEqual(bool(atest_main._missing_environment_variables()), expected)
+        self.assertEqual(
+            bool(atest_main._missing_environment_variables()), expected
+        )
 
   def _assert_args_in_order(self, arg_list: List[str], arg0: str, arg1: str):
     self.assertTrue(
@@ -64,7 +66,13 @@ class AtestUnittests(unittest.TestCase):
   def test_parse_args_with_tests(self):
     """Test _parse_args with test arguments."""
     # Test out test and custom args are properly retrieved.
-    args = ['test_name_one', 'test_name_two', '--', '--custom_arg', 'custom_arg_val']
+    args = [
+        'test_name_one',
+        'test_name_two',
+        '--',
+        '--custom_arg',
+        'custom_arg_val',
+    ]
     parsed_args = atest_main._parse_args(args)
     self.assertEqual(parsed_args.tests, ['test_name_one', 'test_name_two'])
     self._assert_args_in_order(
@@ -88,19 +96,31 @@ class AtestUnittests(unittest.TestCase):
     """Test _has_valid_test_mapping_args method."""
     # Test test mapping related args are not mixed with incompatible args.
     test_cases = [
-        ('with_test_mapping',
-         ['--test-mapping', '--annotation-filter', 'androidx.test.filters.SmallTest']),
-        ('with_include_subdirs',
-         ['--include-subdirs', '--annotation-filter', 'androidx.test.filters.SmallTest']),
+        (
+            'with_test_mapping',
+            [
+                '--test-mapping',
+                '--annotation-filter',
+                'androidx.test.filters.SmallTest',
+            ],
+        ),
+        (
+            'with_include_subdirs',
+            [
+                '--include-subdirs',
+                '--annotation-filter',
+                'androidx.test.filters.SmallTest',
+            ],
+        ),
     ]
 
     for name, args in test_cases:
-        with self.subTest(name=name):
-            parsed_args = atest_main._parse_args(args)
-            self.assertFalse(
-                atest_main._has_valid_test_mapping_args(parsed_args),
-                f'Failed to validate: {args}',
-            )
+      with self.subTest(name=name):
+        parsed_args = atest_main._parse_args(args)
+        self.assertFalse(
+            atest_main._has_valid_test_mapping_args(parsed_args),
+            f'Failed to validate: {args}',
+        )
 
   @mock.patch.object(atest_utils, 'get_adb_devices')
   @mock.patch.object(metrics_utils, 'send_exit_event')
@@ -236,15 +256,20 @@ class AtestUnittests(unittest.TestCase):
     test_cases = [
         ('no_device_no_require', 0, None, True),
         ('equal_required_attached_devices', 2, ['serial1', 'serial2'], True),
-        ('attached_devices_more_than_required',
-         2, ['serial1', 'serial2', 'serial3'], True),
+        (
+            'attached_devices_more_than_required',
+            2,
+            ['serial1', 'serial2', 'serial3'],
+            True,
+        ),
         ('not_enough_devices', 2, ['serial1'], False),
     ]
 
     for name, required_num, attached_devices, expected in test_cases:
       with self.subTest(name=name):
         result = atest_main.has_set_sufficient_devices(
-            required_num, attached_devices)
+            required_num, attached_devices
+        )
         self.assertEqual(result, expected)
 
   def test_ravenwood_tests_is_deviceless(self):
@@ -486,19 +511,19 @@ class HasValidTestMappingArgsTest(unittest.TestCase):
 
     expected_detect_type = DetectType.IS_TEST_MAPPING
     for name, test_args, expected_result in test_cases:
-        with self.subTest(name=name):
-            # Arrange
-            args = arg_parser.create_atest_arg_parser().parse_args(test_args)
+      with self.subTest(name=name):
+        # Arrange
+        args = arg_parser.create_atest_arg_parser().parse_args(test_args)
 
-            # Act
-            atest_main._has_valid_test_mapping_args(args)
+        # Act
+        atest_main._has_valid_test_mapping_args(args)
 
-            # Assert
-            mock_event.assert_called_once_with(
-                detect_type=expected_detect_type, result=expected_result
-            )
-            # Reset mock for the next subtest
-            mock_event.reset_mock()
+        # Assert
+        mock_event.assert_called_once_with(
+            detect_type=expected_detect_type, result=expected_result
+        )
+        # Reset mock for the next subtest
+        mock_event.reset_mock()
 
 
 if __name__ == '__main__':

@@ -56,7 +56,7 @@ class NoopUpdateMethod(DeviceUpdateMethod):
 class AdeviceUpdateMethod(DeviceUpdateMethod):
   _TOOL = 'adevice'
 
-  def __init__(self, adevice_path: Path=_TOOL, targets: Set[str]=None):
+  def __init__(self, adevice_path: Path = _TOOL, targets: Set[str] = None):
     self._adevice_path = adevice_path
     self._targets = targets or set(['sync'])
 

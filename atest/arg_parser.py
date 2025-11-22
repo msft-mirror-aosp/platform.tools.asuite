@@ -48,6 +48,7 @@ _BUILD_OUTPUT_MODE_DESCRIPTIONS = {
     BuildOutputMode.LOGGED: 'print build output to a log file.',
 }
 
+
 def _output_mode_msg() -> str:
   """Generate helper strings for BuildOutputMode."""
   msg = []

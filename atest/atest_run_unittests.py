@@ -55,7 +55,9 @@ def get_test_modules():
   base_path = os.path.dirname(package)
 
   return [
-      os.path.splitext(os.path.relpath(os.path.join(dirpath, f), base_path))[0].replace(os.sep, '.')
+      os.path.splitext(os.path.relpath(os.path.join(dirpath, f), base_path))[
+          0
+      ].replace(os.sep, '.')
       for dirpath, _, files in os.walk(package)
       for f in files
       if f.endswith('_unittest.py') or f.endswith('_unittest.pyc')

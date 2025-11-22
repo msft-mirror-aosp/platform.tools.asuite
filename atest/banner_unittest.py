@@ -15,9 +15,8 @@
 """Unit tests for banner."""
 
 from pathlib import Path
-from pyfakefs import fake_filesystem_unittest
-
 from atest import banner
+from pyfakefs import fake_filesystem_unittest
 
 
 class BannerPrinterTest(fake_filesystem_unittest.TestCase):
@@ -25,18 +24,18 @@ class BannerPrinterTest(fake_filesystem_unittest.TestCase):
 
   def setUp(self):
     self.setUpPyfakefs()
-    self.config_dir = Path("/config")
+    self.config_dir = Path('/config')
 
   def test_print_already_printed_today_does_not_print(self):
     printed_banners = []
     print_func = lambda m: printed_banners.append(m)
-    date_supplier = lambda : "2024-04-16"
+    date_supplier = lambda: '2024-04-16'
     printer_1 = banner.BannerPrinter(self.config_dir)
-    printer_1.register("banner message1")
+    printer_1.register('banner message1')
     printer_1.print(print_func=print_func, date_supplier=date_supplier)
     printer_2 = banner.BannerPrinter(self.config_dir)
-    printer_2.register("banner message2")
+    printer_2.register('banner message2')
 
     printer_2.print(print_func=print_func, date_supplier=date_supplier)
 
-    self.assertCountEqual(printed_banners, ["banner message1"])
+    self.assertCountEqual(printed_banners, ['banner message1'])

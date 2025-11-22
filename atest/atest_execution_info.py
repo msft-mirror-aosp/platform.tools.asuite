@@ -131,9 +131,7 @@ def print_test_result(root, history_arg):
     result_path = os.path.join(path, 'test_result')
     result = atest_utils.load_json_safely(result_path)
     total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
-    summary_str = ', '.join(
-        [f'{k[:1]}:{v}' for k, v in total_summary.items()]
-    )
+    summary_str = ', '.join([f'{k[:1]}:{v}' for k, v in total_summary.items()])
     test_result_url = result.get(_TEST_RESULT_LINK, '')
     args_str = result.get(_ARGS_KEY, '')
     basename = os.path.basename(path)
@@ -199,15 +197,13 @@ def has_non_test_options(args: argparse.ArgumentParser):
       True, if args has at least one non-test option.
       False, otherwise.
   """
-  return any(
-      (
-          args.collect_tests_only,
-          args.dry_run,
-          args.history,
-          args.version,
-          args.latest_result,
-      )
-  )
+  return any((
+      args.collect_tests_only,
+      args.dry_run,
+      args.history,
+      args.version,
+      args.latest_result,
+  ))
 
 
 def has_url_results():
