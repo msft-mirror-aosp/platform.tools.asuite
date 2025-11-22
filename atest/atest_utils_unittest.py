@@ -584,7 +584,7 @@ class AtestUtilsUnittests(unittest.TestCase):
     input_file_name = 'mytest_name'
     cache_root = '/a/b/c'
     expect_hashed_name = (
-        '%s.cache' % hashlib.md5(str(input_file_name).encode()).hexdigest()
+        '%s.cache' % hashlib.md5(input_file_name.encode()).hexdigest()
     )
     self.assertEqual(
         str(Path(cache_root) / expect_hashed_name),
