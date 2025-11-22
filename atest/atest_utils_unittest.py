@@ -361,10 +361,9 @@ class AtestUtilsUnittests(unittest.TestCase):
     args = arg_parser.create_atest_arg_parser().parse_args([host_unit_test_arg])
 
     self.assertFalse(
-        atest_utils.is_test_mapping(args),
-        'Option %s indicates NOT a test_mapping!' % host_unit_test_arg,
-    )
-
+                  atest_utils.is_test_mapping(args),
+                  f'Option {host_unit_test_arg} indicates NOT a test_mapping!',
+              )
   def test_is_test_mapping_smart_test_selection_specified(self):
     """Test method is_test_mapping."""
     smart_test_selection_arg = '--sts'
@@ -374,7 +373,7 @@ class AtestUtilsUnittests(unittest.TestCase):
 
     self.assertFalse(
         atest_utils.is_test_mapping(args),
-        'Option %s indicates NOT a test_mapping!' % smart_test_selection_arg,
+        f'Option {smart_test_selection_arg} indicates NOT a test_mapping!',
     )
 
   def test_is_test_mapping_test_mapping_args(self):
@@ -385,7 +384,7 @@ class AtestUtilsUnittests(unittest.TestCase):
       args = arg_parser.create_atest_arg_parser().parse_args([argument])
       self.assertTrue(
           atest_utils.is_test_mapping(args),
-          'Option %s indicates a test_mapping!' % argument,
+          f'Option {argument} indicates a test_mapping!',
       )
 
   def test_is_test_mapping_implicit_test_mapping(self):
@@ -395,7 +394,7 @@ class AtestUtilsUnittests(unittest.TestCase):
     )
     self.assertTrue(
         atest_utils.is_test_mapping(args),
-        'Option %s indicates a test_mapping!' % args,
+        f'Option {args} indicates a test_mapping!',
     )
 
   def test_is_test_mapping_with_testname(self):
@@ -405,7 +404,7 @@ class AtestUtilsUnittests(unittest.TestCase):
     args = arg_parser.create_atest_arg_parser().parse_args(irrelevant_args)
     self.assertFalse(
         atest_utils.is_test_mapping(args),
-        'Option %s indicates a test_mapping!' % args,
+        f'Option {args} indicates a test_mapping!',
     )
 
   def test_is_test_mapping_false(self):
