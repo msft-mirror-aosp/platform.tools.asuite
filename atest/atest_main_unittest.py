@@ -33,7 +33,6 @@ from atest import constants
 from atest import module_info
 from atest.atest_enum import DetectType
 from atest.atest_enum import ExitCode
-from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.test_finders import test_info
 from pyfakefs import fake_filesystem_unittest
