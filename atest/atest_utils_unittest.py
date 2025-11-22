@@ -690,8 +690,7 @@ class AtestUtilsUnittests(unittest.TestCase):
       side_effect=[
           b'goog/main',
           (
-              b'11 22 tracked_fp1.java\n33 44 c/tracked_fp2.java\n- -'
-              b' tracked_fp3.jar'
+              b'''11 22 tracked_fp1.java\n33 44 c/tracked_fp2.java\n- - tracked_fp3.jar'''
           ),
           b'',
       ],
