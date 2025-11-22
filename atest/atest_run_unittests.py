@@ -54,13 +54,12 @@ def get_test_modules():
   package = unittest_constants.ATEST_PKG_DIR
   base_path = os.path.dirname(package)
 
-  testable_modules = {
+  return [
       os.path.splitext(os.path.relpath(os.path.join(dirpath, f), base_path))[0].replace(os.sep, '.')
       for dirpath, _, files in os.walk(package)
       for f in files
       if f.endswith('_unittest.py') or f.endswith('_unittest.pyc')
-  }
-  return list(testable_modules)
+  ]
 
 
 def run_test_modules(test_modules):
