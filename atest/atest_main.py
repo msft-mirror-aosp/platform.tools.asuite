@@ -570,18 +570,16 @@ def has_set_sufficient_devices(
     required_amount: int, serial: list[str] = None
 ) -> bool:
   """Detect whether sufficient device serial is set for test."""
-  given_amount = len(serial) if serial else 0
-  # Only check when both given_amount and required_amount are non zero.
-  if given_amount > 0 and required_amount > 0:
-    # Base on TF rules, given_amount can be greater than or equal to
-    # required_amount.
-    if required_amount > given_amount:
-      atest_utils.colorful_print(
-          f'The test requires {required_amount} devices, '
-          f'but {given_amount} were given.',
-          constants.RED,
-      )
-      return False
+  if not serial or required_amount <= 0:
+    return True
+
+  if len(serial) < required_amount:
+    atest_utils.colorful_print(
+        f'The test requires {required_amount} devices, '
+        f'but {len(serial)} were given.',
+        constants.RED,
+    )
+    return False
   return True
 
 
