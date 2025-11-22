@@ -170,16 +170,16 @@ def _get_args_from_config():
   Returns:
       A tuple of (list of args, bool if args were ignored).
   """
-  _config = atest_utils.get_config_folder().joinpath('config')
-  _config.parent.mkdir(parents=True, exist_ok=True)
-  if not _config.is_file():
-    _config.write_text(constants.ATEST_EXAMPLE_ARGS, encoding='utf8')
+  config_path = atest_utils.get_config_folder().joinpath('config')
+  config_path.parent.mkdir(parents=True, exist_ok=True)
+  if not config_path.is_file():
+    config_path.write_text(constants.ATEST_EXAMPLE_ARGS, encoding='utf8')
     return [], False
 
-  print(f'\n{atest_utils.mark_cyan("Reading config:")} {_config}')
+  print(f'\n{atest_utils.mark_cyan("Reading config:")} {config_path}')
   args = []
   has_ignored_args = False
-  for entry in _config.read_text(encoding='utf8').splitlines():
+  for entry in config_path.read_text(encoding='utf8').splitlines():
     # Process argument that contains whitespaces and comments.
     # e.g. ["--serial foo # comment"] -> ["--serial", "foo"]
     split_arg_in_line = shlex.split(entry, comments=True)
