@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import abc
 import argparse
-import collections
 import dataclasses
 import functools
 import itertools
@@ -1441,7 +1440,7 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
           minimal_build=args.minimal_build,
       )
 
-    test_type_to_invocations = collections.OrderedDict()
+    test_type_to_invocations = {}
     if extra_args.get(constants.DEVICE_ONLY):
       atest_utils.colorful_print(
           'Option `--device-only` specified. Skip running deviceless tests.',
