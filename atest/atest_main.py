@@ -180,17 +180,16 @@ def _get_args_from_config():
   args = []
   has_ignored_args = False
   for entry in _config.read_text(encoding='utf8').splitlines():
-    # Strip comments.
-    arg_in_line = entry.partition('#')[0].strip()
+    # Process argument that contains whitespaces and comments.
+    # e.g. ["--serial foo # comment"] -> ["--serial", "foo"]
+    split_arg_in_line = shlex.split(entry, comments=True)
+
     # Strip test name/path.
-    if arg_in_line.startswith('-'):
-      # Process argument that contains whitespaces.
-      # e.g. ["--serial foo"] -> ["--serial", "foo"]
-      split_arg_in_line = shlex.split(arg_in_line)
+    if split_arg_in_line and split_arg_in_line[0].startswith('-'):
       if END_OF_OPTION in split_arg_in_line:
         has_ignored_args = True
         print(
-            f'Line {atest_utils.mark_yellow(arg_in_line)} contains '
+            f'Line {atest_utils.mark_yellow(entry.strip())} contains '
             f'{END_OF_OPTION} and will be ignored.'
         )
       else:
