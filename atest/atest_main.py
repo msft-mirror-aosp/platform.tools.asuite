@@ -150,7 +150,7 @@ def parse_steps(args: arg_parser.AtestArgParser) -> Steps:
   """
   # Implicitly running 'build', 'install' and 'test' when args.steps is None.
   if not args.steps:
-    return Steps(True, True, True)
+    return Steps(build=True, install=True, test=True)
   build = constants.BUILD_STEP in args.steps
   test = constants.TEST_STEP in args.steps
   install = constants.INSTALL_STEP in args.steps
@@ -160,7 +160,7 @@ def parse_steps(args: arg_parser.AtestArgParser) -> Steps:
         'supported; Atest will proceed testing!'
     )
     test = True
-  return Steps(build, install, test)
+  return Steps(build=build, install=install, test=test)
 
 
 def _get_args_from_config():
