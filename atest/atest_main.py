@@ -671,9 +671,8 @@ class _AtestMain:
     )
     if has_config_args:
       print(
-          'The actual cmd will be: \n\t{}\n'.format(
-              atest_utils.mark_cyan('atest ' + ' '.join(final_args))
-          )
+          'The actual cmd will be:'
+          f' \n\t{atest_utils.mark_cyan("atest " + " ".join(final_args))}\n'
       )
       if has_ignored_args:
         atest_utils.colorful_print(
