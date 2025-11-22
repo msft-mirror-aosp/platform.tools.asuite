@@ -224,11 +224,10 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
   return args
 
 
-def _configure_logging(verbose: bool, results_dir: str):
+def _configure_logging(results_dir: str):
   """Configure the logger.
 
   Args:
-      verbose: If true display DEBUG level logs on console.
       results_dir: A directory which stores the ATest execution information.
   """
   log_fmat = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
@@ -689,7 +688,7 @@ class _AtestMain:
 
     self._args = _parse_args(final_args)
     atest_configs.GLOBAL_ARGS = self._args
-    _configure_logging(self._args.verbose, self._results_dir)
+    _configure_logging(self._results_dir)
 
     logging.debug(
         'Start of atest run. sys.argv: %s, final_args: %s',
