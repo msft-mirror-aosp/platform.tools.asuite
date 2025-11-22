@@ -525,7 +525,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         testing_str, green_no, bp_color=constants.RED, auto_wrap=False
     )
     sys.stdout = sys.__stdout__
-    green_highlight_no_wrap_string = '\x1b[1;32;41m%s\x1b[0m' % testing_str
+    green_highlight_no_wrap_string = f'\x1b[1;32;41m{testing_str}\x1b[0m'
     self.assertEqual(capture_output.getvalue(), green_highlight_no_wrap_string)
 
     # Green text, no background, no wrap.
