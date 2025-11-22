@@ -61,33 +61,24 @@ class AtestUnittests(unittest.TestCase):
     self.assertFalse(atest_main._missing_environment_variables())
 
   def assert_args_in_order(self, arg_list: List[str], arg0: str, arg1: str):
-    self.assertTrue(
-        arg0 in arg_list, "'" + arg0 + "' is not in " + str(arg_list)
-    )
     index = arg_list.index(arg0)
     self.assertNotEqual(
         index,
         len(arg_list) - 1,
-        "'" + arg0 + "' is last argument in " + str(arg_list),
+        f"'{arg0}' is last argument in {arg_list}",
     )
     self.assertEqual(
         arg_list[index + 1],
         arg1,
-        "'"
-        + arg0
-        + "' is not immediately followed by '"
-        + arg1
-        + "' in "
-        + str(arg_list),
+        f"'{arg0}' is not immediately followed by '{arg1}' in {arg_list}",
     )
 
-  def test_parse_args(self):
-    """Test _parse_args parses command line args."""
+  def test_parse_args_with_tests(self):
+    """Test _parse_args with test arguments."""
     test_one = 'test_name_one'
     test_two = 'test_name_two'
     custom_arg = '--custom_arg'
     custom_arg_val = 'custom_arg_val'
-    pos_custom_arg = 'pos_custom_arg'
 
     # Test out test and custom args are properly retrieved.
     args = [test_one, test_two, '--', custom_arg, custom_arg_val]
@@ -96,6 +87,11 @@ class AtestUnittests(unittest.TestCase):
     self.assert_args_in_order(
         parsed_args.custom_args, custom_arg, custom_arg_val
     )
+
+  def test_parse_args_no_tests(self):
+    """Test _parse_args with no test arguments."""
+    custom_arg_val = 'custom_arg_val'
+    pos_custom_arg = 'pos_custom_arg'
 
     # Test out custom positional args with no test args.
     args = ['--', pos_custom_arg, custom_arg_val]
@@ -124,7 +120,7 @@ class AtestUnittests(unittest.TestCase):
         parsed_args = atest_main._parse_args(args)
         self.assertFalse(
             atest_main._has_valid_test_mapping_args(parsed_args),
-            'Failed to validate: %s' % args,
+            f'Failed to validate: {args}',
         )
 
   @mock.patch.object(atest_utils, 'get_adb_devices')
@@ -257,7 +253,7 @@ class AtestUnittests(unittest.TestCase):
         '_'.join(folder_name.split('_')[0:2]), atest_main.TEST_RUN_DIR_PREFIX
     )
     reload(constants)
-    self.assertTrue(date_time)
+    self.assertIsNotNone(date_time)
 
   def test_has_set_sufficient_devices_no_device_no_require(self):
     required_num = 0
@@ -374,7 +370,7 @@ class AtestMainUnitTests(unittest.TestCase):
   @mock.patch('os.getenv', return_value='/tmp/my_android_build_root')
   @mock.patch('os.getcwd', return_value='/tmp/my_android_build_root/tools')
   def test_check_envs_and_args_smart_test_selection_not_under_a_repo(
-      self, _, __, ___, ____
+      self, _mock_getcwd, _mock_getenv, _mock_missing_env, _mock_run
   ):
     pseudo_atest_main = atest_main._AtestMain(argv=[])
     pseudo_atest_main._args = atest_main._parse_args(argv=['--sts'])
@@ -502,43 +498,40 @@ class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
     return test_info.TestInfo(test_name, test_runner, build_targets)
 
 
-class PrintModuleInfoTest(AtestUnittestFixture):
-  """Test conditions for _print_module_info."""
+class HasValidTestMappingArgsTest(AtestUnittestFixture):
+  """Test _has_valid_test_mapping_args metric event sending."""
 
-  def tearDown(self):
-    sys.stdout = sys.__stdout__
-
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
   def test_has_valid_test_mapping_args_is_test_mapping_detect_event_send_1(
-      self,
+      self, mock_event
   ):
     # Arrange
     expected_detect_type = DetectType.IS_TEST_MAPPING
     expected_result = 1
-    metrics.LocalDetectEvent = mock.MagicMock()
     args = arg_parser.create_atest_arg_parser().parse_args([])
 
     # Act
     atest_main._has_valid_test_mapping_args(args)
 
     # Assert
-    metrics.LocalDetectEvent.assert_called_once_with(
+    mock_event.assert_called_once_with(
         detect_type=expected_detect_type, result=expected_result
     )
 
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
   def test_has_valid_test_mapping_args_mpt_test_mapping_detect_event_send_0(
-      self,
+      self, mock_event
   ):
     # Arrange
     expected_detect_type = DetectType.IS_TEST_MAPPING
     expected_result = 0
-    metrics.LocalDetectEvent = mock.MagicMock()
     args = arg_parser.create_atest_arg_parser().parse_args(['test1'])
 
     # Act
     atest_main._has_valid_test_mapping_args(args)
 
     # Assert
-    metrics.LocalDetectEvent.assert_called_once_with(
+    mock_event.assert_called_once_with(
         detect_type=expected_detect_type, result=expected_result
     )
 
