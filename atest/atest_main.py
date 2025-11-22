@@ -501,7 +501,7 @@ def is_from_test_mapping(test_infos):
   Returns:
       True if the test infos are from TEST_MAPPING files.
   """
-  return list(test_infos)[0].from_test_mapping
+  return next(iter(test_infos)).from_test_mapping
 
 
 def _split_test_mapping_tests(test_infos):
