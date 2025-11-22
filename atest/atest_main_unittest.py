@@ -96,24 +96,20 @@ class AtestUnittests(unittest.TestCase):
   def test_has_valid_test_mapping_args(self):
     """Test _has_valid_test_mapping_args method."""
     # Test test mapping related args are not mixed with incompatible args.
-    options_no_tm_support = [
-        (
-            '--annotation-filter',
-            'androidx.test.filters.SmallTest',
-        ),
+    test_cases = [
+        ('with_test_mapping',
+         ['--test-mapping', '--annotation-filter', 'androidx.test.filters.SmallTest']),
+        ('with_include_subdirs',
+         ['--include-subdirs', '--annotation-filter', 'androidx.test.filters.SmallTest']),
     ]
-    tm_options = ['--test-mapping', '--include-subdirs']
 
-    for tm_option in tm_options:
-      for no_tm_option, no_tm_option_value in options_no_tm_support:
-        args = [tm_option, no_tm_option]
-        if no_tm_option_value:
-          args.append(no_tm_option_value)
-        parsed_args = atest_main._parse_args(args)
-        self.assertFalse(
-            atest_main._has_valid_test_mapping_args(parsed_args),
-            f'Failed to validate: {args}',
-        )
+    for name, args in test_cases:
+        with self.subTest(name=name):
+            parsed_args = atest_main._parse_args(args)
+            self.assertFalse(
+                atest_main._has_valid_test_mapping_args(parsed_args),
+                f'Failed to validate: {args}',
+            )
 
   @mock.patch.object(atest_utils, 'get_adb_devices')
   @mock.patch.object(metrics_utils, 'send_exit_event')
