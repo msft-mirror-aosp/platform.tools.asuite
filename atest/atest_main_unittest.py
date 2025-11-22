@@ -448,10 +448,9 @@ class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
 
   # pylint: disable=protected-access
   def create_empty_module_info(self):
-    fd, fake_temp_file_name = tempfile.mkstemp()
-    with os.fdopen(fd, 'w') as tmp:
-        tmp.write('{}')
-    return module_info.load_from_file(module_file=fake_temp_file_name)
+    fake_module_info_path = '/tmp/module-info.json'
+    self.fs.create_file(fake_module_info_path, contents='{}')
+    return module_info.load_from_file(module_file=fake_module_info_path)
 
   def create_module_info(self, modules=None):
     mod_info = self.create_empty_module_info()
