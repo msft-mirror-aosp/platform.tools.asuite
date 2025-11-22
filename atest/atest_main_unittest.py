@@ -495,10 +495,10 @@ class HasValidTestMappingArgsTest(unittest.TestCase):
         ('with_tests', ['test1'], 0),
     ]
 
+    expected_detect_type = DetectType.IS_TEST_MAPPING
     for name, test_args, expected_result in test_cases:
         with self.subTest(name=name):
             # Arrange
-            expected_detect_type = DetectType.IS_TEST_MAPPING
             args = arg_parser.create_atest_arg_parser().parse_args(test_args)
 
             # Act
