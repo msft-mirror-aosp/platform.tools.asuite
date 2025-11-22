@@ -363,14 +363,14 @@ def _validate_exec_mode(
   host_only_test_detected = constants.DEVICELESS_TEST in all_device_modes
   # In the case of '$atest <device-only> --host', exit.
   if (host_tests or args.host) and device_only_test_detected:
-    device_only_tests = [
+    device_only_tests = sorted(
         x.test_name
         for x in test_infos
         if x.get_supported_exec_mode() == constants.DEVICE_TEST
-    ]
+    )
     err_msg = (
         'Specified --host, but the following tests are device-only:\n  '
-        f'{"\n  ".join(sorted(device_only_tests))}\n'
+        f'{"\n  ".join(device_only_tests)}\n'
         'Please remove the --host option when running device-only tests.'
     )
   # In the case of '$atest <host-only> <device-only> --host' or
