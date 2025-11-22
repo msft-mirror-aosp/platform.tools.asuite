@@ -491,29 +491,6 @@ def _has_valid_test_mapping_args(args):
   return True
 
 
-def _print_deprecation_warning(arg_to_deprecate: str):
-  """For features that are up for deprecation in the near future, print a message
-
-  to alert the user about the upcoming deprecation.
-
-  Args:
-      arg_to_deprecate: the arg with which the to-be-deprecated feature is
-        called.
-  """
-  args_to_deprecation_info = {
-      # arg_to_deprecate : (deprecation timeframe, additional info for users)
-      '--info': ('is deprecated.', '\nUse CodeSearch or `gomod` instead.')
-  }
-
-  warning_message = (
-      f'\nWARNING: The `{arg_to_deprecate}` feature '
-      + ' '.join(args_to_deprecation_info[arg_to_deprecate])
-      + '\nPlease file a bug or feature request to the Atest team if you have'
-      ' any concerns.'
-  )
-  atest_utils.colorful_print(warning_message, constants.RED)
-
-
 def is_from_test_mapping(test_infos):
   """Check that the test_infos came from TEST_MAPPING files.
 
