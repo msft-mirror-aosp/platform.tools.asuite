@@ -53,7 +53,7 @@ TEST_INFO_A = test_info.TestInfo(
     TEST_DATA_A,
     TEST_SUITE_A,
     TEST_MODULE_CLASS_A,
-        TEST_INSTALL_LOC_A,
+    TEST_INSTALL_LOC_A,
     test_finder=TEST_FINDER_A,
 )
 TEST_ZIP_DATA_DIR = 'zip_files'
@@ -66,15 +66,18 @@ Manifest groups: all,-notdefault
 ----------------------------"""
 
 
-
 MOCK_TERMINAL_SIZE_WIDTH_5 = (5, -1)
+
 
 class StreamIoOutputTest(unittest.TestCase):
   """Class that tests the _stream_io_output function."""
 
   def setUp(self):
     self.patcher = mock.patch.object(
-        atest_utils, 'get_terminal_size', return_value=MOCK_TERMINAL_SIZE_WIDTH_5)
+        atest_utils,
+        'get_terminal_size',
+        return_value=MOCK_TERMINAL_SIZE_WIDTH_5,
+    )
     self.patcher.start()
 
   def tearDown(self):
@@ -366,6 +369,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         atest_utils.is_test_mapping(args),
         'Option --host-unit-test-only indicates NOT a test_mapping!',
     )
+
   def test_is_test_mapping_smart_test_selection_specified(self):
     """Test method is_test_mapping."""
     smart_test_selection_arg = '--sts'
@@ -694,7 +698,7 @@ class AtestUtilsUnittests(unittest.TestCase):
       side_effect=[
           b'goog/main',
           (
-              b'''11 22 tracked_fp1.java\n33 44 c/tracked_fp2.java\n- - tracked_fp3.jar'''
+              b"""11 22 tracked_fp1.java\n33 44 c/tracked_fp2.java\n- - tracked_fp3.jar"""
           ),
           b'',
       ],
