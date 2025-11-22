@@ -89,6 +89,4 @@ if __name__ == '__main__':
   print(sys.version_info)
   with mock.patch.dict('os.environ', ENV):
     result = run_test_modules(get_test_modules())
-    if not result.wasSuccessful():
-      sys.exit(not result.wasSuccessful())
-    sys.exit(0)
+    sys.exit(not result.wasSuccessful())
