@@ -233,13 +233,14 @@ def _configure_logging(results_dir: str):
   date_fmt = '%Y-%m-%d %H:%M:%S'
   log_path = os.path.join(results_dir, 'atest.log')
 
-  logger = logging.getLogger('')
-  # Clear the handlers to prevent logging.basicConfig from being called twice.
-  logger.handlers = []
-
   logging.basicConfig(
-      filename=log_path, level=logging.DEBUG, format=log_fmat, datefmt=date_fmt
+      filename=log_path,
+      level=logging.DEBUG,
+      format=log_fmat,
+      datefmt=date_fmt,
+      force=True,
   )
+  logger = logging.getLogger('')
 
   stdout_log_level = 25
   stderr_log_level = 45
