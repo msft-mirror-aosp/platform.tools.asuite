@@ -54,8 +54,8 @@ TEST_INFO_A = test_info.TestInfo(
     TEST_SUITE_A,
     TEST_MODULE_CLASS_A,
     TEST_INSTALL_LOC_A,
+    test_finder=TEST_FINDER_A,
 )
-TEST_INFO_A.test_finder = TEST_FINDER_A
 TEST_ZIP_DATA_DIR = 'zip_files'
 TEST_SINGLE_ZIP_NAME = 'single_file.zip'
 TEST_MULTI_ZIP_NAME = 'multi_file.zip'
@@ -66,11 +66,22 @@ Manifest groups: all,-notdefault
 ----------------------------"""
 
 
-
 MOCK_TERMINAL_SIZE_WIDTH_5 = (5, -1)
+
 
 class StreamIoOutputTest(unittest.TestCase):
   """Class that tests the _stream_io_output function."""
+
+  def setUp(self):
+    self.patcher = mock.patch.object(
+        atest_utils,
+        'get_terminal_size',
+        return_value=MOCK_TERMINAL_SIZE_WIDTH_5,
+    )
+    self.patcher.start()
+
+  def tearDown(self):
+    self.patcher.stop()
 
   def test_stream_io_output_no_max_lines_no_clear_line_code(self):
     """Test when max_lines is None, no clear line code is written to the stream."""
@@ -87,8 +98,7 @@ class StreamIoOutputTest(unittest.TestCase):
         atest_utils._BASH_CLEAR_PREVIOUS_LINE_CODE, io_output.getvalue()
     )
 
-  @mock.patch.object(atest_utils, 'get_terminal_size', return_value=MOCK_TERMINAL_SIZE_WIDTH_5)
-  def test_stream_io_output_wrap_long_lines(self, _):
+  def test_stream_io_output_wrap_long_lines(self):
     """Test when max_lines is set, long lines will be wrapped."""
     io_input = StringIO()
     io_input.write(f'1' * 10)
@@ -101,8 +111,7 @@ class StreamIoOutputTest(unittest.TestCase):
 
     self.assertIn('11111\n11111', io_output.getvalue())
 
-  @mock.patch.object(atest_utils, 'get_terminal_size', return_value=MOCK_TERMINAL_SIZE_WIDTH_5)
-  def test_stream_io_output_clear_lines_over_max_lines(self, _):
+  def test_stream_io_output_clear_lines_over_max_lines(self):
     """Test when line exceeds max_lines, the previous lines are cleared."""
     io_input = StringIO()
     io_input.write('1\n2\n3\n')
@@ -122,8 +131,7 @@ class StreamIoOutputTest(unittest.TestCase):
         io_output.getvalue(),
     )
 
-  @mock.patch.object(atest_utils, 'get_terminal_size', return_value=MOCK_TERMINAL_SIZE_WIDTH_5)
-  def test_stream_io_output_no_clear_lines_under_max_lines(self, _):
+  def test_stream_io_output_no_clear_lines_under_max_lines(self):
     """Test when line is under max_lines, the previous lines are not cleared."""
     io_input = StringIO()
     io_input.write('1\n2\n3\n')
@@ -139,8 +147,7 @@ class StreamIoOutputTest(unittest.TestCase):
         io_output.getvalue(),
     )
 
-  @mock.patch.object(atest_utils, 'get_terminal_size', return_value=MOCK_TERMINAL_SIZE_WIDTH_5)
-  def test_stream_io_output_no_lines_written_no_lines_cleared(self, _):
+  def test_stream_io_output_no_lines_written_no_lines_cleared(self):
     """Test when nothing is written, no lines are cleared."""
     io_input = StringIO()
     io_output = StringIO()
@@ -154,8 +161,7 @@ class StreamIoOutputTest(unittest.TestCase):
         io_output.getvalue(),
     )
 
-  @mock.patch.object(atest_utils, 'get_terminal_size', return_value=MOCK_TERMINAL_SIZE_WIDTH_5)
-  def test_stream_io_output_replace_tab_with_spaces(self, _):
+  def test_stream_io_output_replace_tab_with_spaces(self):
     """Test when line exceeds max_lines, the previous lines are cleared."""
     io_input = StringIO()
     io_input.write('1\t2')
@@ -360,9 +366,10 @@ class AtestUtilsUnittests(unittest.TestCase):
     args = arg_parser.create_atest_arg_parser().parse_args([host_unit_test_arg])
 
     self.assertFalse(
-                  atest_utils.is_test_mapping(args),
-                  f'Option {host_unit_test_arg} indicates NOT a test_mapping!',
-              )
+        atest_utils.is_test_mapping(args),
+        'Option --host-unit-test-only indicates NOT a test_mapping!',
+    )
+
   def test_is_test_mapping_smart_test_selection_specified(self):
     """Test method is_test_mapping."""
     smart_test_selection_arg = '--sts'
@@ -544,7 +551,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         testing_str, green_no, bp_color=constants.RED, auto_wrap=True
     )
     sys.stdout = sys.__stdout__
-    green_highlight_wrap_string = '\x1b[1;32;41m%s\x1b[0m\n' % testing_str
+    green_highlight_wrap_string = f'\x1b[1;32;41m{testing_str}\x1b[0m\n'
     self.assertEqual(capture_output.getvalue(), green_highlight_wrap_string)
 
     # Green text with wrap, but no background.
@@ -553,7 +560,7 @@ class AtestUtilsUnittests(unittest.TestCase):
     sys.stdout = capture_output
     atest_utils.colorful_print(testing_str, green_no, auto_wrap=True)
     sys.stdout = sys.__stdout__
-    green_wrap_no_highlight_string = '\x1b[1;32m%s\x1b[0m\n' % testing_str
+    green_wrap_no_highlight_string = f'\x1b[1;32m{testing_str}\x1b[0m\n'
     self.assertEqual(capture_output.getvalue(), green_wrap_no_highlight_string)
 
   def test_is_supported_mainline_module(self):
@@ -584,7 +591,7 @@ class AtestUtilsUnittests(unittest.TestCase):
     input_file_name = 'mytest_name'
     cache_root = '/a/b/c'
     expect_hashed_name = (
-        '%s.cache' % hashlib.md5(str(input_file_name).encode()).hexdigest()
+        '%s.cache' % hashlib.md5(input_file_name.encode()).hexdigest()
     )
     self.assertEqual(
         str(Path(cache_root) / expect_hashed_name),
@@ -691,7 +698,7 @@ class AtestUtilsUnittests(unittest.TestCase):
       side_effect=[
           b'goog/main',
           (
-              b'''11 22 tracked_fp1.java\n33 44 c/tracked_fp2.java\n- - tracked_fp3.jar'''
+              b"""11 22 tracked_fp1.java\n33 44 c/tracked_fp2.java\n- - tracked_fp3.jar"""
           ),
           b'',
       ],
