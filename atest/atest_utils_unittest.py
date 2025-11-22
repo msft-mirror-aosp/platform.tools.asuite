@@ -72,6 +72,14 @@ MOCK_TERMINAL_SIZE_WIDTH_5 = (5, -1)
 class StreamIoOutputTest(unittest.TestCase):
   """Class that tests the _stream_io_output function."""
 
+  def setUp(self):
+    self.patcher = mock.patch.object(
+        atest_utils, 'get_terminal_size', return_value=MOCK_TERMINAL_SIZE_WIDTH_5)
+    self.patcher.start()
+
+  def tearDown(self):
+    self.patcher.stop()
+
   def test_stream_io_output_no_max_lines_no_clear_line_code(self):
     """Test when max_lines is None, no clear line code is written to the stream."""
     io_input = StringIO()
@@ -87,8 +95,7 @@ class StreamIoOutputTest(unittest.TestCase):
         atest_utils._BASH_CLEAR_PREVIOUS_LINE_CODE, io_output.getvalue()
     )
 
-  @mock.patch.object(atest_utils, 'get_terminal_size', return_value=MOCK_TERMINAL_SIZE_WIDTH_5)
-  def test_stream_io_output_wrap_long_lines(self, _):
+  def test_stream_io_output_wrap_long_lines(self):
     """Test when max_lines is set, long lines will be wrapped."""
     io_input = StringIO()
     io_input.write(f'1' * 10)
@@ -101,8 +108,7 @@ class StreamIoOutputTest(unittest.TestCase):
 
     self.assertIn('11111\n11111', io_output.getvalue())
 
-  @mock.patch.object(atest_utils, 'get_terminal_size', return_value=MOCK_TERMINAL_SIZE_WIDTH_5)
-  def test_stream_io_output_clear_lines_over_max_lines(self, _):
+  def test_stream_io_output_clear_lines_over_max_lines(self):
     """Test when line exceeds max_lines, the previous lines are cleared."""
     io_input = StringIO()
     io_input.write('1\n2\n3\n')
@@ -122,8 +128,7 @@ class StreamIoOutputTest(unittest.TestCase):
         io_output.getvalue(),
     )
 
-  @mock.patch.object(atest_utils, 'get_terminal_size', return_value=MOCK_TERMINAL_SIZE_WIDTH_5)
-  def test_stream_io_output_no_clear_lines_under_max_lines(self, _):
+  def test_stream_io_output_no_clear_lines_under_max_lines(self):
     """Test when line is under max_lines, the previous lines are not cleared."""
     io_input = StringIO()
     io_input.write('1\n2\n3\n')
@@ -139,8 +144,7 @@ class StreamIoOutputTest(unittest.TestCase):
         io_output.getvalue(),
     )
 
-  @mock.patch.object(atest_utils, 'get_terminal_size', return_value=MOCK_TERMINAL_SIZE_WIDTH_5)
-  def test_stream_io_output_no_lines_written_no_lines_cleared(self, _):
+  def test_stream_io_output_no_lines_written_no_lines_cleared(self):
     """Test when nothing is written, no lines are cleared."""
     io_input = StringIO()
     io_output = StringIO()
@@ -154,8 +158,7 @@ class StreamIoOutputTest(unittest.TestCase):
         io_output.getvalue(),
     )
 
-  @mock.patch.object(atest_utils, 'get_terminal_size', return_value=MOCK_TERMINAL_SIZE_WIDTH_5)
-  def test_stream_io_output_replace_tab_with_spaces(self, _):
+  def test_stream_io_output_replace_tab_with_spaces(self):
     """Test when line exceeds max_lines, the previous lines are cleared."""
     io_input = StringIO()
     io_input.write('1\t2')
