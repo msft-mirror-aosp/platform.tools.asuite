@@ -15,22 +15,20 @@
 """Script that generates arguments for autocompletion."""
 
 import argparse
+from typing import Iterator
 
 from atest import arg_parser
 
 
-def _get_optional_args(parser: argparse.ArgumentParser) -> list[str]:
+def _get_optional_args(parser: argparse.ArgumentParser) -> Iterator[str]:
   """Get args from actions and return optional args.
 
   Returns:
-      A list of optional arguments.
+      A generator of optional arguments.
   """
-  argument_list = []
-  # The output of _get_optional_actions(): [['-t', '--test']]
-  # return an argument list: ['-t', '--test']
-  for arg in parser._get_optional_actions():
-    argument_list.extend(arg.option_strings)
-  return argument_list
+  for action in parser._get_optional_actions():
+    for option in action.option_strings:
+      yield option
 
 
 if __name__ == '__main__':
