@@ -51,7 +51,7 @@ def get_test_modules():
   Returns:
       List of strings (the testable module import path).
   """
-  testable_modules = []
+  testable_modules = set()
   package = unittest_constants.ATEST_PKG_DIR
   base_path = os.path.dirname(package)
 
@@ -63,9 +63,9 @@ def get_test_modules():
         rel_file_path = os.path.relpath(full_file_path, base_path)
         rel_file_path, _ = os.path.splitext(rel_file_path)
         rel_file_path = rel_file_path.replace(os.sep, '.')
-        testable_modules.append(rel_file_path)
+        testable_modules.add(rel_file_path)
 
-  return testable_modules
+  return list(testable_modules)
 
 
 def run_test_modules(test_modules):
