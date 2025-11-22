@@ -470,7 +470,8 @@ class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
 
   def create_module_info(self, modules=None):
     mod_info = self.create_empty_module_info()
-    modules = modules or []
+    if modules is None:
+      modules = []
 
     for m in modules:
       mod_info.name_to_module_info[m['module_name']] = m
