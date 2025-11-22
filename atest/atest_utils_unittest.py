@@ -547,7 +547,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         testing_str, green_no, bp_color=constants.RED, auto_wrap=True
     )
     sys.stdout = sys.__stdout__
-    green_highlight_wrap_string = '\x1b[1;32;41m%s\x1b[0m\n' % testing_str
+    green_highlight_wrap_string = f'\x1b[1;32;41m{testing_str}\x1b[0m\n'
     self.assertEqual(capture_output.getvalue(), green_highlight_wrap_string)
 
     # Green text with wrap, but no background.
@@ -556,7 +556,7 @@ class AtestUtilsUnittests(unittest.TestCase):
     sys.stdout = capture_output
     atest_utils.colorful_print(testing_str, green_no, auto_wrap=True)
     sys.stdout = sys.__stdout__
-    green_wrap_no_highlight_string = '\x1b[1;32m%s\x1b[0m\n' % testing_str
+    green_wrap_no_highlight_string = f'\x1b[1;32m{testing_str}\x1b[0m\n'
     self.assertEqual(capture_output.getvalue(), green_wrap_no_highlight_string)
 
   def test_is_supported_mainline_module(self):
