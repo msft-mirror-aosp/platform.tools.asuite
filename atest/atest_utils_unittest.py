@@ -63,8 +63,7 @@ TEST_MULTI_ZIP_NAME = 'multi_file.zip'
 REPO_INFO_OUTPUT = """Manifest branch: test_branch
 Manifest merge branch: refs/heads/test_branch
 Manifest groups: all,-notdefault
-----------------------------
-"""
+----------------------------"""
 
 
 
