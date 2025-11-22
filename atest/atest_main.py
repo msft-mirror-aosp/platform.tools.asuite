@@ -137,11 +137,11 @@ class Steps:
   test: bool
 
 
-def parse_steps(args: arg_parser.AtestArgParser) -> Steps:
+def parse_steps(args: argparse.Namespace) -> Steps:
   """Return Steps object.
 
   Args:
-      args: an AtestArgParser object.
+      args: an argparse.Namespace object.
 
   Returns:
       Step object that stores the boolean of build, install and test.
