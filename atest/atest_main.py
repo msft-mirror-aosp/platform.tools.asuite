@@ -1511,7 +1511,7 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
         continue
       header = RUN_HEADER_FMT % {TEST_COUNT: len(tests), TEST_TYPE: test_type}
       atest_utils.colorful_print(header, constants.MAGENTA)
-      logging.debug('\n'.join([str(info) for info in tests]))
+      logging.debug('\n'.join(str(info) for info in tests))
 
       reporter = result_reporter.ResultReporter(
           collect_only=self._extra_args.get(constants.COLLECT_TESTS_ONLY),
