@@ -32,6 +32,7 @@ class BannerHistory:
 
   @staticmethod
   def create(config_dir: Path) -> BannerHistory:
+    """Create a BannerHistory instance."""
     config_dir.mkdir(parents=True, exist_ok=True)
     history_file = config_dir / 'banner.json'
 
