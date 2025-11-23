@@ -1267,9 +1267,7 @@ def matched_tf_error_log(content):
       True if the content matches the regular expression for tradefed error or
       warning log.
   """
-  if _TF_ERROR_LOG_RE.search(content):
-    return True
-  return False
+  return bool(_TF_ERROR_LOG_RE.search(content))
 
 
 def read_test_record(path):
