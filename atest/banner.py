@@ -30,8 +30,8 @@ class BannerHistory:
 
   _LAST_BANNER_PROMPT_DATE = 'last_banner_prompt_date'
 
-  @staticmethod
-  def create(config_dir: Path) -> BannerHistory:
+  @classmethod
+  def create(cls, config_dir: Path) -> BannerHistory:
     """Create a BannerHistory instance."""
     config_dir.mkdir(parents=True, exist_ok=True)
     history_file = config_dir / 'banner.json'
@@ -47,7 +47,7 @@ class BannerHistory:
       )
       history = {}
 
-    return BannerHistory(history_file, history)
+    return cls(history_file, history)
 
   def __init__(self, history_file: Path, history: dict):
     self._history_file = history_file
@@ -68,9 +68,9 @@ class BannerHistory:
 class BannerPrinter:
   """A printer used to collect and print banners."""
 
-  @staticmethod
-  def create() -> BannerPrinter:
-    return BannerPrinter(atest_utils.get_config_folder())
+  @classmethod
+  def create(cls) -> BannerPrinter:
+    return cls(atest_utils.get_config_folder())
 
   def __init__(self, config_dir: Path):
     self._messages = []
