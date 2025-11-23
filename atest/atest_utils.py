@@ -1650,7 +1650,7 @@ def get_adb_devices():
       A list of devices. e.g.
       ['127.0.0.1:40623', '127.0.0.1:40625']
   """
-  probe_cmd = 'adb devices | egrep -v "^List|^$"||true'
+  probe_cmd = 'adb devices | grep -E -v "^List|^$"||true'
   suts = subprocess.check_output(probe_cmd, shell=True).decode().splitlines()
   return [sut.split('\t')[0] for sut in suts]
 
