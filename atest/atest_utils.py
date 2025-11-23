@@ -1550,7 +1550,7 @@ def strtobool(val):
     return True
   if val.lower() in ('n', 'no', 'f', 'false', 'off', '0'):
     return False
-  raise ValueError('invalid truth value %r' % (val,))
+  raise ValueError(f'invalid truth value {val!r}')
 
 
 def get_android_junit_config_filters(test_config):
