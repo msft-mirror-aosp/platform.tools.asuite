@@ -2116,7 +2116,7 @@ def get_manifest_info(manifest: Path) -> Dict[str, Any]:
   manifest_package_re = re.compile(r'[a-z][\w]+(\.[\w]+)*')
   # 1. Must probe 'package' name from the top.
   for item in xml_root.findall('.'):
-    if 'package' in item.attrib.keys():
+    if 'package' in item.attrib:
       pkg = item.attrib.get('package')
       match = manifest_package_re.match(pkg)
       if match:
