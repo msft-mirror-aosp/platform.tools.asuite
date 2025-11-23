@@ -836,7 +836,7 @@ def _get_hashed_file_name(main_file_name):
   """
   hashed_fn = hashlib.md5(str(main_file_name).encode())
   hashed_name = hashed_fn.hexdigest()
-  return hashed_name + '.cache'
+  return f'{hashed_name}.cache'
 
 
 def md5sum(filename):
