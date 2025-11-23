@@ -57,7 +57,7 @@ class BannerHistory:
     """Get the last date when banner was prompt."""
     return self._history.get(BannerHistory._LAST_BANNER_PROMPT_DATE, '')
 
-  def set_last_banner_prompt_date(self, prompt_date: str):
+  def set_last_banner_prompt_date(self, prompt_date: str) -> None:
     """Set the last date when banner was prompt."""
     self._history[BannerHistory._LAST_BANNER_PROMPT_DATE] = prompt_date
     self._history_file.write_text(
@@ -76,7 +76,7 @@ class BannerPrinter:
     self._messages = []
     self._config_dir = config_dir
 
-  def register(self, message: str):
+  def register(self, message: str) -> None:
     """Register a banner message."""
     self._messages.append(message)
 
@@ -84,7 +84,7 @@ class BannerPrinter:
       self,
       print_func: Optional[Callable] = None,
       date_supplier: Optional[Callable] = None,
-  ):
+  ) -> None:
     """Print the banners."""
 
     if not self._messages:
