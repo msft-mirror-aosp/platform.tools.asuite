@@ -1500,7 +1500,7 @@ def quote(input_str):
   Returns: A string with single quotes if regex chars were detected.
   """
   if has_chars(input_str, _REGEX_CHARS):
-    return "'" + input_str + "'"
+    return f"'{input_str}'"
   return input_str
 
 
