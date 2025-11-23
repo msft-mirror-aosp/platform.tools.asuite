@@ -43,7 +43,7 @@ class BannerHistory:
         history = json.loads(history_file.read_text())
       except json.JSONDecodeError as e:
         atest_utils.print_and_log_error(
-            'Banner history json file is in a bad format: %s', e
+            f'Banner history json file is in a bad format: {e}'
         )
         history = {}
 
