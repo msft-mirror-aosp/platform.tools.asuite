@@ -37,7 +37,6 @@ class BannerHistory:
     history_file = config_dir / 'banner.json'
 
     if not history_file.exists():
-      history_file.touch()
       history = {}
     else:
       try:
