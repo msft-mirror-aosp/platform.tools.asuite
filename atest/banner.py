@@ -19,7 +19,7 @@ from __future__ import annotations
 from datetime import date
 import json
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 from atest import atest_utils
 from atest import constants
@@ -78,7 +78,11 @@ class BannerPrinter:
     """Register a banner message."""
     self._messages.append(message)
 
-  def print(self, print_func: Callable = None, date_supplier: Callable = None):
+  def print(
+      self,
+      print_func: Optional[Callable] = None,
+      date_supplier: Optional[Callable] = None,
+  ):
     """Print the banners."""
 
     if not self._messages:
