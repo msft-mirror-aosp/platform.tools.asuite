@@ -1233,22 +1233,23 @@ def extract_zip_text(zip_path):
   Returns:
       The string in input zip file.
   """
-  content = ''
+  content = []
   try:
     with zipfile.ZipFile(zip_path) as zip_file:
       for filename in zip_file.namelist():
         if os.path.isdir(filename):
           continue
         # Force change line if multiple text files in zip
-        content = content + '\n'
+        content.append('\n')
         # read the file
         with zip_file.open(filename) as extract_file:
           for line in extract_file:
-            if matched_tf_error_log(line.decode()):
-              content = content + line.decode()
+            decoded_line = line.decode()
+            if matched_tf_error_log(decoded_line):
+              content.append(decoded_line)
   except zipfile.BadZipfile as err:
     logging.debug('Exception raised: %s', err)
-  return content
+  return ''.join(content)
 
 
 def matched_tf_error_log(content):
