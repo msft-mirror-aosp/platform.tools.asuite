@@ -527,8 +527,7 @@ def build(build_targets: Set[str]):
   full_env_vars = os.environ.copy()
   update_build_env(full_env_vars)
   print(
-      '\n%s\n%s'
-      % (mark_cyan('Building Dependencies...'), ', '.join(build_targets))
+      f"\n{mark_cyan('Building Dependencies...')}\n{', '.join(build_targets)}"
   )
   logging.debug('Building Dependencies: %s', ' '.join(build_targets))
   cmd = get_build_cmd() + list(build_targets)
