@@ -1576,10 +1576,8 @@ def get_android_junit_config_filters(test_config):
   for tag in option_tags:
     name = tag.attrib['name'].strip()
     if name in constants.SUPPORTED_FILTERS:
-      filter_values = filter_dict.get(name, [])
       value = tag.attrib['value'].strip()
-      filter_values.append(value)
-      filter_dict.update({name: filter_values})
+      filter_dict.setdefault(name, []).append(value)
   return filter_dict
 
 
