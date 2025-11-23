@@ -33,7 +33,7 @@ class BannerHistory:
   @staticmethod
   def create(config_dir: Path) -> BannerHistory:
     config_dir.mkdir(parents=True, exist_ok=True)
-    history_file = config_dir.joinpath('banner.json')
+    history_file = config_dir / 'banner.json'
 
     if not history_file.exists():
       history_file.touch()
