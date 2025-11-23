@@ -1207,7 +1207,7 @@ def find_files(path, file_name=constants.TEST_MAPPING, followlinks=False):
       for filename in fnmatch.filter(filenames, file_name):
         match_files.append(os.path.join(root, filename))
     except re.error as e:
-      msg = 'Unable to locate %s among %s' % (file_name, filenames)
+      msg = f'Unable to locate {file_name} among {filenames}'
       logging.debug(msg)
       logging.debug('Exception: %s', e)
       metrics.AtestExitEvent(
