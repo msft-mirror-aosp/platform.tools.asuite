@@ -1458,12 +1458,11 @@ def get_manifest_branch(show_aosp=False):
 
 def get_build_target():
   """Get the build target form system environment TARGET_PRODUCT."""
-  build_target = '%s-%s-%s' % (
-      os.getenv(constants.ANDROID_TARGET_PRODUCT, None),
-      os.getenv('TARGET_RELEASE', None),
-      os.getenv(constants.TARGET_BUILD_VARIANT, None),
+  return (
+      f'{os.getenv(constants.ANDROID_TARGET_PRODUCT, None)}-'
+      f"{os.getenv('TARGET_RELEASE', None)}-"
+      f'{os.getenv(constants.TARGET_BUILD_VARIANT, None)}'
   )
-  return build_target
 
 
 def has_wildcard(test_name):
