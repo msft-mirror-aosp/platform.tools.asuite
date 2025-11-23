@@ -696,28 +696,16 @@ def colorize(text, color, bp_color=None):
   Returns:
       Colorful string with ANSI escape code.
   """
+  if not _has_colors(_original_sys_stdout):
+    return text
+
   clr_pref = '\033[1;'
   clr_suff = '\033[0m'
-  has_colors = _has_colors(_original_sys_stdout)
-  if has_colors:
-    background_color = ''
-    if bp_color:
-      # Foreground(Text) ranges from 30-37
-      text_color = 30 + color
-      # Background ranges from 40-47
-      background_color = ';%d' % (40 + bp_color)
-    else:
-      text_color = 30 + color
-    clr_str = '%s%d%sm%s%s' % (
-        clr_pref,
-        text_color,
-        background_color,
-        text,
-        clr_suff,
-    )
-  else:
-    clr_str = text
-  return clr_str
+  # Foreground(Text) ranges from 30-37
+  text_color = 30 + color
+  # Background ranges from 40-47
+  background_color = f';{40 + bp_color}' if bp_color else ''
+  return f'{clr_pref}{text_color}{background_color}m{text}{clr_suff}'
 
 
 def mark_red(text):
