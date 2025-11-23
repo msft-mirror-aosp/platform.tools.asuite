@@ -684,7 +684,7 @@ def _has_colors(stream):
   # Auto color only on TTYs
   # curses.tigetnum() cannot be used for telling supported color numbers
   # because it does not come with the prebuilt py3-cmd.
-  return getattr(stream, 'isatty', lambda: False)()
+  return stream.isatty() if hasattr(stream, 'isatty') else False
 
 
 def colorize(text, color, bp_color=None):
