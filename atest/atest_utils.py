@@ -1887,7 +1887,7 @@ def get_prebuilt_sdk_tools_dir():
   """
   build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP, ''))
   return build_top.joinpath(
-      'prebuilts/sdk/tools/', str(platform.system()).lower(), 'bin'
+      'prebuilts/sdk/tools/', platform.system().lower(), 'bin'
   )
 
 
