@@ -40,7 +40,7 @@ class BannerHistory:
       history = {}
     else:
       try:
-        history = json.loads(history_file.read_text())
+        history = json.loads(history_file.read_text(encoding='utf-8'))
       except json.JSONDecodeError as e:
         atest_utils.print_and_log_error(
             f'Banner history json file is in a bad format: {e}'
@@ -60,7 +60,7 @@ class BannerHistory:
   def set_last_banner_prompt_date(self, prompt_date: str):
     """Set the last date when banner was prompt."""
     self._history[BannerHistory._LAST_BANNER_PROMPT_DATE] = prompt_date
-    self._history_file.write_text(json.dumps(self._history))
+    self._history_file.write_text(json.dumps(self._history), encoding='utf-8')
 
 
 class BannerPrinter:
