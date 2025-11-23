@@ -98,8 +98,10 @@ class BannerPrinter:
 
     today = date_supplier()
     history = BannerHistory.create(self._config_dir)
-    if history.get_last_banner_prompt_date() != today:
-      for message in self._messages:
-        print_func(message)
+    if history.get_last_banner_prompt_date() == today:
+      return
 
-      history.set_last_banner_prompt_date(today)
+    for message in self._messages:
+      print_func(message)
+
+    history.set_last_banner_prompt_date(today)
