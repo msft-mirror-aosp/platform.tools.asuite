@@ -1824,7 +1824,7 @@ def get_verify_key(tests, extra_args):
   # For example, "ITERATIONS=5 hello_world_test"
   test_commands = tests
   for key, value in extra_args.items():
-    test_commands.append('%s=%s' % (key, str(value)))
+    test_commands.append(f'{key}={value}')
   test_commands.sort()
   return ' '.join(test_commands)
 
