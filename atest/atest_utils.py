@@ -908,7 +908,7 @@ def save_md5(filenames, save_file):
     name = Path(f)
     if not name.is_file():
       print_and_log_warning(' ignore %s: not a file.', name)
-    data.update({str(name): md5sum(name)})
+    data[str(name)] = md5sum(name)
   with open(save_file, 'w+', encoding='utf-8') as _file:
     json.dump(data, _file)
 
