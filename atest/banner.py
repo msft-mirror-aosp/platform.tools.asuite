@@ -58,9 +58,9 @@ class BannerHistory:
     """Get the last date when banner was prompt."""
     return self._history.get(BannerHistory._LAST_BANNER_PROMPT_DATE, '')
 
-  def set_last_banner_prompt_date(self, date: str):
+  def set_last_banner_prompt_date(self, prompt_date: str):
     """Set the last date when banner was prompt."""
-    self._history[BannerHistory._LAST_BANNER_PROMPT_DATE] = date
+    self._history[BannerHistory._LAST_BANNER_PROMPT_DATE] = prompt_date
     self._history_file.write_text(json.dumps(self._history))
 
 
