@@ -249,7 +249,7 @@ def get_build_cmd(dump=False):
       A list of soong build command.
   """
   build_top_rel = os.path.relpath(
-      os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd()), os.getcwd()
+      os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd())
   )
   make_cmd = f'{build_top_rel}/{_BUILD_CMD}'
   if dump:
