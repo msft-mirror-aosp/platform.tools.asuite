@@ -1407,7 +1407,7 @@ def get_manifest_branch(show_aosp=False):
       # to be treat as test failure. Or test_get_manifest_branch unit test
       # could be fix if return None if portal_xml or default_xml not
       # exist.
-      logging.info('%s could not be read.', xml)
+      logging.info(f'{xml} could not be read.')
       return ''
     default_tags = xml_root.findall('./default')
     if default_tags:
@@ -1427,7 +1427,7 @@ def get_manifest_branch(show_aosp=False):
       # to be treat as test failure. Or test_get_manifest_branch unit test
       # could be fix if return None if portal_xml or default_xml not
       # exist.
-      logging.info('%s could not be read.', xml)
+      logging.info(f'{xml} could not be read.')
       return Path()
     include_tags = xml_root.findall('./include')
     if include_tags:
