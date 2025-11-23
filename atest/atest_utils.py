@@ -18,8 +18,6 @@
 # pylint: disable=import-outside-toplevel
 # pylint: disable=too-many-lines
 
-from __future__ import print_function
-
 from collections import deque
 from dataclasses import dataclass
 import datetime
