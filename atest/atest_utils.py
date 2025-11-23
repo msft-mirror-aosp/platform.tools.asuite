@@ -1933,12 +1933,8 @@ def get_full_annotation_class_name(module_info, class_name):
   Returns:
       A string of fully qualified class name, empty string otherwise.
   """
-  fullname_re = re.compile(
-      r'import\s+(?P<fqcn>{})(|;)$'.format(class_name), re.I
-  )
-  keyword_re = re.compile(
-      r'import\s+(?P<fqcn>.*\.{})(|;)$'.format(class_name), re.I
-  )
+  fullname_re = re.compile(rf'import\s+(?P<fqcn>{class_name})(|;)$', re.I)
+  keyword_re = re.compile(rf'import\s+(?P<fqcn>.*\.{class_name})(|;)$', re.I)
   build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP, ''))
   for f in module_info.get(constants.MODULE_SRCS, []):
     full_path = build_top.joinpath(f)
