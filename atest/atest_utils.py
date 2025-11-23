@@ -978,8 +978,7 @@ def update_test_info_cache(test_reference, test_infos, cache_root=None):
   """
   if not cache_root:
     cache_root = get_cache_root()
-  if not os.path.isdir(cache_root):
-    os.makedirs(cache_root)
+  os.makedirs(cache_root, exist_ok=True)
   cache_path = get_test_info_cache_path(test_reference, cache_root)
   # Save test_info to files.
   try:
