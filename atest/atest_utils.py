@@ -1621,7 +1621,7 @@ def get_config_device(test_config):
       devices.add(name)
   except ET.ParseError as e:
     colorful_print('Config has invalid format.', constants.RED)
-    colorful_print('File %s : %s' % (test_config, str(e)), constants.YELLOW)
+    colorful_print(f'File {test_config} : {e}', constants.YELLOW)
     sys.exit(ExitCode.CONFIG_INVALID_FORMAT)
   return devices
 
