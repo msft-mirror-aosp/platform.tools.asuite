@@ -586,10 +586,9 @@ def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
       # See b/233044822 for more details.
       log_path = get_build_out_dir('verbose.log.gz')
       print(
-          '\n(Build log may not reflect actual status in simple output'
-          'mode; check {} for detail after build finishes.)'.format(
-              mark_cyan(f'{log_path}')
-          ),
+          '\n(Build log may not reflect actual status in simple outputmode;'
+          f' check {mark_cyan(str(log_path))} for detail after build'
+          ' finishes.)',
           end='',
       )
       _run_build_cmd_with_limited_output(cmd, env_vars=env_vars)
