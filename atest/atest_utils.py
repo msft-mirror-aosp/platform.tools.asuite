@@ -1172,14 +1172,11 @@ def get_modified_files_with_details() -> set[ChangedFileDetails]:
 
 
 def _get_number_lines_changed(file_change_info: str) -> int:
-  number_of_lines_changed = 0
-
   try:
-    number_of_lines_changed = int(file_change_info)
+    return int(file_change_info)
   except ValueError:
     logging.debug('failed to get the num of lines changed.')
-
-  return number_of_lines_changed
+    return 0
 
 
 def delimiter(char, length=_DEFAULT_TERMINAL_WIDTH, prenl=0, postnl=0):
