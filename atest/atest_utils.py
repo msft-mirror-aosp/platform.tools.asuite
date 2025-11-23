@@ -59,7 +59,7 @@ DEFAULT_OUTPUT_ROLLING_LINES = 8
 _BASH_CLEAR_PREVIOUS_LINE_CODE = '\033[F\033[K'
 _BASH_RESET_CODE = '\033[0m'
 DIST_OUT_DIR = Path(
-    os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd()) + '/out/dist/'
+    os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd()), 'out', 'dist'
 )
 MAINLINE_MODULES_EXT_RE = re.compile(r'\.(apex|apks|apk)$')
 TEST_WITH_MAINLINE_MODULES_RE = re.compile(
