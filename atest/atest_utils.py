@@ -1792,7 +1792,7 @@ def get_config_preparer_options(test_config, class_name):
   options = {}
   xml_root = ET.parse(test_config).getroot()
   option_tags = xml_root.findall(
-      './/target_preparer[@class="%s"]/option' % class_name
+      f'.//target_preparer[@class="{class_name}"]/option'
   )
   for tag in option_tags:
     name = tag.attrib['name'].strip()
