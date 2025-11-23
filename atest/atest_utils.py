@@ -1084,8 +1084,8 @@ def get_modified_files(root_dir):
     for git_path in git_paths:
       # Find modified files from git working tree status.
       git_status_cmd = (
-          "repo forall {} -c git status --short | awk '{{print $NF}}'"
-      ).format(git_path)
+          f"repo forall {git_path} -c git status --short | awk '{{print $NF}}'"
+      )
       modified_wo_commit = (
           subprocess.check_output(git_status_cmd, shell=True)
           .decode()
