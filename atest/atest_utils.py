@@ -1537,10 +1537,7 @@ def has_chars(input_str, chars):
   Returns:
       True if the input string contains one of the special chars.
   """
-  for char in chars:
-    if char in input_str:
-      return True
-  return False
+  return any(char in input_str for char in chars)
 
 
 def prompt_with_yn_result(msg, default=True):
