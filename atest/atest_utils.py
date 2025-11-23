@@ -857,7 +857,7 @@ def md5sum(filename):
   """Generate MD5 checksum of a file.
 
   Args:
-      name: A string of a filename.
+      filename: A string of a filename.
 
   Returns:
       A string of hashed MD5 checksum.
@@ -865,9 +865,11 @@ def md5sum(filename):
   filename = Path(filename)
   if not filename.is_file():
     return ''
+  hasher = hashlib.md5()
   with open(filename, 'rb') as target:
-    content = target.read()
-  return hashlib.md5(content).hexdigest()
+    for chunk in iter(lambda: target.read(4096), b''):
+      hasher.update(chunk)
+  return hasher.hexdigest()
 
 
 def check_md5(check_file, missing_ok=False):
