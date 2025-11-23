@@ -76,6 +76,10 @@ _FAILED_OUTPUT_LINE_LIMIT = 100
 # Regular expression to match the start of a ninja compile:
 # ex: [ 99% 39710/39711]
 _BUILD_COMPILE_STATUS = re.compile(r'\[\s*(\d{1,3}%\s+)?\d+/\d+\]')
+_TF_ERROR_LOG_RE = re.compile(
+    r'^((0[1-9])|(1[0-2]))-((0[1-9])|([12][0-9])|(3[0-1])) '
+    r'(([0-1][0-9])|([2][0-3])):([0-5][0-9]):([0-5][0-9]) (E|W/)'
+)
 _BUILD_FAILURE = 'FAILED: '
 BUILD_TOP_HASH = hashlib.md5(
     os.environ.get(constants.ANDROID_BUILD_TOP, '').encode()
@@ -1263,11 +1267,7 @@ def matched_tf_error_log(content):
       True if the content matches the regular expression for tradefed error or
       warning log.
   """
-  reg = (
-      '^((0[1-9])|(1[0-2]))-((0[1-9])|([12][0-9])|(3[0-1])) '
-      '(([0-1][0-9])|([2][0-3])):([0-5][0-9]):([0-5][0-9]) (E|W/)'
-  )
-  if re.search(reg, content):
+  if _TF_ERROR_LOG_RE.search(content):
     return True
   return False
 
