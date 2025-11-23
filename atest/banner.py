@@ -60,7 +60,9 @@ class BannerHistory:
   def set_last_banner_prompt_date(self, prompt_date: str):
     """Set the last date when banner was prompt."""
     self._history[BannerHistory._LAST_BANNER_PROMPT_DATE] = prompt_date
-    self._history_file.write_text(json.dumps(self._history), encoding='utf-8')
+    self._history_file.write_text(
+        json.dumps(self._history, indent=2), encoding='utf-8'
+    )
 
 
 class BannerPrinter:
