@@ -1493,7 +1493,7 @@ def is_build_file(path):
   Return:
       True if path is android build file, False otherwise.
   """
-  return bool(os.path.splitext(path)[-1] in _ANDROID_BUILD_EXT)
+  return os.path.splitext(path)[-1] in _ANDROID_BUILD_EXT
 
 
 def quote(input_str):
