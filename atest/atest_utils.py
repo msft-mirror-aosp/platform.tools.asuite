@@ -298,7 +298,7 @@ def _capture_limited_output(full_log):
     output = full_log
   if len(output) >= _FAILED_OUTPUT_LINE_LIMIT:
     output = output[-_FAILED_OUTPUT_LINE_LIMIT:]
-  output = 'Output (may be trimmed):\n%s' % ''.join(output)
+  output = f'Output (may be trimmed):\n{"".join(output)}'
   return output
 
 
