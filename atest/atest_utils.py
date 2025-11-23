@@ -904,7 +904,7 @@ def save_md5(filenames, save_file):
   for f in filenames:
     name = Path(f)
     if not name.is_file():
-      print_and_log_warning(' ignore %s: not a file.', name)
+      print_and_log_warning(f' ignore {name}: not a file.')
     data[str(name)] = md5sum(name)
   with open(save_file, 'w+', encoding='utf-8') as _file:
     json.dump(data, _file)
