@@ -1668,7 +1668,7 @@ def get_android_config():
   android_config = {}
   for element in raw_config.splitlines():
     if not element.startswith('='):
-      key, value = tuple(element.split('=', 1))
+      key, value = element.split('=', 1)
       android_config.setdefault(key, value)
   return android_config
 
