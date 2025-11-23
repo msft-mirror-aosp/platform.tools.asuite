@@ -37,15 +37,15 @@ class BannerHistory:
     history_file = config_dir / 'banner.json'
 
     if not history_file.exists():
+      return BannerHistory(history_file, {})
+
+    try:
+      history = json.loads(history_file.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as e:
+      atest_utils.print_and_log_error(
+          f'Banner history json file is in a bad format: {e}'
+      )
       history = {}
-    else:
-      try:
-        history = json.loads(history_file.read_text(encoding='utf-8'))
-      except json.JSONDecodeError as e:
-        atest_utils.print_and_log_error(
-            f'Banner history json file is in a bad format: {e}'
-        )
-        history = {}
 
     return BannerHistory(history_file, history)
 
