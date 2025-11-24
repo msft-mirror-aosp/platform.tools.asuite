@@ -79,8 +79,7 @@ def trim_comments(content):
     if comment_type == CCCommentType.NO_COMMENT:
       trimmed_lines.append(line.rstrip())
     elif comment_type == CCCommentType.LINE_COMMENT:
-      trimmed_line = line[:index]
-      trimmed_lines.append(trimmed_line.rstrip())
+      trimmed_lines.append(line[:index].rstrip())
     else:
       code_lines = []
       code_line, comment_ended = _handle_block_comment_line(
