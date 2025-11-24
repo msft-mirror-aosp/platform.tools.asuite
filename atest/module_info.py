@@ -136,12 +136,9 @@ class Loader:
       need_merge_fn: Callable = None,
   ):
     logging.debug(
-        'Creating module info loader object with module_file: %s, force_build:'
-        ' %s, sqlite_module_cache: %s, need_merge_fn: %s',
-        module_file,
-        force_build,
-        sqlite_module_cache,
-        need_merge_fn,
+        f'Creating module info loader object with module_file: {module_file},'
+        f' force_build: {force_build}, sqlite_module_cache:'
+        f' {sqlite_module_cache}, need_merge_fn: {need_merge_fn}'
     )
     self.java_dep_path = atest_utils.get_build_out_dir('soong', _JAVA_DEP_INFO)
     self.cc_dep_path = atest_utils.get_build_out_dir('soong', _CC_DEP_INFO)
