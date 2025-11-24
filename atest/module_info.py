@@ -1523,11 +1523,7 @@ def _get_suite_to_modules(
   for _, info in name_to_module_info.items():
     if _is_testable_module(name_to_module_info, path_to_module_info, info):
       testable_module = info.get(constants.MODULE_NAME)
-      suites = (
-          info.get('compatibility_suites')
-          if info.get('compatibility_suites')
-          else ['null-suite']
-      )
+      suites = info.get('compatibility_suites') or ['null-suite']
 
       for suite in suites:
         suite_to_modules.setdefault(suite, set()).add(testable_module)
