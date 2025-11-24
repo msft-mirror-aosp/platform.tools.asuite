@@ -1213,7 +1213,7 @@ def _create_db(data_map: Dict[str, Dict[str, Any]], db_path: Path):
     _create_db_in_path(data_map, tmp_db.name)
     shutil.move(tmp_db.name, db_path)
 
-    logging.debug('%s is created successfully.', db_path)
+    logging.debug(f'{db_path} is created successfully.')
 
 
 def _create_db_in_path(data_map: Dict[str, Dict[str, Any]], db_path: Path):
