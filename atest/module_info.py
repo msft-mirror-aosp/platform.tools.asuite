@@ -1548,9 +1548,8 @@ def _index_testable_modules(contents: Any, index_path: Path):
       index_path: Path to the saved index file.
   """
   logging.debug(
-      r'Indexing testable modules... '
-      r'(This is required whenever module-info.json '
-      r'was rebuilt.)'
+      f'Indexing testable modules... '
+      f'(This is required whenever module-info.json was rebuilt.)'
   )
   index_path.parent.mkdir(parents=True, exist_ok=True)
   with tempfile.NamedTemporaryFile(delete=False) as cache:
