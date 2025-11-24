@@ -132,16 +132,17 @@ def _get_comment_type(line):
 
 
 def _parse_class_method_reference(class_method_reference):
-  if '#' not in class_method_reference:
-    if ',' in class_method_reference:
+  class_name, separator, methods_str = class_method_reference.partition('#')
+
+  if not separator:
+    if ',' in class_name:
       raise ValueError(
           'Test methods must follow their class name separated by a `#`, '
           'for example, class#method1,method2'
       )
-    return class_method_reference, []
+    return class_name, []
 
-  class_name, methods = class_method_reference.split('#', 1)
-  return class_name, methods.split(',')
+  return class_name, methods_str.split(',')
 
 
 def _get_test_filters(args):
