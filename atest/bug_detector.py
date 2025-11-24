@@ -23,9 +23,7 @@ from atest import atest_utils
 from atest import constants
 from atest.metrics import metrics_utils
 
-_META_FILE = os.path.join(
-    atest_utils.get_misc_dir(), '.config', 'asuite', 'atest_history.json'
-)
+_META_FILE = f'{atest_utils.get_misc_dir()}/.config/asuite/atest_history.json'
 _DETECT_OPTION_FILTER = ['-v', '--verbose']
 _DETECTED_SUCCESS = 1
 _DETECTED_FAIL = 0
