@@ -38,7 +38,6 @@ class BugDetectorUnittest(unittest.TestCase):
   def setUp(self):
     """Set up stuff for testing."""
     self.history_file = os.path.join(uc.TEST_DATA_DIR, 'bug_detector.json')
-    self.detector = bug_detector.BugDetector(['test1'], 5, self.history_file)
     self._reset_history_file()
     self.history_file2 = os.path.join(uc.TEST_DATA_DIR, 'bug_detector2.json')
 
@@ -86,9 +85,11 @@ class BugDetectorUnittest(unittest.TestCase):
     dtr = bug_detector.BugDetector(argv, 0)
     self.assertEqual(dtr.get_detect_key(argv), want_key)
 
-  def test_get_history(self):
+  @mock.patch.object(bug_detector.BugDetector, 'update_history')
+  def test_get_history(self, _):
     """Test get_history."""
-    self.assertEqual(self.detector.get_history(), TEST_DICT)
+    detector = bug_detector.BugDetector(['test1'], 5, self.history_file)
+    self.assertEqual(detector.get_history(), TEST_DICT)
 
   @mock.patch.object(bug_detector.BugDetector, 'update_history')
   def test_detect_bug_caught(self, _):
