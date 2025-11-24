@@ -66,7 +66,7 @@ def trim_comments(content):
 
       // line comment /* contains block comment */
   """
-  trimed_lines = []
+  trimmed_lines = []
   lines = deque(content.splitlines())
 
   while lines:
@@ -74,10 +74,10 @@ def trim_comments(content):
     comment_type, index = _get_comment_type(line)
 
     if comment_type == CCCommentType.NO_COMMENT:
-      trimed_lines.append(line.rstrip())
+      trimmed_lines.append(line.rstrip())
     elif comment_type == CCCommentType.LINE_COMMENT:
-      trimed_line = line[0:index] if index > 0 else ''
-      trimed_lines.append(trimed_line.rstrip())
+      trimmed_line = line[0:index] if index > 0 else ''
+      trimmed_lines.append(trimmed_line.rstrip())
       continue
     else:
       code_lines = []
@@ -98,7 +98,7 @@ def trim_comments(content):
       while code_lines:
         lines.appendleft(code_lines.pop())
 
-  return '\n'.join(trimed_lines).strip('\n')
+  return '\n'.join(trimmed_lines).strip('\n')
 
 
 def _handle_block_comment_line(line):
