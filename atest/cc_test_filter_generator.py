@@ -117,15 +117,14 @@ def _get_comment_type(line):
   line_comment_idx = line.find(CCCommentType.LINE_COMMENT.value)
   block_comment_idx = line.find(CCCommentType.BLOCK_COMMENT.value)
 
-  if line_comment_idx == -1 and block_comment_idx == -1:
-    return CCCommentType.NO_COMMENT, -1
+  if line_comment_idx != -1:
+    if block_comment_idx == -1 or line_comment_idx < block_comment_idx:
+      return CCCommentType.LINE_COMMENT, line_comment_idx
 
-  if line_comment_idx != -1 and (
-      block_comment_idx == -1 or line_comment_idx < block_comment_idx
-  ):
-    return CCCommentType.LINE_COMMENT, line_comment_idx
+  if block_comment_idx != -1:
+    return CCCommentType.BLOCK_COMMENT, block_comment_idx
 
-  return CCCommentType.BLOCK_COMMENT, block_comment_idx
+  return CCCommentType.NO_COMMENT, -1
 
 
 def _parse_class_method_reference(class_method_reference):
