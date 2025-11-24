@@ -149,7 +149,7 @@ class Loader:
     )
 
     self.sqlite_module_cache = sqlite_module_cache
-    logging.debug('sqlite_module_cache: %s', sqlite_module_cache)
+    logging.debug(f'sqlite_module_cache: {sqlite_module_cache}')
     if self.sqlite_module_cache:
       self.cache_file = atest_utils.get_product_out(_DB_NAME)
       self.save_cache_async = self._save_db_async
