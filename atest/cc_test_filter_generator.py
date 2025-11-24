@@ -82,14 +82,14 @@ def trim_comments(content):
       trimmed_lines.append(line[:index].rstrip())
     else:
       code_lines = []
-      code_line, comment_ended = _handle_block_comment_line(
+      suffix, comment_ended = _handle_block_comment_line(
           line[index + len(CCCommentType.BLOCK_COMMENT) :]
       )
 
       # Replace each character in the comment by a single space including
       # '/*' and '*/'.
       code_line = (
-          f'{line[:index]}{" " * len(CCCommentType.BLOCK_COMMENT)}{code_line}'
+          f'{line[:index]}{" " * len(CCCommentType.BLOCK_COMMENT)}{suffix}'
       )
       code_lines.append(code_line)
       while not comment_ended and lines:
