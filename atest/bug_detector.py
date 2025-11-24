@@ -65,8 +65,7 @@ class BugDetector:
         A string of ordered command line.
     """
     argv_without_option = [x for x in argv if x not in _DETECT_OPTION_FILTER]
-    argv_without_option.sort()
-    return ' '.join(argv_without_option)
+    return ' '.join(sorted(argv_without_option))
 
   def get_history(self):
     """Get a history object from a history file.
