@@ -1347,10 +1347,7 @@ def get_path_to_module_info(name_to_module_info):
     for path in mod_info.get(constants.MODULE_PATH, []):
       mod_info[constants.MODULE_NAME] = mod_name
       # There could be multiple modules in a path.
-      if path in path_to_module_info:
-        path_to_module_info[path].append(mod_info)
-      else:
-        path_to_module_info[path] = [mod_info]
+      path_to_module_info.setdefault(path, []).append(mod_info)
   return path_to_module_info
 
 
