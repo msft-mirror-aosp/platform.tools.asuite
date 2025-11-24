@@ -107,9 +107,6 @@ def trim_comments(content):
 
 
 def _handle_block_comment_line(line):
-  if not line:
-    return '', False
-
   head, sep, tail = line.partition(BLOCK_COMMENT_END)
   if sep:
     return ' ' * (len(head) + len(sep)) + tail, True
