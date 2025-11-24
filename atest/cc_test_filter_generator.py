@@ -113,11 +113,9 @@ def _handle_block_comment_line(line):
     comment_ended = True
 
   # Replace each character in the comment by a single space.
-  chars = []
-  for idx in range(0, len(line)):
-    chars.append(line[idx] if idx > index_end else ' ')
+  processed_line = ' ' * (index_end + 1) + line[index_end + 1 :]
 
-  return ''.join(chars), comment_ended
+  return processed_line, comment_ended
 
 
 def _get_comment_type(line):
