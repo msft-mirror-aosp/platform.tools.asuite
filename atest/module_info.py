@@ -896,7 +896,7 @@ class ModuleInfo:
     """Return absolute path of the given module and filename."""
     mod_path = self.get_paths(module_name)
     if mod_path:
-      return Path(self.root_dir).joinpath(mod_path[0], filename)
+      return Path(self.root_dir) / mod_path[0] / filename
     return Path()
 
   def get_module_dependency(self, module_name, depend_on=None):
