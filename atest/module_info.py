@@ -522,9 +522,7 @@ class ModuleInfo:
     # be treated as a build target using m. Only treat input name as module
     # if it also has the module_name attribute which means it could be a
     # build target for m.
-    if info and info.get(constants.MODULE_NAME):
-      return True
-    return False
+    return bool(info and info.get(constants.MODULE_NAME))
 
   def get_paths(self, name) -> list[str]:
     """Return paths of supplied module name, Empty list if non-existent."""
