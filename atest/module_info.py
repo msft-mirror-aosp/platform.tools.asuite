@@ -660,9 +660,7 @@ class ModuleInfo:
     Returns:
         Boolean whether it's a robotest or not.
     """
-    if self.get_robolectric_type(module_name):
-      return True
-    return False
+    return bool(self.get_robolectric_type(module_name))
 
   def get_robolectric_type(self, module_name: str) -> int:
     """Check if the given module is a robolectric test and return type of it.
