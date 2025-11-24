@@ -176,7 +176,7 @@ def _get_test_filters(args):
   return test_filters
 
 
-if __name__ == '__main__':
+def main():
   parser = argparse.ArgumentParser()
   parser.add_argument(
       '--out', action='store', required=True, help='Write output to <file>'
@@ -201,3 +201,7 @@ if __name__ == '__main__':
 
   with open(args.out, 'w', encoding='utf-8') as f:
     f.write(':'.join(test_filters))
+
+
+if __name__ == '__main__':
+  main()
