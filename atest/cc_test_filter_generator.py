@@ -103,17 +103,11 @@ def _handle_block_comment_line(line):
   if not line:
     return '', False
 
-  # By default, the whole line is comment.
-  comment_ended = False
-  index_end = len(line) - 1
-  if '*/' in line:
-    index_end = line.index('*/') + 1
-    comment_ended = True
+  head, sep, tail = line.partition('*/')
+  if sep:
+    return ' ' * (len(head) + len(sep)) + tail, True
 
-  # Replace each character in the comment by a single space.
-  processed_line = ' ' * (index_end + 1) + line[index_end + 1 :]
-
-  return processed_line, comment_ended
+  return ' ' * len(line), False
 
 
 def _get_comment_type(line):
