@@ -142,14 +142,14 @@ def _parse_class_method_reference(class_method_reference):
   return class_name, methods_str.split(',')
 
 
-def _get_test_filters(args):
+def _get_test_filters(class_method_references, class_files):
   class_to_methods = defaultdict(set)
-  for class_method_reference in args.class_method_reference:
+  for class_method_reference in class_method_references:
     class_name, methods = _parse_class_method_reference(class_method_reference)
     class_to_methods[class_name].update(methods)
 
   class_info = {}
-  for class_file in args.class_file:
+  for class_file in class_files:
     if not constants_default.CC_EXT_RE.match(class_file):
       continue
 
@@ -192,7 +192,9 @@ def main():
 
   test_filters = []
   if args.class_method_reference and args.class_file:
-    test_filters = _get_test_filters(args)
+    test_filters = _get_test_filters(
+        args.class_method_reference, args.class_file
+    )
 
   with open(args.out, 'w', encoding='utf-8') as f:
     f.write(':'.join(test_filters))
