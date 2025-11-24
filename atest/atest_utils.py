@@ -302,6 +302,21 @@ def _capture_limited_output(full_log):
   return output
 
 
+def _is_useless_print(line: str) -> bool:
+  """Returns True if the line is a known useless print.
+
+  Args:
+      line: The line to check.
+
+  Returns:
+      True if the line is a useless print. False otherwise.
+  """
+  return (
+      'I/CommandInterrupter: Interrupt blocked' in line
+      or 'I/CommandInterrupter: Interrupt allowed' in line
+  )
+
+
 def stream_io_output(
     io_input: IO,
     max_lines=None,
@@ -388,6 +403,8 @@ def stream_io_output(
     if not line:
       break
     line = line.decode('utf-8') if isinstance(line, bytes) else line
+    if _is_useless_print(line):
+      continue
     if full_output_receiver is not None:
       full_output_receiver.write(line)
     line = line.rstrip().replace('\t', '  ')
@@ -634,7 +651,11 @@ def is_test_mapping(args):
       True if the args indicates atest shall run tests in test mapping. False
       otherwise.
   """
-  if any((args.host_unit_test_only, args.smart_test_selection)):
+  if any((
+      args.host_unit_test_only,
+      args.smart_test_selection,
+      args.run_affected,
+  )):
     return False
   if any((args.test_mapping, args.include_subdirs, not args.tests)):
     return True

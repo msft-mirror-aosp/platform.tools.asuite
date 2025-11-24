@@ -56,7 +56,7 @@ _UUID_LEN = 30
 _RESULT_LEN = 20
 _RESULT_URL_LEN = 35
 _COMMAND_LEN = 50
-_LOGCAT_FMT = '{}/log/invocation_*/{}*device_logcat_test*'
+
 _APK_CHANGE_DETECTOR_CLASSNAME = 'ApkChangeDetector'
 _APP_INSTALL_SKIP_KEY = 'Skipping the installation of'
 _APP_INSTALL_KEY = 'Installing apk'
@@ -115,67 +115,34 @@ def print_test_result(root, history_arg):
     path = os.path.join(constants.ATEST_RESULT_ROOT, history_arg, 'test_result')
     print_test_result_by_path(path)
     return
-  target = '%s/20*_*_*' % root
+  target = f'{root}/20*_*_*'
   paths = glob.glob(target)
   paths.sort(reverse=True)
-  if has_url_results():
-    print(
-        '{:-^{uuid_len}} {:-^{result_len}} {:-^{result_url_len}}'
-        ' {:-^{command_len}}'.format(
-            'uuid',
-            'result',
-            'result_url',
-            'command',
-            uuid_len=_UUID_LEN,
-            result_len=_RESULT_LEN,
-            result_url_len=_RESULT_URL_LEN,
-            command_len=_COMMAND_LEN,
-        )
-    )
-  else:
-    print(
-        '{:-^{uuid_len}} {:-^{result_len}} {:-^{command_len}}'.format(
-            'uuid',
-            'result',
-            'command',
-            uuid_len=_UUID_LEN,
-            result_len=_RESULT_LEN,
-            command_len=_COMMAND_LEN,
-        )
-    )
+  urls_exist = has_url_results()
+  header_parts = [
+      f'{"uuid":-^{_UUID_LEN}}',
+      f'{"result":-^{_RESULT_LEN}}',
+  ]
+  if urls_exist:
+    header_parts.append(f'{"result_url":-^{_RESULT_URL_LEN}}')
+  header_parts.append(f'{"command":-^{_COMMAND_LEN}}')
+  print(' '.join(header_parts))
   for path in paths[0 : int(history_arg) + 1]:
     result_path = os.path.join(path, 'test_result')
     result = atest_utils.load_json_safely(result_path)
     total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
-    summary_str = ', '.join(
-        [k[:1] + ':' + str(v) for k, v in total_summary.items()]
-    )
+    summary_str = ', '.join([f'{k[:1]}:{v}' for k, v in total_summary.items()])
     test_result_url = result.get(_TEST_RESULT_LINK, '')
-    if has_url_results():
-      print(
-          '{:<{uuid_len}} {:<{result_len}} '
-          '{:<{result_url_len}} atest {:<{command_len}}'.format(
-              os.path.basename(path),
-              summary_str,
-              test_result_url,
-              result.get(_ARGS_KEY, ''),
-              uuid_len=_UUID_LEN,
-              result_len=_RESULT_LEN,
-              result_url_len=_RESULT_URL_LEN,
-              command_len=_COMMAND_LEN,
-          )
-      )
-    else:
-      print(
-          '{:<{uuid_len}} {:<{result_len}} atest {:<{command_len}}'.format(
-              os.path.basename(path),
-              summary_str,
-              result.get(_ARGS_KEY, ''),
-              uuid_len=_UUID_LEN,
-              result_len=_RESULT_LEN,
-              command_len=_COMMAND_LEN,
-          )
-      )
+    args_str = result.get(_ARGS_KEY, '')
+    basename = os.path.basename(path)
+    line_parts = [
+        f'{basename:<{_UUID_LEN}}',
+        f'{summary_str:<{_RESULT_LEN}}',
+    ]
+    if urls_exist:
+      line_parts.append(f'{test_result_url:<{_RESULT_URL_LEN}}')
+    line_parts.append(f'atest {args_str:<{_COMMAND_LEN}}')
+    print(' '.join(line_parts))
 
 
 def print_test_result_by_path(path):
@@ -187,41 +154,36 @@ def print_test_result_by_path(path):
   result = atest_utils.load_json_safely(path)
   if not result:
     return
-  print('\natest {}'.format(result.get(_ARGS_KEY, '')))
+  print(f'\natest {result.get(_ARGS_KEY, "")}')
   test_result_url = result.get(_TEST_RESULT_LINK, '')
   if test_result_url:
-    print('\nTest Result Link: {}'.format(test_result_url))
-  print('\nTotal Summary:\n{}'.format(atest_utils.delimiter('-')))
+    print(f'\nTest Result Link: {test_result_url}')
+  print(f'\nTotal Summary:\n{atest_utils.delimiter("-")}')
   total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
-  print(', '.join([(k + ':' + str(v)) for k, v in total_summary.items()]))
+  print(', '.join([f'{k}:{v}' for k, v in total_summary.items()]))
   fail_num = total_summary.get(_STATUS_FAILED_KEY)
-  if fail_num > 0:
-    message = '%d test failed' % fail_num
+  if fail_num:
+    message = f'{fail_num} test failed'
     print(f'\n{atest_utils.mark_red(message)}\n{"-" * len(message)}')
     test_runner = result.get(_TEST_RUNNER_KEY, {})
     for runner_name in test_runner.keys():
       test_dict = test_runner.get(runner_name, {})
       for test_name in test_dict:
         test_details = test_dict.get(test_name, {})
-        for fail in test_details.get(_STATUS_FAILED_KEY):
+        for fail in test_details.get(_STATUS_FAILED_KEY, []):
           print(atest_utils.mark_red(f'{fail.get(_TEST_NAME_KEY)}'))
           failure_files = glob.glob(
-              _LOGCAT_FMT.format(
-                  os.path.dirname(path), fail.get(_TEST_NAME_KEY)
-              )
+              f'{os.path.dirname(path)}/log/invocation_*/'
+              f'{fail.get(_TEST_NAME_KEY)}*device_logcat_test*'
           )
           if failure_files:
             print(
-                '{} {}'.format(
-                    atest_utils.mark_cyan('LOGCAT-ON-FAILURES:'),
-                    failure_files[0],
-                )
+                f'{atest_utils.mark_cyan("LOGCAT-ON-FAILURES:")} '
+                f'{failure_files[0]}'
             )
           print(
-              '{} {}'.format(
-                  atest_utils.mark_cyan('STACKTRACE:\n'),
-                  fail.get(_TEST_DETAILS_KEY),
-              )
+              f'{atest_utils.mark_cyan("STACKTRACE:\\n")} '
+              f'{fail.get(_TEST_DETAILS_KEY)}'
           )
 
 
@@ -235,14 +197,13 @@ def has_non_test_options(args: argparse.ArgumentParser):
       True, if args has at least one non-test option.
       False, otherwise.
   """
-  return (
-      args.collect_tests_only
-      or args.dry_run
-      or args.history
-      or args.version
-      or args.latest_result
-      or args.history
-  )
+  return any((
+      args.collect_tests_only,
+      args.dry_run,
+      args.history,
+      args.version,
+      args.latest_result,
+  ))
 
 
 def has_url_results():
@@ -330,16 +291,16 @@ def append_test_info_to_invocation_pathnames(
         invocation_folder_name = ''
         for line in host_log_file:
           if not test_filter:
-            include_filters = []
-            for match in _INCLUDE_FILTER_REGEX.finditer(line):
-              single_test_filter = (
-                  match.group('include_filter')
-                  .replace(':', '_')
-                  .replace('#', '_')
-                  .replace('?', '_')
-                  .replace('*', '_')
-              )
-              include_filters.append(single_test_filter)
+            include_filters = [
+                (
+                    match.group('include_filter')
+                    .replace(':', '_')
+                    .replace('#', '_')
+                    .replace('?', '_')
+                    .replace('*', '_')
+                )
+                for match in _INCLUDE_FILTER_REGEX.finditer(line)
+            ]
             if include_filters:
               test_filter = '_'.join(include_filters)
           if not invocation_folder_name:
@@ -437,12 +398,8 @@ class AtestExecutionInfo:
         args,
         work_dir,
     )
-    self._start_time = start_time if start_time is not None else time.time()
-    self._repo_out_dir = (
-        repo_out_dir
-        if repo_out_dir is not None
-        else atest_utils.get_build_out_dir()
-    )
+    self._start_time = start_time or time.time()
+    self._repo_out_dir = repo_out_dir or atest_utils.get_build_out_dir()
 
   def __enter__(self):
     """Create and return information file object."""
@@ -471,20 +428,15 @@ class AtestExecutionInfo:
 
     build_log_path = log_path / 'build_logs'
     build_log_path.mkdir()
-    AtestExecutionInfo._copy_build_artifacts_to_log_dir(
-        self._start_time,
-        time.time(),
-        self._repo_out_dir,
-        build_log_path,
-        'build.trace',
-    )
-    AtestExecutionInfo._copy_build_artifacts_to_log_dir(
-        self._start_time,
-        time.time(),
-        self._repo_out_dir,
-        build_log_path,
-        'verbose.log',
-    )
+    end_time = time.time()
+    for file_name_prefix in ('build.trace', 'verbose.log'):
+      AtestExecutionInfo._copy_build_artifacts_to_log_dir(
+          self._start_time,
+          end_time,
+          self._repo_out_dir,
+          build_log_path,
+          file_name_prefix,
+      )
 
     if self.get_exit_code_func:
       main_exit_code = self.get_exit_code_func()
@@ -516,7 +468,7 @@ class AtestExecutionInfo:
     log_link = html_path if html_path else log_path
     if log_link:
       print(atest_utils.mark_magenta(f'Log file list: file://{log_link}'))
-    bug_report_url = AtestExecutionInfo._create_bug_report_url()
+    bug_report_url = self._create_bug_report_url()
     if bug_report_url:
       print(atest_utils.mark_magenta(f'Report an issue: {bug_report_url}'))
     print()
@@ -657,14 +609,14 @@ class AtestExecutionInfo:
         group.setdefault(test.status, []).append(result_dict)
 
     total_test_group_summary = _SUMMARY_MAP_TEMPLATE.copy()
-    for runner in info_dict[_TEST_RUNNER_KEY]:
-      for group in info_dict[_TEST_RUNNER_KEY][runner]:
+    for runner_data in info_dict[_TEST_RUNNER_KEY].values():
+      for group_data in runner_data.values():
         group_summary = _SUMMARY_MAP_TEMPLATE.copy()
-        for status in info_dict[_TEST_RUNNER_KEY][runner][group]:
-          count = len(info_dict[_TEST_RUNNER_KEY][runner][group][status])
+        for status, results in group_data.items():
           if status in _SUMMARY_MAP_TEMPLATE:
+            count = len(results)
             group_summary[status] = count
             total_test_group_summary[status] += count
-        info_dict[_TEST_RUNNER_KEY][runner][group][_SUMMARY_KEY] = group_summary
+        group_data[_SUMMARY_KEY] = group_summary
     info_dict[_TOTAL_SUMMARY_KEY] = total_test_group_summary
     return info_dict

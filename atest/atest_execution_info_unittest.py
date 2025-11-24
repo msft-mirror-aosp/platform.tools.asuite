@@ -117,27 +117,26 @@ class CopyBuildTraceToLogsTests(fake_filesystem_unittest.TestCase):
     )
 
   def _is_dir_contains_files_with_prefix(
-      self, dir: pathlib.Path, prefix: str
+      self, directory_path: pathlib.Path, prefix: str
   ) -> bool:
-    for file in dir.iterdir():
-      if file.is_file() and file.name.startswith(prefix):
-        return True
-    return False
+    """Returns True if dir contains any file that starts with prefix."""
+    return any(
+        file.is_file() and file.name.startswith(prefix)
+        for file in directory_path.iterdir()
+    )
 
 
 class SendIncrementalSetupStatTests(fake_filesystem_unittest.TestCase):
 
-  _HOST_LOG_1_CONTENT = (
-      '[ApkChangeDetector] Skipping the installation of SystemUIApp\nInstalling'
-      ' apk android.CtsApp\n[ApkChangeDetector] Skipping the uninstallation of'
-      ' SystemUIApp'
-  )
+  _HOST_LOG_1_CONTENT = """\
+[ApkChangeDetector] Skipping the installation of SystemUIApp
+Installing apk android.CtsApp
+[ApkChangeDetector] Skipping the uninstallation of SystemUIApp"""
 
-  _HOST_LOG_2_CONTENT = (
-      '[ApkChangeDetector] Skipping the installation of SysUIRobolectricApp\n'
-      ' Installing apk a.b.c.d  \n [UnrelatedClass] Skipping the installation'
-      ' of SomeClass'
-  )
+  _HOST_LOG_2_CONTENT = """\
+[ApkChangeDetector] Skipping the installation of SysUIRobolectricApp
+ Installing apk a.b.c.d
+ [UnrelatedClass] Skipping the installation of SomeClass"""
 
   def setUp(self):
     super().setUp()
@@ -159,12 +158,12 @@ class SendIncrementalSetupStatTests(fake_filesystem_unittest.TestCase):
     host_log_path2 = self._log_path / 'invocation' / 'host_log_2.txt'
     self.fs.create_file(
         host_log_path1,
-        contents=self.__class__._HOST_LOG_1_CONTENT,
+        contents=self._HOST_LOG_1_CONTENT,
         create_missing_dirs=True,
     )
     self.fs.create_file(
         host_log_path2,
-        contents=self.__class__._HOST_LOG_2_CONTENT,
+        contents=self._HOST_LOG_2_CONTENT,
         create_missing_dirs=True,
     )
     expected_calls = [
@@ -422,7 +421,7 @@ class AtestExecutionInfoUnittests(unittest.TestCase):
     self.assertEqual(expect_total_summary, info_dict[aei._TOTAL_SUMMARY_KEY])
 
   def _create_test_result(self, **kwargs):
-    """A Helper to create TestResult"""
+    """Helper to create a TestResult object, optionally overriding default values."""
     test_info = test_runner_base.TestResult(**RESULT_TEST_TEMPLATE._asdict())
     return test_info._replace(**kwargs)
 

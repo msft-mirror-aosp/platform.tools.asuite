@@ -35,6 +35,7 @@ from atest import test_finder_handler
 from atest import test_mapping
 from atest import unittest_constants as uc
 from atest import unittest_utils
+from atest.acme import acme_utils
 from atest.metrics import metrics
 from atest.test_finders import module_finder
 from atest.test_finders import test_finder_base
@@ -667,6 +668,37 @@ class CLITranslatorUnittests(unittest.TestCase):
     test_infos = self.ctr.translate(self.args)
     unittest_utils.assert_equal_testinfo_lists(
         self, test_infos, [uc.MODULE_INFO, uc.CLASS_INFO]
+    )
+
+  @mock.patch.object(
+      acme_utils,
+      'get_affected_test_details',
+      autospec=True,
+  )
+  @mock.patch.object(
+      cli_t.CLITranslator,
+      '_get_test_infos',
+      side_effect=gettestinfos_side_effect,
+  )
+  def test_translate_run_affected(
+      self, mock_get_test_infos, mock_get_trigged_test_details
+  ):
+    """Test translate method for run_affected."""
+    # Set up mocks.
+    test_detail = test_mapping.TestDetail({'name': uc.MODULE_NAME})
+    mock_get_trigged_test_details.return_value = (
+        [uc.MODULE_NAME],
+        [test_detail],
+    )
+
+    # Function call.
+    self.args.run_affected = True
+    test_infos = self.ctr.translate(self.args)
+
+    # Assertions.
+    mock_get_test_infos.assert_called_once_with([uc.MODULE_NAME], [test_detail])
+    unittest_utils.assert_equal_testinfo_lists(
+        self, test_infos, [uc.MODULE_INFO]
     )
 
 

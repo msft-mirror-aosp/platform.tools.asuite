@@ -117,15 +117,16 @@ def create_test_method(testcase, log_path):
   Returns:
       A created test method, and a test function name.
   """
-  test_function_name = 'test_%s' % testcase.replace(' ', '_')
+  test_function_name = f'test_{testcase.replace(' ', '_')}'
 
   # pylint: disable=missing-docstring
   def template_test_method(self):
     self.test_passed = self.run_test(testcase)
     with open(log_path, 'a', encoding='utf-8') as f:
       f.write('\n'.join(self.log))
-    failed_message = 'Running command: %s failed.\n' % testcase
-    failed_message += '' if self.test_passed else self.get_failed_log()
+    failed_message = f'Running command: {testcase} failed.\n'
+    if not self.test_passed:
+      failed_message += self.get_failed_log()
     self.assertTrue(self.test_passed, failed_message)
 
   return test_function_name, template_test_method
@@ -138,8 +139,7 @@ def create_test_run_dir():
       A string of the directory path.
   """
   utc_epoch_time = int(time.time())
-  prefix = _TEST_RUN_DIR_PREFIX % utc_epoch_time
-  return tempfile.mkdtemp(prefix=prefix)
+  return tempfile.mkdtemp(prefix=_TEST_RUN_DIR_PREFIX % utc_epoch_time)
 
 
 if __name__ == '__main__':

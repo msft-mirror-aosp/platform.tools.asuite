@@ -14,5 +14,12 @@
 
 """Various global config settings used by atest."""
 
-# For saving the args to global for sub class usage.
-GLOBAL_ARGS = None
+import argparse
+
+
+# A global object holding the parsed arguments for the current atest invocation.
+# This is initialized in atest_main.py and used throughout atest to access
+# command-line options. While global variables are generally discouraged, this
+# pattern is used here to avoid passing the arguments through many layers of
+# function calls.
+GLOBAL_ARGS: argparse.Namespace | None = None

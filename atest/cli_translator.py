@@ -37,6 +37,7 @@ from atest import constants
 from atest import rollout_control
 from atest import test_finder_handler
 from atest import test_mapping
+from atest.acme import acme_utils
 from atest.atest_enum import DetectType, ExitCode
 from atest.metrics import metrics
 from atest.metrics import metrics_utils
@@ -447,9 +448,7 @@ class CLITranslator:
       return '' if any(map(line.startswith, _COMMENTS)) else line
 
     with open(test_mapping_file, encoding='utf-8') as json_file:
-      return ''.join(
-          re.sub(_COMMENTS_RE, _replace, line) for line in json_file
-      )
+      return ''.join(re.sub(_COMMENTS_RE, _replace, line) for line in json_file)
 
   def _read_tests_in_test_mapping(self, test_mapping_file):
     """Read tests from a TEST_MAPPING file.
@@ -740,6 +739,7 @@ class CLITranslator:
     if any((
         not args.tests,
         atest_utils.is_test_mapping(args),
+        args.run_affected,
         args.smart_test_selection,
     )):
       self.fuzzy_search = False
@@ -748,7 +748,12 @@ class CLITranslator:
     # Not including host unit tests if user specify --test-mapping or
     # --smart-test-selection.
     host_unit_tests = []
-    if not any((args.tests, args.test_mapping, args.smart_test_selection)):
+    if not any((
+        args.tests,
+        args.test_mapping,
+        args.smart_test_selection,
+        args.run_affected,
+    )):
       logging.debug('Finding Host Unit Tests...')
       host_unit_tests = test_finder_utils.find_host_unit_tests(
           self.mod_info, str(Path(os.getcwd()).relative_to(self.root_dir))
@@ -762,6 +767,9 @@ class CLITranslator:
       tests, test_details_list = self._get_test_mapping_tests(
           args, not bool(host_unit_tests)
       )
+    if args.run_affected:
+      tests, test_details_list = acme_utils.get_affected_test_details()
+
     atest_utils.colorful_print('\nFinding Tests...', constants.CYAN)
     logging.debug('Finding Tests: %s', tests)
     # Process tests which might contain wildcard symbols in advance.

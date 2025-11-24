@@ -27,6 +27,7 @@ python_defaults {
     ],
     libs: [
         "asuite_proto",
+        "test_configs_proto_py",
         "tradefed-protos-py",
         "py-google-api-python-client",
         "py-oauth2client",

@@ -21,6 +21,7 @@ import logging
 
 from atest import atest_utils
 from atest import constants
+from atest.acme import acme_utils
 from atest.atest_utils import BuildOutputMode
 from atest.crystalball import perf_mode
 
@@ -31,33 +32,31 @@ _EXTRA_MODULE_MAP = {
 _INCLUDE_PREVIEW_TESTS_FLAG = '--include-preview-tests'
 
 # LINT.IfChange
-_EXCLUDE_PREVIEW_TESTS_CUSTOM_ARGS = [
+_EXCLUDE_PREVIEW_TESTS_CUSTOM_ARGS = (
     '--test-arg',
     'com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:com.android.compatibility.common.util.PreviewOnly',
     '--test-arg',
     'com.android.compatibility.common.tradefed.testtype.JarHostTest:exclude-annotation:com.android.compatibility.common.util.PreviewOnly',
     '--test-arg',
     'com.android.tradefed.testtype.HostTest:exclude-annotation:com.android.compatibility.common.util.PreviewOnly',
-]
+)
 # LINT.ThenChange(//test/suite_harness/common/host-side/tradefed/res/config/exclude-preview-only.xml)
+
+
+_BUILD_OUTPUT_MODE_DESCRIPTIONS = {
+    BuildOutputMode.STREAMED: 'full output like what "m" does. (default)',
+    BuildOutputMode.LOGGED: 'print build output to a log file.',
+}
 
 
 def _output_mode_msg() -> str:
   """Generate helper strings for BuildOutputMode."""
   msg = []
-  for _, value in BuildOutputMode.__members__.items():
-    if value == BuildOutputMode.STREAMED:
-      msg.append(
-          f'\t\t{BuildOutputMode.STREAMED.value}: '
-          'full output like what "m" does. (default)'
-      )
-    elif value == BuildOutputMode.LOGGED:
-      msg.append(
-          f'\t\t{BuildOutputMode.LOGGED.value}: '
-          'print build output to a log file.'
-      )
+  for mode in BuildOutputMode:
+    if mode in _BUILD_OUTPUT_MODE_DESCRIPTIONS:
+      msg.append(f'\t\t{mode.value}: {_BUILD_OUTPUT_MODE_DESCRIPTIONS[mode]}')
     else:
-      raise RuntimeError('Found unknown attribute!')
+      raise RuntimeError(f'Description missing for BuildOutputMode.{mode.name}')
   return '\n'.join(msg)
 
 
@@ -71,14 +70,24 @@ def _positive_int(value):
       int of value, if it is a positive integer.
       Otherwise, raise argparse.ArgumentTypeError.
   """
-  err_msg = "invalid positive int value: '%s'" % value
+  err_msg = f"invalid positive int value: '{value}'"
   try:
     converted_value = int(value)
-    if converted_value < 1:
-      raise argparse.ArgumentTypeError(err_msg)
-    return converted_value
-  except ValueError as value_err:
-    raise argparse.ArgumentTypeError(err_msg) from value_err
+    if converted_value >= 1:
+      return converted_value
+  except ValueError:
+    pass
+  raise argparse.ArgumentTypeError(err_msg)
+
+
+def _comma_separated_list_to_set(value):
+  """Parse comma-separated string into a set."""
+  return set(value.split(','))
+
+
+def _comma_separated_list(value):
+  """Parse comma-separated string into a list."""
+  return value.split(',')
 
 
 def create_atest_arg_parser():
@@ -115,7 +124,7 @@ def create_atest_arg_parser():
   parser.add_argument(
       '--update:modules',
       dest='update_modules',
-      type=lambda value: value.split(','),
+      type=_comma_separated_list,
       help=(
           'Modules that are built if the device is being updated. '
           'Modules should be separated by comma.'
@@ -152,7 +161,7 @@ def create_atest_arg_parser():
 
   parser.add_argument(
       '--code-under-test',
-      type=lambda value: set(value.split(',')),
+      type=_comma_separated_list_to_set,
       help=(
           'Comma-separated list of modules whose sources should be included in'
           ' the code coverage report. The dependencies of these modules are not'
@@ -171,21 +180,11 @@ def create_atest_arg_parser():
 
   parser.add_argument(
       '--group-test',
+      action=argparse.BooleanOptionalAction,
       default=True,
-      action='store_true',
       help=(
-          'Group tests by module name during the test run (default: True). To'
-          ' run tests in the same order as they are input, use'
-          ' `--no-group-test`'
-      ),
-  )
-  parser.add_argument(
-      '--no-group-test',
-      dest='group_test',
-      action='store_false',
-      help=(
-          'Group the tests by module name for running the test, if you want'
-          ' to run the test using the same input order, use --no-group-test.'
+          'Group tests by module name during the test run (default: True). Use'
+          ' --no-group-test to disable it.'
       ),
   )
 
@@ -241,7 +240,10 @@ def create_atest_arg_parser():
       const=2,
       type=_positive_int,
       default=0,
-      help='Option to specify sharding count. (default: 2)',
+      help=(
+          'Option to specify sharding count. If specified without a value, '
+          'defaults to 2. If omitted, sharding is disabled (0).'
+      ),
   )
   parser.add_argument(
       '--sqlite-module-cache',
@@ -262,6 +264,7 @@ def create_atest_arg_parser():
           ' need to be setup again with "-i".'
       ),
   )
+  acme_utils.add_global_arguments(parser)
   parser.add_argument(
       '--sts',
       default=False,
@@ -581,6 +584,7 @@ def create_atest_arg_parser():
       '--',
       dest='custom_args',
       nargs='*',
+      default=[],
       help=(
           'Specify custom args for the test runners. Everything after -- will'
           ' be consumed as custom args.'
@@ -594,19 +598,18 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
   """Parses the command line arguments."""
   parser = create_atest_arg_parser()
 
-  for arg, module in _EXTRA_MODULE_MAP.items():
-    if arg in argv:
-      module.add_arguments(parser)
+  modules_to_process = [
+      module for arg, module in _EXTRA_MODULE_MAP.items() if arg in argv
+  ]
+  for module in modules_to_process:
+    module.add_arguments(parser)
 
   parsed_args = parser.parse_args(argv)
-  if not parsed_args.custom_args:
-    parsed_args.custom_args = []
 
-  for arg, module in _EXTRA_MODULE_MAP.items():
-    if arg in argv:
-      module.process_parsed_args(parsed_args)
+  for module in modules_to_process:
+    module.process_parsed_args(parsed_args)
 
-  if _INCLUDE_PREVIEW_TESTS_FLAG not in argv:
+  if not parsed_args.include_preview_tests:
     # By default (if we're not using the flag to include preview tests), we'll
     # exclude them.  We quote these args to match the behavior in
     # atest_main._parse_args() for custom args.

@@ -20,10 +20,8 @@
 
 import datetime
 from importlib import reload
-from io import StringIO
 import os
 import subprocess
-import sys
 import tempfile
 from typing import List
 import unittest
@@ -35,96 +33,93 @@ from atest import constants
 from atest import module_info
 from atest.atest_enum import DetectType
 from atest.atest_enum import ExitCode
-from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.test_finders import test_info
 from pyfakefs import fake_filesystem_unittest
-
-GREEN = '\x1b[1;32m'
-CYAN = '\x1b[1;36m'
-MAGENTA = '\x1b[1;35m'
-END = '\x1b[0m'
 
 
 # pylint: disable=protected-access
 class AtestUnittests(unittest.TestCase):
   """Unit tests for atest_main.py"""
 
-  @mock.patch('os.environ.get', return_value=None)
-  def test_missing_environment_variables_uninitialized(self, _):
-    """Test _has_environment_variables when no env vars."""
-    self.assertTrue(atest_main._missing_environment_variables())
+  @mock.patch('os.environ.get')
+  def test_missing_environment_variables(self, mock_env_get):
+    """Test _missing_environment_variables method."""
+    test_cases = [
+        ('uninitialized', None, True),
+        ('initialized', 'out/testcases/', False),
+    ]
 
-  @mock.patch('os.environ.get', return_value='out/testcases/')
-  def test_missing_environment_variables_initialized(self, _):
-    """Test _has_environment_variables when env vars."""
-    self.assertFalse(atest_main._missing_environment_variables())
+    for name, return_value, expected in test_cases:
+      with self.subTest(name=name):
+        mock_env_get.return_value = return_value
+        self.assertEqual(
+            bool(atest_main._missing_environment_variables()), expected
+        )
 
-  def assert_args_in_order(self, arg_list: List[str], arg0: str, arg1: str):
+  def _assert_args_in_order(self, arg_list: List[str], arg0: str, arg1: str):
     self.assertTrue(
-        arg0 in arg_list, "'" + arg0 + "' is not in " + str(arg_list)
-    )
-    index = arg_list.index(arg0)
-    self.assertNotEqual(
-        index,
-        len(arg_list) - 1,
-        "'" + arg0 + "' is last argument in " + str(arg_list),
-    )
-    self.assertEqual(
-        arg_list[index + 1],
-        arg1,
-        "'"
-        + arg0
-        + "' is not immediately followed by '"
-        + arg1
-        + "' in "
-        + str(arg_list),
+        (arg0, arg1) in zip(arg_list, arg_list[1:]),
+        f"'{arg0}' is not immediately followed by '{arg1}' in {arg_list}",
     )
 
-  def test_parse_args(self):
-    """Test _parse_args parses command line args."""
-    test_one = 'test_name_one'
-    test_two = 'test_name_two'
-    custom_arg = '--custom_arg'
+  def test_parse_args_with_tests(self):
+    """Test _parse_args with test arguments."""
+    # Test out test and custom args are properly retrieved.
+    args = [
+        'test_name_one',
+        'test_name_two',
+        '--',
+        '--custom_arg',
+        'custom_arg_val',
+    ]
+    parsed_args = atest_main._parse_args(args)
+    self.assertEqual(parsed_args.tests, ['test_name_one', 'test_name_two'])
+    self._assert_args_in_order(
+        parsed_args.custom_args, '--custom_arg', 'custom_arg_val'
+    )
+
+  def test_parse_args_no_tests(self):
+    """Test _parse_args with no test arguments."""
     custom_arg_val = 'custom_arg_val'
     pos_custom_arg = 'pos_custom_arg'
-
-    # Test out test and custom args are properly retrieved.
-    args = [test_one, test_two, '--', custom_arg, custom_arg_val]
-    parsed_args = atest_main._parse_args(args)
-    self.assertEqual(parsed_args.tests, [test_one, test_two])
-    self.assert_args_in_order(
-        parsed_args.custom_args, custom_arg, custom_arg_val
-    )
 
     # Test out custom positional args with no test args.
     args = ['--', pos_custom_arg, custom_arg_val]
     parsed_args = atest_main._parse_args(args)
     self.assertEqual(parsed_args.tests, [])
-    self.assert_args_in_order(
+    self._assert_args_in_order(
         parsed_args.custom_args, pos_custom_arg, custom_arg_val
     )
 
   def test_has_valid_test_mapping_args(self):
     """Test _has_valid_test_mapping_args method."""
     # Test test mapping related args are not mixed with incompatible args.
-    options_no_tm_support = [
+    test_cases = [
         (
-            '--annotation-filter',
-            'androidx.test.filters.SmallTest',
+            'with_test_mapping',
+            [
+                '--test-mapping',
+                '--annotation-filter',
+                'androidx.test.filters.SmallTest',
+            ],
+        ),
+        (
+            'with_include_subdirs',
+            [
+                '--include-subdirs',
+                '--annotation-filter',
+                'androidx.test.filters.SmallTest',
+            ],
         ),
     ]
-    tm_options = ['--test-mapping', '--include-subdirs']
 
-    for tm_option in tm_options:
-      for no_tm_option, no_tm_option_value in options_no_tm_support:
-        args = [tm_option, no_tm_option]
-        if no_tm_option_value is not None:
-          args.append(no_tm_option_value)
+    for name, args in test_cases:
+      with self.subTest(name=name):
         parsed_args = atest_main._parse_args(args)
         self.assertFalse(
             atest_main._has_valid_test_mapping_args(parsed_args),
-            'Failed to validate: %s' % args,
+            f'Failed to validate: {args}',
         )
 
   @mock.patch.object(atest_utils, 'get_adb_devices')
@@ -132,7 +127,6 @@ class AtestUnittests(unittest.TestCase):
   def test_validate_exec_mode(self, _send_exit, _devs):
     """Test _validate_exec_mode."""
     _devs.return_value = ['127.0.0.1:34556']
-    args = []
     no_install_test_info = test_info.TestInfo(
         'mod',
         '',
@@ -167,7 +161,7 @@ class AtestUnittests(unittest.TestCase):
     )
 
     # $atest <Both-support>
-    parsed_args = atest_main._parse_args(args)
+    parsed_args = atest_main._parse_args([])
     test_infos = [host_test_info]
     atest_main._validate_exec_mode(parsed_args, test_infos)
     self.assertFalse(parsed_args.host)
@@ -176,7 +170,6 @@ class AtestUnittests(unittest.TestCase):
     parsed_args = atest_main._parse_args([])
     test_infos = [host_test_info]
     atest_main._validate_exec_mode(parsed_args, test_infos, host_tests=True)
-    # Make sure the host option is not set.
     self.assertFalse(parsed_args.host)
 
     # $atest <Both-support> with host_tests set to False
@@ -249,7 +242,6 @@ class AtestUnittests(unittest.TestCase):
     """Test make_test_run_dir."""
     tmp_dir = tempfile.mkdtemp()
     constants.ATEST_RESULT_ROOT = tmp_dir
-    date_time = None
 
     work_dir = atest_main.make_test_run_dir()
     folder_name = os.path.basename(work_dir)
@@ -257,35 +249,28 @@ class AtestUnittests(unittest.TestCase):
         '_'.join(folder_name.split('_')[0:2]), atest_main.TEST_RUN_DIR_PREFIX
     )
     reload(constants)
-    self.assertTrue(date_time)
+    self.assertIsNotNone(date_time)
 
-  def test_has_set_sufficient_devices_no_device_no_require(self):
-    required_num = 0
-    self.assertTrue(atest_main.has_set_sufficient_devices(required_num))
+  def test_has_set_sufficient_devices(self):
+    """Test has_set_sufficient_devices method."""
+    test_cases = [
+        ('no_device_no_require', 0, None, True),
+        ('equal_required_attached_devices', 2, ['serial1', 'serial2'], True),
+        (
+            'attached_devices_more_than_required',
+            2,
+            ['serial1', 'serial2', 'serial3'],
+            True,
+        ),
+        ('not_enough_devices', 2, ['serial1'], False),
+    ]
 
-  def test_has_set_sufficient_devices_equal_required_attached_devices(self):
-    required_num = 2
-    attached_devices = ['serial1', 'serial2']
-
-    self.assertTrue(
-        atest_main.has_set_sufficient_devices(required_num, attached_devices)
-    )
-
-  def test_has_set_sufficient_devices_attached_devices_more_than_required(self):
-    required_num = 2
-    attached_devices = ['serial1', 'serial2', 'serial3']
-
-    self.assertTrue(
-        atest_main.has_set_sufficient_devices(required_num, attached_devices)
-    )
-
-  def test_has_set_sufficient_devices_not_enough_devices(self):
-    required_num = 2
-    attached_devices = ['serial1']
-
-    self.assertFalse(
-        atest_main.has_set_sufficient_devices(required_num, attached_devices)
-    )
+    for name, required_num, attached_devices, expected in test_cases:
+      with self.subTest(name=name):
+        result = atest_main.has_set_sufficient_devices(
+            required_num, attached_devices
+        )
+        self.assertEqual(result, expected)
 
   def test_ravenwood_tests_is_deviceless(self):
     ravenwood_test_info = test_info.TestInfo(
@@ -321,26 +306,34 @@ class AtestMainUnitTests(unittest.TestCase):
         compatibility_suites=['performance-tests'],
     )
     args_original = atest_main._parse_args([])
-    args = atest_main._parse_args([])
 
-    with self.subTest(name='does not inject default args for non-perf tests'):
-      atest_main._AtestMain._inject_default_arguments_based_on_test_infos(
-          [non_perf_test_info], args
-      )
+    test_cases = [
+        (
+            'does not inject default args for non-perf tests',
+            non_perf_test_info,
+            self.assertEqual,
+        ),
+        (
+            'injects default args for perf tests',
+            perf_test_info,
+            self.assertNotEqual,
+        ),
+    ]
 
-      self.assertEqual(args_original, args)
-
-    with self.subTest(name='injects default args for perf tests'):
-      atest_main._AtestMain._inject_default_arguments_based_on_test_infos(
-          [perf_test_info], args
-      )
-
-      self.assertNotEqual(args_original, args)
+    for name, t_info, assert_func in test_cases:
+      with self.subTest(name=name):
+        args = atest_main._parse_args([])
+        atest_main._AtestMain._inject_default_arguments_based_on_test_infos(
+            [t_info], args
+        )
+        assert_func(args_original, args)
 
   @mock.patch.object(
       atest_main._AtestMain, '_get_build_targets', return_value=None
   )
-  def test_run_build_step_exits_normally_when_no_build_target(self, _):
+  def test_run_build_step_exits_normally_when_no_build_target(
+      self, _mock_get_build_targets
+  ):
     pseudo_atest_main = atest_main._AtestMain(argv=[])
     pseudo_atest_main._args = atest_main._parse_args(argv=[])
 
@@ -352,7 +345,7 @@ class AtestMainUnitTests(unittest.TestCase):
   @mock.patch('os.getenv', return_value='/tmp/my_android_build_root')
   @mock.patch('os.getcwd', return_value='/tmp/my_android_build_root/tools')
   def test_check_envs_and_args_smart_test_selection_and_test_refs_specified(
-      self, _, __, ___
+      self, _mock_getcwd, _mock_getenv, _mock_missing_env
   ):
     pseudo_atest_main = atest_main._AtestMain(argv=[])
     pseudo_atest_main._args = atest_main._parse_args(
@@ -374,7 +367,7 @@ class AtestMainUnitTests(unittest.TestCase):
   @mock.patch('os.getenv', return_value='/tmp/my_android_build_root')
   @mock.patch('os.getcwd', return_value='/tmp/my_android_build_root/tools')
   def test_check_envs_and_args_smart_test_selection_not_under_a_repo(
-      self, _, __, ___, ____
+      self, _mock_getcwd, _mock_getenv, _mock_missing_env, _mock_run
   ):
     pseudo_atest_main = atest_main._AtestMain(argv=[])
     pseudo_atest_main._args = atest_main._parse_args(argv=['--sts'])
@@ -390,7 +383,7 @@ class AtestMainUnitTests(unittest.TestCase):
   @mock.patch('os.getenv', return_value='/tmp/my_android_build_root')
   @mock.patch('os.getcwd', return_value='/tmp/my_android_build_root/tools')
   def test_check_envs_and_args_cross_branch_args_valid_with_bid(
-      self, _, __, ___
+      self, _mock_getcwd, _mock_getenv, _mock_missing_env
   ):
     """Tests cross-branch args are valid with build target and bid."""
     pseudo_atest_main = atest_main._AtestMain(argv=[])
@@ -411,7 +404,7 @@ class AtestMainUnitTests(unittest.TestCase):
   @mock.patch('os.getenv', return_value='/tmp/my_android_build_root')
   @mock.patch('os.getcwd', return_value='/tmp/my_android_build_root/tools')
   def test_check_envs_and_args_cross_branch_args_valid_with_branch(
-      self, _, __, ___
+      self, _mock_getcwd, _mock_getenv, _mock_missing_env
   ):
     """Tests cross-branch args are valid with build target and branch."""
     pseudo_atest_main = atest_main._AtestMain(argv=[])
@@ -431,7 +424,9 @@ class AtestMainUnitTests(unittest.TestCase):
   )
   @mock.patch('os.getenv', return_value='/tmp/my_android_build_root')
   @mock.patch('os.getcwd', return_value='/tmp/my_android_build_root/tools')
-  def test_check_envs_and_args_cross_branch_args_no_target(self, _, __, ___):
+  def test_check_envs_and_args_cross_branch_args_no_target(
+      self, _mock_getcwd, _mock_getenv, _mock_missing_env
+  ):
     """Tests cross-branch args are invalid without build target."""
     pseudo_atest_main = atest_main._AtestMain(argv=[])
     pseudo_atest_main._args = atest_main._parse_args(
@@ -454,7 +449,7 @@ class AtestMainUnitTests(unittest.TestCase):
   @mock.patch('os.getenv', return_value='/tmp/my_android_build_root')
   @mock.patch('os.getcwd', return_value='/tmp/my_android_build_root/tools')
   def test_check_envs_and_args_cross_branch_args_no_bid_branch(
-      self, _, __, ___
+      self, _mock_getcwd, _mock_getenv, _mock_missing_env
   ):
     """Tests cross-branch args are invalid without branch and bid."""
     pseudo_atest_main = atest_main._AtestMain(argv=[])
@@ -477,13 +472,14 @@ class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
 
   # pylint: disable=protected-access
   def create_empty_module_info(self):
-    fake_temp_file_name = next(tempfile._get_candidate_names())
-    self.fs.create_file(fake_temp_file_name, contents='{}')
-    return module_info.load_from_file(module_file=fake_temp_file_name)
+    fake_module_info_path = '/tmp/module-info.json'
+    self.fs.create_file(fake_module_info_path, contents='{}')
+    return module_info.load_from_file(module_file=fake_module_info_path)
 
   def create_module_info(self, modules=None):
     mod_info = self.create_empty_module_info()
-    modules = modules or []
+    if modules is None:
+      modules = []
 
     for m in modules:
       mod_info.name_to_module_info[m['module_name']] = m
@@ -497,89 +493,37 @@ class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
       build_targets=None,
   ):
     """Create a test_info.TestInfo object."""
-    if not build_targets:
+    if build_targets is None:
       build_targets = set()
     return test_info.TestInfo(test_name, test_runner, build_targets)
 
 
-class PrintModuleInfoTest(AtestUnittestFixture):
-  """Test conditions for _print_module_info."""
+class HasValidTestMappingArgsTest(unittest.TestCase):
+  """Test _has_valid_test_mapping_args metric event sending."""
 
-  def tearDown(self):
-    sys.stdout = sys.__stdout__
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
+  def test_has_valid_test_mapping_args_metric_event_sending(self, mock_event):
+    """Test _has_valid_test_mapping_args metric event sending."""
+    test_cases = [
+        ('no_tests', [], 1),
+        ('with_tests', ['test1'], 0),
+    ]
 
-  def test_has_valid_test_mapping_args_is_test_mapping_detect_event_send_1(
-      self,
-  ):
-    # Arrange
     expected_detect_type = DetectType.IS_TEST_MAPPING
-    expected_result = 1
-    metrics.LocalDetectEvent = mock.MagicMock()
-    args = arg_parser.create_atest_arg_parser().parse_args([])
+    for name, test_args, expected_result in test_cases:
+      with self.subTest(name=name):
+        # Arrange
+        args = arg_parser.create_atest_arg_parser().parse_args(test_args)
 
-    # Act
-    atest_main._has_valid_test_mapping_args(args)
+        # Act
+        atest_main._has_valid_test_mapping_args(args)
 
-    # Assert
-    metrics.LocalDetectEvent.assert_called_once_with(
-        detect_type=expected_detect_type, result=expected_result
-    )
-
-  def test_has_valid_test_mapping_args_mpt_test_mapping_detect_event_send_0(
-      self,
-  ):
-    # Arrange
-    expected_detect_type = DetectType.IS_TEST_MAPPING
-    expected_result = 0
-    metrics.LocalDetectEvent = mock.MagicMock()
-    args = arg_parser.create_atest_arg_parser().parse_args(['test1'])
-
-    # Act
-    atest_main._has_valid_test_mapping_args(args)
-
-    # Assert
-    metrics.LocalDetectEvent.assert_called_once_with(
-        detect_type=expected_detect_type, result=expected_result
-    )
-
-
-# pylint: disable=too-many-arguments
-def module(
-    name=None,
-    path=None,
-    installed=None,
-    classes=None,
-    auto_test_config=None,
-    test_config=None,
-    shared_libs=None,
-    dependencies=None,
-    runtime_dependencies=None,
-    data=None,
-    data_dependencies=None,
-    compatibility_suites=None,
-    host_dependencies=None,
-    srcs=None,
-):
-  name = name or 'libhello'
-
-  m = {}
-
-  m['module_name'] = name
-  m['class'] = classes
-  m['path'] = [path or '']
-  m['installed'] = installed or []
-  m['is_unit_test'] = 'false'
-  m['auto_test_config'] = auto_test_config or []
-  m['test_config'] = test_config or []
-  m['shared_libs'] = shared_libs or []
-  m['runtime_dependencies'] = runtime_dependencies or []
-  m['dependencies'] = dependencies or []
-  m['data'] = data or []
-  m['data_dependencies'] = data_dependencies or []
-  m['compatibility_suites'] = compatibility_suites or []
-  m['host_dependencies'] = host_dependencies or []
-  m['srcs'] = srcs or []
-  return m
+        # Assert
+        mock_event.assert_called_once_with(
+            detect_type=expected_detect_type, result=expected_result
+        )
+        # Reset mock for the next subtest
+        mock_event.reset_mock()
 
 
 if __name__ == '__main__':

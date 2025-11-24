@@ -51,21 +51,17 @@ def get_test_modules():
   Returns:
       List of strings (the testable module import path).
   """
-  testable_modules = []
   package = unittest_constants.ATEST_PKG_DIR
   base_path = os.path.dirname(package)
 
-  for dirpath, _, files in os.walk(package):
-    for f in files:
-      if f.endswith('_unittest.py') or f.endswith('_unittest.pyc'):
-        # Now transform it into a no-absolute import path.
-        full_file_path = os.path.join(dirpath, f)
-        rel_file_path = os.path.relpath(full_file_path, base_path)
-        rel_file_path, _ = os.path.splitext(rel_file_path)
-        rel_file_path = rel_file_path.replace(os.sep, '.')
-        testable_modules.append(rel_file_path)
-
-  return testable_modules
+  return [
+      os.path.splitext(os.path.relpath(os.path.join(dirpath, f), base_path))[
+          0
+      ].replace(os.sep, '.')
+      for dirpath, _, files in os.walk(package)
+      for f in files
+      if f.endswith('_unittest.py') or f.endswith('_unittest.pyc')
+  ]
 
 
 def run_test_modules(test_modules):
@@ -89,6 +85,4 @@ if __name__ == '__main__':
   print(sys.version_info)
   with mock.patch.dict('os.environ', ENV):
     result = run_test_modules(get_test_modules())
-    if not result.wasSuccessful():
-      sys.exit(not result.wasSuccessful())
-    sys.exit(0)
+    sys.exit(not result.wasSuccessful())
