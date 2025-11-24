@@ -164,12 +164,12 @@ def _get_test_filters(args):
     class_info.update(info)
 
   test_filters = []
-  for cls in class_to_methods:
+  for cls, methods in class_to_methods.items():
     if cls not in class_info:
       raise ValueError(f'Class, {cls}, not found in the source files!')
 
     test_filters.append(
-        test_filter_utils.get_cc_filter(class_info, cls, class_to_methods[cls])
+        test_filter_utils.get_cc_filter(class_info, cls, methods)
     )
 
   return test_filters
