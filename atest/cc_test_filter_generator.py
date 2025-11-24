@@ -81,9 +81,7 @@ def trim_comments(content):
       continue
     else:
       code_lines = []
-      code_line, comment_ended = _handle_block_comment_line(
-          line[index + 2 :] if index + 2 < len(line) else ''
-      )
+      code_line, comment_ended = _handle_block_comment_line(line[index + 2 :])
 
       # Replace each character in the comment by a single space including
       # '/*' and '*/'.
