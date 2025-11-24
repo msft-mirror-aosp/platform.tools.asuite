@@ -121,14 +121,18 @@ def _handle_block_comment_line(line):
 
 
 def _get_comment_type(line):
-  for idx in range(0, len(line) - 1):
-    mark = line[idx : idx + 2]
-    if mark == CCCommentType.LINE_COMMENT.value:
-      return CCCommentType.LINE_COMMENT, idx
-    if mark == CCCommentType.BLOCK_COMMENT.value:
-      return CCCommentType.BLOCK_COMMENT, idx
+  line_comment_idx = line.find(CCCommentType.LINE_COMMENT.value)
+  block_comment_idx = line.find(CCCommentType.BLOCK_COMMENT.value)
 
-  return CCCommentType.NO_COMMENT, -1
+  if line_comment_idx == -1 and block_comment_idx == -1:
+    return CCCommentType.NO_COMMENT, -1
+
+  if line_comment_idx != -1 and (
+      block_comment_idx == -1 or line_comment_idx < block_comment_idx
+  ):
+    return CCCommentType.LINE_COMMENT, line_comment_idx
+
+  return CCCommentType.BLOCK_COMMENT, block_comment_idx
 
 
 def _parse_class_method_reference(class_method_reference):
