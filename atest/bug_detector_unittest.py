@@ -99,11 +99,10 @@ class BugDetectorUnittest(unittest.TestCase):
     success = 1
     self.assertEqual(dtr.detect_bug_caught(), success)
 
+  @mock.patch.object(constants, 'UPPER_LIMIT', 10)
+  @mock.patch.object(constants, 'TRIM_TO_SIZE', 3)
   def test_update_history(self):
     """Test update_history."""
-    constants.UPPER_LIMIT = 10
-    constants.TRIM_TO_SIZE = 3
-
     mock_file_size = 0
     self._make_test_file(mock_file_size)
     dtr = bug_detector.BugDetector(['test1'], 0, self.history_file2)
