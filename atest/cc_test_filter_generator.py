@@ -30,7 +30,7 @@ Usage:
 import argparse
 from collections import defaultdict, deque
 import enum
-import os
+from pathlib import Path
 
 from tools.asuite.atest import constants_default
 from tools.asuite.atest.test_finders import test_filter_utils
@@ -173,11 +173,13 @@ def _get_test_filters(class_method_references, class_files):
     if not constants_default.CC_EXT_RE.match(class_file):
       continue
 
-    if not os.path.isfile(class_file):
+    file_path = Path(class_file)
+    if not file_path.is_file():
       continue
 
-    with open(class_file, 'r', encoding='utf-8') as f:
-      info, _ = test_filter_utils.get_cc_class_info(trim_comments(f.read()))
+    info, _ = test_filter_utils.get_cc_class_info(
+        trim_comments(file_path.read_text(encoding='utf-8'))
+    )
 
     class_info.update(info)
 
