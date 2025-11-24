@@ -40,7 +40,6 @@ from tools.asuite.atest.test_finders import test_filter_utils
 class CCCommentType(enum.Enum):
   BLOCK_COMMENT = '/*'
   LINE_COMMENT = '//'
-  NO_COMMENT = 'no comment'
 
 
 BLOCK_COMMENT_END = '*/'
@@ -76,7 +75,7 @@ def trim_comments(content):
     line = lines.popleft()
     comment_type, index = _get_comment_type(line)
 
-    if comment_type == CCCommentType.NO_COMMENT:
+    if comment_type is None:
       trimmed_lines.append(line.rstrip())
     elif comment_type == CCCommentType.LINE_COMMENT:
       trimmed_lines.append(line[:index].rstrip())
@@ -123,7 +122,7 @@ def _get_comment_type(line):
   if block_comment_idx != -1:
     return CCCommentType.BLOCK_COMMENT, block_comment_idx
 
-  return CCCommentType.NO_COMMENT, -1
+  return None, -1
 
 
 def _parse_class_method_reference(class_method_reference):
