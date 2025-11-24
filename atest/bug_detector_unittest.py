@@ -67,23 +67,15 @@ class BugDetectorUnittest(unittest.TestCase):
   @mock.patch.object(bug_detector.BugDetector, 'update_history')
   def test_get_detect_key(self, _):
     """Test get_detect_key."""
-    # argv without -v
-    argv = ['test2', 'test1']
-    want_key = 'test1 test2'
-    dtr = bug_detector.BugDetector(argv, 0)
-    self.assertEqual(dtr.get_detect_key(argv), want_key)
-
-    # argv with -v
-    argv = ['-v', 'test2', 'test1']
-    want_key = 'test1 test2'
-    dtr = bug_detector.BugDetector(argv, 0)
-    self.assertEqual(dtr.get_detect_key(argv), want_key)
-
-    # argv with --verbose
-    argv = ['--verbose', 'test2', 'test3', 'test1']
-    want_key = 'test1 test2 test3'
-    dtr = bug_detector.BugDetector(argv, 0)
-    self.assertEqual(dtr.get_detect_key(argv), want_key)
+    test_cases = [
+        (['test2', 'test1'], 'test1 test2'),
+        (['-v', 'test2', 'test1'], 'test1 test2'),
+        (['--verbose', 'test2', 'test3', 'test1'], 'test1 test2 test3'),
+    ]
+    for argv, want_key in test_cases:
+      with self.subTest(argv=argv):
+        dtr = bug_detector.BugDetector(argv, 0)
+        self.assertEqual(dtr.get_detect_key(argv), want_key)
 
   @mock.patch.object(bug_detector.BugDetector, 'update_history')
   def test_get_history(self, _):
