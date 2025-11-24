@@ -1250,7 +1250,7 @@ def _create_json(data_map: Dict[str, Any], json_path: Path):
       json.dump(data_map, _temp, indent=0)
     shutil.move(temp_json.name, json_path)
 
-    logging.debug('%s is created successfully.', json_path)
+    logging.debug(f'{json_path} is created successfully.')
 
 
 def _save_data_async(function: Callable, contents: Any, target_path: Path):
