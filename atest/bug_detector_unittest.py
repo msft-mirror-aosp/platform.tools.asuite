@@ -88,8 +88,7 @@ class BugDetectorUnittest(unittest.TestCase):
     """Test detect_bug_caught."""
     self._reset_history_file()
     dtr = bug_detector.BugDetector(['test1'], 0, self.history_file)
-    success = 1
-    self.assertEqual(dtr.detect_bug_caught(), success)
+    self.assertEqual(dtr.detect_bug_caught(), 1)
 
   @mock.patch.object(constants, 'UPPER_LIMIT', 10)
   @mock.patch.object(constants, 'TRIM_TO_SIZE', 3)
