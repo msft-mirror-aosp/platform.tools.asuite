@@ -1160,7 +1160,7 @@ class ModuleInfo:
     def _to_abs_path(p):
       if os.path.isabs(p):
         return Path(p)
-      return Path(os.getenv(constants.ANDROID_BUILD_TOP), p)
+      return Path(os.getenv(constants.ANDROID_BUILD_TOP)) / p
 
     return [_to_abs_path(p) for p in mod_info.get('installed', [])]
 
