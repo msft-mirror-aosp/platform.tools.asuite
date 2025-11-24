@@ -1323,10 +1323,10 @@ def contains_same_mainline_modules(
       True if the set mainline modules from triggered test is in the test
         configs.
   """
-  for module_string in module_lists:
-    if mainline_modules == set(module_string.split('+')):
-      return True
-  return False
+  return any(
+      mainline_modules == set(module_string.split('+'))
+      for module_string in module_lists
+  )
 
 
 def get_path_to_module_info(name_to_module_info):
