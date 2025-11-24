@@ -14,62 +14,14 @@
 
 import pathlib
 import subprocess
-import sys
 import unittest
 
-from atest import atest_enum
 from atest import atest_utils
-from atest import constants
-from atest import test_mapping
-from atest import unittest_constants
+from atest.acme import acme_test_constants
 from atest.acme import acme_utils
 from test_configs_proto import test_configs_pb2
 
 MOCK_BUILD_TOP_PATH = pathlib.Path('/build/top')
-
-# Sample Soong Test Configs.
-MODULE_PLAN = test_configs_pb2.ModulePlan(
-    module=unittest_constants.MODULE_NAME,
-    include=['include-filter1', 'include-filter2'],
-    exclude=['exclude-filter1', 'exclude-filter2'],
-    module_args=[test_configs_pb2.KeyValue(key='arg1', value='val1')],
-)
-MODULE_PLAN_SIMPLE = test_configs_pb2.ModulePlan(
-    module=unittest_constants.MODULE_NAME,
-)
-MODULE2_PLAN = test_configs_pb2.ModulePlan(
-    module=unittest_constants.MODULE2_NAME,
-)
-TEST_EXECUTION_PLAN = test_configs_pb2.TestExecutionPlan(
-    name='sample-test-execution-plan', tests=[MODULE_PLAN, MODULE2_PLAN]
-)
-TEST_TRIGGER_INLINE_TESTS = test_configs_pb2.TestTrigger(
-    name='sample-inlined-test-trigger',
-    inline=test_configs_pb2.TestWorkflowInline(
-        tests=[MODULE2_PLAN, MODULE_PLAN_SIMPLE]
-    ),
-)
-
-SAMPLE_TEST_CONFIG = test_configs_pb2.TestConfigs(
-    execution_plans=[TEST_EXECUTION_PLAN],
-    triggers=[TEST_TRIGGER_INLINE_TESTS],
-)
-MODULE_PLAN_TEST_DETAILS = test_mapping.TestDetail({
-    'name': unittest_constants.MODULE_NAME,
-    'options': [
-        {constants.TF_INCLUDE_FILTER_OPTION: 'include-filter1'},
-        {constants.TF_INCLUDE_FILTER_OPTION: 'include-filter2'},
-        {constants.TF_EXCLUDE_FILTER_OPTION: 'exclude-filter1'},
-        {constants.TF_EXCLUDE_FILTER_OPTION: 'exclude-filter2'},
-        {'arg1': 'val1'},
-    ],
-})
-MODULE_PLAN_SIMPLE_TEST_DETAILS = test_mapping.TestDetail(
-    {'name': unittest_constants.MODULE_NAME}
-)
-MODULE2_PLAN_TEST_DETAILS = test_mapping.TestDetail(
-    {'name': unittest_constants.MODULE2_NAME}
-)
 
 
 class TestAcmeUtilsModule(unittest.TestCase):
@@ -95,7 +47,7 @@ class TestAcmeUtilsModule(unittest.TestCase):
     fake_pb_path = '/fake/path/to/test-configs.pb'
     mock_get_build_out_dir.return_value = fake_pb_path
     mock_file = unittest.mock.mock_open(
-        read_data=SAMPLE_TEST_CONFIG.SerializeToString()
+        read_data=acme_test_constants.SAMPLE_TEST_CONFIG.SerializeToString()
     )
     mock_open_builtin.return_value = mock_file.return_value
 
@@ -103,7 +55,7 @@ class TestAcmeUtilsModule(unittest.TestCase):
     test_configs = acme_utils.get_reduced_test_configs()
 
     # Assertions.
-    self.assertEqual(SAMPLE_TEST_CONFIG, test_configs)
+    self.assertEqual(acme_test_constants.SAMPLE_TEST_CONFIG, test_configs)
     mock_get_build_top.assert_called_once()
     mock_subprocess_run.assert_called_once_with(
         acme_utils.REDUCE_TEST_CONFIGS_CMD, cwd=MOCK_BUILD_TOP_PATH, check=True
@@ -141,126 +93,62 @@ class TestAcmeUtilsModule(unittest.TestCase):
   def test_create_test_details_from_test_execution_plans(self):
     """Tests creation of TestDetail objects from TestExecutionPlans."""
     test_exec_plan1 = test_configs_pb2.TestExecutionPlan(
-        name='test-exec-plan1', tests=[MODULE_PLAN, MODULE2_PLAN]
+        name='test-exec-plan1',
+        tests=[
+            acme_test_constants.MODULE_PLAN,
+            acme_test_constants.MODULE2_PLAN,
+        ],
     )
     # One ModulePlan with same module name, but different options.
     # One ModulePlan that is identical and should be deduped.
     test_exec_plan2 = test_configs_pb2.TestExecutionPlan(
-        name='test-exec-plan2', tests=[MODULE_PLAN_SIMPLE, MODULE2_PLAN]
+        name='test-exec-plan2',
+        tests=[
+            acme_test_constants.MODULE_PLAN_SIMPLE,
+            acme_test_constants.MODULE2_PLAN,
+        ],
     )
     test_details = acme_utils.create_test_details_from_test_execution_plans(
         [test_exec_plan1, test_exec_plan2]
     )
     expected_test_details = [
-        MODULE_PLAN_TEST_DETAILS,
-        MODULE_PLAN_SIMPLE_TEST_DETAILS,
-        MODULE2_PLAN_TEST_DETAILS,
+        acme_test_constants.MODULE_PLAN_TEST_DETAILS,
+        acme_test_constants.MODULE_PLAN_SIMPLE_TEST_DETAILS,
+        acme_test_constants.MODULE2_PLAN_TEST_DETAILS,
     ]
     self.assertCountEqual(expected_test_details, test_details)
 
-  def test_get_filtered_test_execution_plans(self):
-    """Tests getting TestExecutionPlans from a TestConfigs object."""
-    inline_test_execution_plan = test_configs_pb2.TestExecutionPlan(
-        tests=[MODULE2_PLAN, MODULE_PLAN_SIMPLE]
-    )
+  def test_get_filtered_test_execution_plans_mixed_scheduling_plans(self):
+    """Tests filtering test execution plans by scheduling plan."""
     expected_test_execution_plans = [
-        inline_test_execution_plan,
-        TEST_EXECUTION_PLAN,
+        acme_test_constants.INLINE_WORKFLOW_SCHEDULING_PLAN_2_EXECUTION_PLAN
     ]
     test_execution_plans = acme_utils.get_filtered_test_execution_plans(
-        SAMPLE_TEST_CONFIG
+        acme_test_constants.SAMPLE_TEST_CONFIG_MIXED_SCHEDULING_PLANS,
+        acme_test_constants.SCHEDULING_PLAN_2.name,
     )
     self.assertCountEqual(expected_test_execution_plans, test_execution_plans)
 
-  @unittest.mock.patch.object(atest_utils, 'get_build_out_dir', autospec=True)
-  @unittest.mock.patch.object(subprocess, 'run', autospec=True)
-  @unittest.mock.patch('builtins.open')
-  @unittest.mock.patch.object(
-      atest_utils,
-      'get_build_top',
-      autospec=True,
-      return_value=MOCK_BUILD_TOP_PATH,
-  )
-  def test_get_affected_test_details(
-      self,
-      mock_get_build_top,
-      mock_open_builtin,
-      mock_subprocess_run,
-      mock_get_build_out_dir,
-  ):
-    """Tests successful getting TestDetails for affected TestTriggers."""
-    # Set up mocks.
-    fake_pb_path = '/fake/path/to/test-configs.pb'
-    mock_get_build_out_dir.return_value = fake_pb_path
-
-    mock_file = unittest.mock.mock_open(
-        read_data=SAMPLE_TEST_CONFIG.SerializeToString()
+  def test_get_filtered_test_execution_plans_all_selected(self):
+    """Tests getting execution plan when all belong to the scheduling plan."""
+    expected_test_execution_plans = [
+        acme_test_constants.INLINE_WORKFLOW_EXECUTION_PLAN,
+        acme_test_constants.TEST_EXECUTION_PLAN,
+    ]
+    test_execution_plans = acme_utils.get_filtered_test_execution_plans(
+        acme_test_constants.SAMPLE_TEST_CONFIG,
+        acme_test_constants.SCHEDULING_PLAN.name,
     )
-    mock_open_builtin.return_value = mock_file.return_value
+    self.assertCountEqual(expected_test_execution_plans, test_execution_plans)
 
-    # Function call.
-    tests, test_details = acme_utils.get_affected_test_details()
-    actual_return_val = zip(tests, test_details)
-    expected_return_val = zip(
-        [
-            unittest_constants.MODULE_NAME,
-            unittest_constants.MODULE2_NAME,
-            unittest_constants.MODULE_NAME,
-        ],
-        [
-            MODULE_PLAN_TEST_DETAILS,
-            MODULE2_PLAN_TEST_DETAILS,
-            MODULE_PLAN_SIMPLE_TEST_DETAILS,
-        ],
+  def test_get_filtered_test_execution_plans_all_filtered_out(self):
+    """Tests getting execution plans when none belong to the scheduling plan."""
+    expected_test_execution_plans = []
+    test_execution_plans = acme_utils.get_filtered_test_execution_plans(
+        acme_test_constants.SAMPLE_TEST_CONFIG,
+        'some-other-scheduling-plan',
     )
-
-    self.assertCountEqual(expected_return_val, actual_return_val)
-    mock_get_build_top.assert_called_once()
-    mock_subprocess_run.assert_called_once_with(
-        acme_utils.REDUCE_TEST_CONFIGS_CMD, cwd=MOCK_BUILD_TOP_PATH, check=True
-    )
-    mock_open_builtin.assert_called_once_with(fake_pb_path, 'rb')
-
-  @unittest.mock.patch.object(atest_utils, 'get_build_out_dir', autospec=True)
-  @unittest.mock.patch.object(subprocess, 'run', autospec=True)
-  @unittest.mock.patch('builtins.open')
-  @unittest.mock.patch.object(
-      atest_utils,
-      'get_build_top',
-      autospec=True,
-      return_value=MOCK_BUILD_TOP_PATH,
-  )
-  def test_get_affected_test_details_no_tests_found(
-      self,
-      mock_get_build_top,
-      mock_open_builtin,
-      mock_subprocess_run,
-      mock_get_build_out_dir,
-  ):
-    """Tests successful getting TestDetails for relevant TestTriggers."""
-    # Set up mocks.
-    fake_pb_path = '/fake/path/to/test-configs.pb'
-    mock_get_build_out_dir.return_value = fake_pb_path
-
-    mock_file = unittest.mock.mock_open(
-        read_data=test_configs_pb2.TestConfigs().SerializeToString()
-    )
-    mock_open_builtin.return_value = mock_file.return_value
-
-    mock_sys_exit = self.enterContext(
-        unittest.mock.patch.object(sys, 'exit', autospec=True)
-    )
-
-    # Function call.
-    acme_utils.get_affected_test_details()
-
-    # Assertions.
-    mock_get_build_top.assert_called_once()
-    mock_sys_exit.assert_called_once_with(atest_enum.ExitCode.TEST_NOT_FOUND)
-    mock_subprocess_run.assert_called_once_with(
-        acme_utils.REDUCE_TEST_CONFIGS_CMD, cwd=MOCK_BUILD_TOP_PATH, check=True
-    )
-    mock_open_builtin.assert_called_once_with(fake_pb_path, 'rb')
+    self.assertCountEqual(expected_test_execution_plans, test_execution_plans)
 
 
 if __name__ == '__main__':

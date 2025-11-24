@@ -14,35 +14,17 @@
 
 """Util functions for running ACME Test Configurations via atest."""
 
-import argparse
 import subprocess
-import sys
 
-from atest import atest_enum
 from atest import atest_utils
 from atest import constants
 from atest import test_mapping
 from test_configs_proto import test_configs_pb2
 
-RUN_AFFECTED_ARG_NAME = '--run-affected'
 REDUCE_TEST_CONFIGS_CMD = 'build/soong/testconfigs/scripts/reduce-test-configs'
 REDUCE_TEST_CONFIGS_OUTPUT_SUB_PATH = (
     'soong/test-configs-reduced/test_configs.pb'
 )
-
-
-def add_global_arguments(parser: argparse.ArgumentParser):
-  """Adds flags for running ACME test configs to the global argument parser."""
-
-  parser.add_argument(
-      RUN_AFFECTED_ARG_NAME,
-      default=False,
-      action='store_true',
-      help=(
-          'Run all tests defined in test_execution_plans affected by the'
-          ' locally modified files.'
-      ),
-  )
 
 
 def get_reduced_test_configs() -> test_configs_pb2.TestConfigs:
@@ -60,26 +42,36 @@ def get_reduced_test_configs() -> test_configs_pb2.TestConfigs:
   return test_configs
 
 
-# TODO: b/462804465 - Filter based on scheduling plan.
 def get_filtered_test_execution_plans(
-    test_configs: test_configs_pb2.TestConfigs,
+    test_configs: test_configs_pb2.TestConfigs, scheduling_plan_name: str
 ) -> list[test_configs_pb2.TestExecutionPlan]:
-  """Returns the TestExecutionPlans referenced in the TestConfig.
+  """Returns TestExecutionPlans from TestConfigs for a scheduling plan."""
 
-  This includes plans from both `execution_plans` and inlined in `triggers`.
+  # Create a mapping from execution plan name to the plan object.
+  named_test_exec_plans_map = {
+      exec_plan.name: exec_plan for exec_plan in test_configs.execution_plans
+  }
 
-  Args:
-    test_configs: A TestConfigs proto object.
-
-  Returns:
-    A list of TestExecutionPlan protos.
-  """
-  test_execution_plans = test_configs.execution_plans
+  # Filter test execution plans based on the scheduling plan.
+  test_execution_plans = []
   for test_trigger in test_configs.triggers:
-    module_plans = test_trigger.inline.tests
-    test_execution_plans.append(
-        test_configs_pb2.TestExecutionPlan(tests=module_plans)
-    )
+    # Handle inline workflows.
+    if test_trigger.inline.scheduling_plan.name == scheduling_plan_name:
+      test_exec_plan = test_configs_pb2.TestExecutionPlan(
+          name=f'{test_trigger.name}_inline_plan',  # Give it a unique name.
+          tests=test_trigger.inline.tests,
+      )
+      test_execution_plans.append(test_exec_plan)
+    # Handle a list workflows.
+    else:
+      for workflow in test_trigger.list.workflows:
+        if workflow.scheduling_plan.name != scheduling_plan_name:
+          continue
+        test_exec_plan_name = workflow.execution_plan.name
+        test_exec_plan = named_test_exec_plans_map.get(test_exec_plan_name)
+        if test_exec_plan:
+          test_execution_plans.append(test_exec_plan)
+
   return test_execution_plans
 
 
@@ -105,23 +97,3 @@ def create_test_details_from_test_execution_plans(
       # Deduplicate identical TestDetails.
       test_details.add(test_detail)
   return list(test_details)
-
-
-# TODO: b/462804465 - Filter based on scheduling plan.
-def get_affected_test_details() -> (
-    tuple[list[str], list[test_mapping.TestDetail]]
-):
-  """Returns the TestDetails for the relevant TestExecutionPlans."""
-  test_configs = get_reduced_test_configs()
-  test_execution_plans = get_filtered_test_execution_plans(test_configs)
-  test_details = create_test_details_from_test_execution_plans(
-      test_execution_plans
-  )
-  if not test_details:
-    atest_utils.print_and_log_warning(
-        'No relevant test execution configs found.'
-    )
-    sys.exit(atest_enum.ExitCode.TEST_NOT_FOUND)
-
-  tests = [x.name for x in test_details]
-  return tests, test_details
