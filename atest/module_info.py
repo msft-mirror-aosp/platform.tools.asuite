@@ -144,10 +144,8 @@ class Loader:
     self.cc_dep_path = atest_utils.get_build_out_dir('soong', _CC_DEP_INFO)
     self.merged_dep_path = atest_utils.get_product_out(_MERGED_INFO)
     logging.debug(
-        'java_dep_path: %s, cc_dep_path: %s, merged_dep_path: %s',
-        self.java_dep_path,
-        self.cc_dep_path,
-        self.merged_dep_path,
+        f'java_dep_path: {self.java_dep_path}, cc_dep_path: {self.cc_dep_path},'
+        f' merged_dep_path: {self.merged_dep_path}'
     )
 
     self.sqlite_module_cache = sqlite_module_cache
