@@ -43,6 +43,9 @@ class CCCommentType(enum.Enum):
   NO_COMMENT = 'no comment'
 
 
+BLOCK_COMMENT_END = '*/'
+
+
 def trim_comments(content):
   """Replace comments with single spaces.
 
@@ -81,11 +84,15 @@ def trim_comments(content):
       continue
     else:
       code_lines = []
-      code_line, comment_ended = _handle_block_comment_line(line[index + 2 :])
+      code_line, comment_ended = _handle_block_comment_line(
+          line[index + len(CCCommentType.BLOCK_COMMENT) :]
+      )
 
       # Replace each character in the comment by a single space including
       # '/*' and '*/'.
-      code_line = f'{line[:index]}  {code_line}'
+      code_line = (
+          f'{line[:index]}{" " * len(CCCommentType.BLOCK_COMMENT)}{code_line}'
+      )
       code_lines.append(code_line)
       while not comment_ended and lines:
         code_line, comment_ended = _handle_block_comment_line(lines.popleft())
@@ -103,7 +110,7 @@ def _handle_block_comment_line(line):
   if not line:
     return '', False
 
-  head, sep, tail = line.partition('*/')
+  head, sep, tail = line.partition(BLOCK_COMMENT_END)
   if sep:
     return ' ' * (len(head) + len(sep)) + tail, True
 
