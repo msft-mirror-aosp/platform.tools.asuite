@@ -172,9 +172,7 @@ def _get_test_filters(args):
 
 def main():
   parser = argparse.ArgumentParser()
-  parser.add_argument(
-      '--out', action='store', required=True, help='Write output to <file>'
-  )
+  parser.add_argument('--out', required=True, help='Write output to <file>')
   parser.add_argument(
       '--class-file',
       action='append',
