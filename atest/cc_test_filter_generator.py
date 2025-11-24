@@ -99,8 +99,7 @@ def trim_comments(content):
 
       # Add the code lines back into unprocessed lines to handle the case
       # like /* x */ code /* x */.
-      while code_lines:
-        lines.appendleft(code_lines.pop())
+      lines.extendleft(reversed(code_lines))
 
   return '\n'.join(trimmed_lines).strip('\n')
 
