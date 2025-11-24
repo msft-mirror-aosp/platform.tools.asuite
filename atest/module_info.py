@@ -1224,9 +1224,7 @@ def _create_db_in_path(data_map: Dict[str, Dict[str, Any]], db_path: Path):
     for table, contents in data_map.items():
       cur.execute(f'CREATE TABLE {table}(key TEXT PRIMARY KEY, value TEXT)')
 
-      data = []
-      for k, v in contents.items():
-        data.append({'key': k, 'value': json.dumps(v)})
+      data = [{'key': k, 'value': json.dumps(v)} for k, v in contents.items()]
       cur.executemany(f'INSERT INTO {table} VALUES(:key, :value)', data)
 
 
