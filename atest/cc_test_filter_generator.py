@@ -28,7 +28,7 @@ Usage:
 """
 
 import argparse
-from collections import deque
+from collections import defaultdict, deque
 import enum
 import os
 
@@ -147,13 +147,10 @@ def _parse_class_method_reference(class_method_reference):
 
 
 def _get_test_filters(args):
-  class_to_methods = {}
+  class_to_methods = defaultdict(set)
   for class_method_reference in args.class_method_reference:
     class_name, methods = _parse_class_method_reference(class_method_reference)
-    if class_name not in class_to_methods:
-      class_to_methods[class_name] = set(methods)
-    else:
-      class_to_methods[class_name] |= set(methods)
+    class_to_methods[class_name].update(methods)
 
   class_info = {}
   for class_file in args.class_file:
