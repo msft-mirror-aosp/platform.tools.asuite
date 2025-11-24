@@ -140,15 +140,10 @@ def _parse_class_method_reference(class_method_reference):
           'Test methods must follow their class name separated by a `#`, '
           'for example, class#method1,method2'
       )
+    return class_method_reference, []
 
-  methods = []
-  if '#' not in class_method_reference:
-    class_name = class_method_reference
-  else:
-    class_name, methods = class_method_reference.split('#', 1)
-    methods = methods.split(',')
-
-  return class_name, methods
+  class_name, methods = class_method_reference.split('#', 1)
+  return class_name, methods.split(',')
 
 
 def _get_test_filters(args):
