@@ -55,15 +55,13 @@ class BugDetectorUnittest(unittest.TestCase):
       json.dump(TEST_DICT, outfile)
 
   def _make_test_file(self, file_size):
-    temp_history = {}
-    for i in range(file_size):
-      latest_bug = {
-          i: {
-              'latest_exit_code': i,
-              'updated_at': datetime.datetime.now().isoformat(),
-          }
-      }
-      temp_history.update(latest_bug)
+    temp_history = {
+        i: {
+            'latest_exit_code': i,
+            'updated_at': datetime.datetime.now().isoformat(),
+        }
+        for i in range(file_size)
+    }
     with open(self.history_file2, 'w', encoding='utf-8') as outfile:
       json.dump(temp_history, outfile, indent=0)
 
