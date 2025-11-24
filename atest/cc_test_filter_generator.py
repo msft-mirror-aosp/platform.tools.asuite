@@ -104,6 +104,16 @@ def trim_comments(content):
 
 
 def _handle_block_comment_line(line):
+  """Parses a line inside a block comment.
+
+  Args:
+      line: The content of the line starting from the comment block.
+
+  Returns:
+      A tuple of (processed_line, is_comment_ended).
+      The processed_line has the comment part replaced with spaces.
+      is_comment_ended is True if the block comment ends in this line.
+  """
   head, sep, tail = line.partition(BLOCK_COMMENT_END)
   if sep:
     return ' ' * (len(head) + len(sep)) + tail, True
@@ -112,6 +122,15 @@ def _handle_block_comment_line(line):
 
 
 def _get_comment_type(line):
+  """Returns the first comment type found in the line.
+
+  Args:
+      line: The line content.
+
+  Returns:
+      A tuple of (CCCommentType, index).
+      Returns (None, -1) if no comment is found.
+  """
   line_comment_idx = line.find(CCCommentType.LINE_COMMENT.value)
   block_comment_idx = line.find(CCCommentType.BLOCK_COMMENT.value)
 
@@ -126,6 +145,15 @@ def _get_comment_type(line):
 
 
 def _parse_class_method_reference(class_method_reference):
+  """Parses the class method reference argument.
+
+  Args:
+      class_method_reference: string in format 'Class#Method1,Method2' or
+        'Class'.
+
+  Returns:
+      A tuple of (class_name, list_of_methods).
+  """
   class_name, separator, methods_str = class_method_reference.partition('#')
 
   if not separator:
