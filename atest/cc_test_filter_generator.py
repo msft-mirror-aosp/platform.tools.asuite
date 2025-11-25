@@ -198,7 +198,9 @@ def _get_test_filters(class_method_references, class_files):
 
 def main():
   parser = argparse.ArgumentParser()
-  parser.add_argument('--out', required=True, help='Write output to <file>')
+  parser.add_argument(
+      '--out', required=True, type=Path, help='Write output to <file>'
+  )
   parser.add_argument(
       '--class-file',
       action='append',
@@ -219,8 +221,7 @@ def main():
         args.class_method_reference, args.class_file
     )
 
-  with open(args.out, 'w', encoding='utf-8') as f:
-    f.write(':'.join(test_filters))
+  args.out.write_text(':'.join(test_filters), encoding='utf-8')
 
 
 if __name__ == '__main__':
