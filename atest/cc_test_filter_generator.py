@@ -112,11 +112,8 @@ def _handle_block_comment_line(line):
       The processed_line has the comment part replaced with spaces.
       is_comment_ended is True if the block comment ends in this line.
   """
-  head, sep, tail = line.partition(BLOCK_COMMENT_END)
-  if sep:
-    return ' ' * (len(head) + len(sep)) + tail, True
-
-  return ' ' * len(line), False
+  _, sep, tail = line.partition(BLOCK_COMMENT_END)
+  return tail.rjust(len(line)), bool(sep)
 
 
 def _get_comment_type(line):
