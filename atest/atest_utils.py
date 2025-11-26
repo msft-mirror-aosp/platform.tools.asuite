@@ -18,8 +18,6 @@
 # pylint: disable=import-outside-toplevel
 # pylint: disable=too-many-lines
 
-from __future__ import print_function
-
 from collections import deque
 from dataclasses import dataclass
 import datetime
@@ -76,6 +74,10 @@ _FAILED_OUTPUT_LINE_LIMIT = 100
 # Regular expression to match the start of a ninja compile:
 # ex: [ 99% 39710/39711]
 _BUILD_COMPILE_STATUS = re.compile(r'\[\s*(\d{1,3}%\s+)?\d+/\d+\]')
+_TF_ERROR_LOG_RE = re.compile(
+    r'^((0[1-9])|(1[0-2]))-((0[1-9])|([12][0-9])|(3[0-1])) '
+    r'(([0-1][0-9])|([2][0-3])):([0-5][0-9]):([0-5][0-9]) (E|W/)'
+)
 _BUILD_FAILURE = 'FAILED: '
 BUILD_TOP_HASH = hashlib.md5(
     os.environ.get(constants.ANDROID_BUILD_TOP, '').encode()
@@ -246,12 +248,10 @@ def get_build_cmd(dump=False):
   Returns:
       A list of soong build command.
   """
-  make_cmd = '%s/%s' % (
-      os.path.relpath(
-          os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd()), os.getcwd()
-      ),
-      _BUILD_CMD,
+  build_top_rel = os.path.relpath(
+      os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd())
   )
+  make_cmd = f'{build_top_rel}/{_BUILD_CMD}'
   if dump:
     return [make_cmd, '--dumpvar-mode', 'report_config']
   return [
@@ -298,7 +298,7 @@ def _capture_limited_output(full_log):
     output = full_log
   if len(output) >= _FAILED_OUTPUT_LINE_LIMIT:
     output = output[-_FAILED_OUTPUT_LINE_LIMIT:]
-  output = 'Output (may be trimmed):\n%s' % ''.join(output)
+  output = f'Output (may be trimmed):\n{"".join(output)}'
   return output
 
 
@@ -527,8 +527,7 @@ def build(build_targets: Set[str]):
   full_env_vars = os.environ.copy()
   update_build_env(full_env_vars)
   print(
-      '\n%s\n%s'
-      % (mark_cyan('Building Dependencies...'), ', '.join(build_targets))
+      f"\n{mark_cyan('Building Dependencies...')}\n{', '.join(build_targets)}"
   )
   logging.debug('Building Dependencies: %s', ' '.join(build_targets))
   cmd = get_build_cmd() + list(build_targets)
@@ -587,10 +586,9 @@ def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
       # See b/233044822 for more details.
       log_path = get_build_out_dir('verbose.log.gz')
       print(
-          '\n(Build log may not reflect actual status in simple output'
-          'mode; check {} for detail after build finishes.)'.format(
-              mark_cyan(f'{log_path}')
-          ),
+          '\n(Build log may not reflect actual status in simple outputmode;'
+          f' check {mark_cyan(str(log_path))} for detail after build'
+          ' finishes.)',
           end='',
       )
       _run_build_cmd_with_limited_output(cmd, env_vars=env_vars)
@@ -681,7 +679,7 @@ def _has_colors(stream):
   # Auto color only on TTYs
   # curses.tigetnum() cannot be used for telling supported color numbers
   # because it does not come with the prebuilt py3-cmd.
-  return getattr(stream, 'isatty', lambda: False)()
+  return stream.isatty() if hasattr(stream, 'isatty') else False
 
 
 def colorize(text, color, bp_color=None):
@@ -696,28 +694,16 @@ def colorize(text, color, bp_color=None):
   Returns:
       Colorful string with ANSI escape code.
   """
+  if not _has_colors(_original_sys_stdout):
+    return text
+
   clr_pref = '\033[1;'
   clr_suff = '\033[0m'
-  has_colors = _has_colors(_original_sys_stdout)
-  if has_colors:
-    background_color = ''
-    if bp_color:
-      # Foreground(Text) ranges from 30-37
-      text_color = 30 + color
-      # Background ranges from 40-47
-      background_color = ';%d' % (40 + bp_color)
-    else:
-      text_color = 30 + color
-    clr_str = '%s%d%sm%s%s' % (
-        clr_pref,
-        text_color,
-        background_color,
-        text,
-        clr_suff,
-    )
-  else:
-    clr_str = text
-  return clr_str
+  # Foreground(Text) ranges from 30-37
+  text_color = 30 + color
+  # Background ranges from 40-47
+  background_color = f';{40 + bp_color}' if bp_color else ''
+  return f'{clr_pref}{text_color}{background_color}m{text}{clr_suff}'
 
 
 def mark_red(text):
@@ -850,14 +836,14 @@ def _get_hashed_file_name(main_file_name):
   """
   hashed_fn = hashlib.md5(str(main_file_name).encode())
   hashed_name = hashed_fn.hexdigest()
-  return hashed_name + '.cache'
+  return f'{hashed_name}.cache'
 
 
 def md5sum(filename):
   """Generate MD5 checksum of a file.
 
   Args:
-      name: A string of a filename.
+      filename: A string of a filename.
 
   Returns:
       A string of hashed MD5 checksum.
@@ -865,11 +851,11 @@ def md5sum(filename):
   filename = Path(filename)
   if not filename.is_file():
     return ''
+  hasher = hashlib.md5()
   with open(filename, 'rb') as target:
-    content = target.read()
-  if not isinstance(content, bytes):
-    content = content.encode('utf-8')
-  return hashlib.md5(content).hexdigest()
+    while chunk := target.read(4096):
+      hasher.update(chunk)
+  return hasher.hexdigest()
 
 
 def check_md5(check_file, missing_ok=False):
@@ -919,7 +905,7 @@ def save_md5(filenames, save_file):
     name = Path(f)
     if not name.is_file():
       print_and_log_warning(' ignore %s: not a file.', name)
-    data.update({str(name): md5sum(name)})
+    data[str(name)] = md5sum(name)
   with open(save_file, 'w+', encoding='utf-8') as _file:
     json.dump(data, _file)
 
@@ -980,8 +966,7 @@ def update_test_info_cache(test_reference, test_infos, cache_root=None):
   """
   if not cache_root:
     cache_root = get_cache_root()
-  if not os.path.isdir(cache_root):
-    os.makedirs(cache_root)
+  os.makedirs(cache_root, exist_ok=True)
   cache_path = get_test_info_cache_path(test_reference, cache_root)
   # Save test_info to files.
   try:
@@ -1099,8 +1084,8 @@ def get_modified_files(root_dir):
     for git_path in git_paths:
       # Find modified files from git working tree status.
       git_status_cmd = (
-          "repo forall {} -c git status --short | awk '{{print $NF}}'"
-      ).format(git_path)
+          f"repo forall {git_path} -c git status --short | awk '{{print $NF}}'"
+      )
       modified_wo_commit = (
           subprocess.check_output(git_status_cmd, shell=True)
           .decode()
@@ -1182,14 +1167,11 @@ def get_modified_files_with_details() -> set[ChangedFileDetails]:
 
 
 def _get_number_lines_changed(file_change_info: str) -> int:
-  number_of_lines_changed = 0
-
   try:
-    number_of_lines_changed = int(file_change_info)
+    return int(file_change_info)
   except ValueError:
     logging.debug('failed to get the num of lines changed.')
-
-  return number_of_lines_changed
+    return 0
 
 
 def delimiter(char, length=_DEFAULT_TERMINAL_WIDTH, prenl=0, postnl=0):
@@ -1225,7 +1207,7 @@ def find_files(path, file_name=constants.TEST_MAPPING, followlinks=False):
       for filename in fnmatch.filter(filenames, file_name):
         match_files.append(os.path.join(root, filename))
     except re.error as e:
-      msg = 'Unable to locate %s among %s' % (file_name, filenames)
+      msg = f'Unable to locate {file_name} among {filenames}'
       logging.debug(msg)
       logging.debug('Exception: %s', e)
       metrics.AtestExitEvent(
@@ -1246,22 +1228,23 @@ def extract_zip_text(zip_path):
   Returns:
       The string in input zip file.
   """
-  content = ''
+  content = []
   try:
     with zipfile.ZipFile(zip_path) as zip_file:
       for filename in zip_file.namelist():
         if os.path.isdir(filename):
           continue
         # Force change line if multiple text files in zip
-        content = content + '\n'
+        content.append('\n')
         # read the file
         with zip_file.open(filename) as extract_file:
           for line in extract_file:
-            if matched_tf_error_log(line.decode()):
-              content = content + line.decode()
+            decoded_line = line.decode()
+            if matched_tf_error_log(decoded_line):
+              content.append(decoded_line)
   except zipfile.BadZipfile as err:
     logging.debug('Exception raised: %s', err)
-  return content
+  return ''.join(content)
 
 
 def matched_tf_error_log(content):
@@ -1277,13 +1260,7 @@ def matched_tf_error_log(content):
       True if the content matches the regular expression for tradefed error or
       warning log.
   """
-  reg = (
-      '^((0[1-9])|(1[0-2]))-((0[1-9])|([12][0-9])|(3[0-1])) '
-      '(([0-1][0-9])|([2][0-3])):([0-5][0-9]):([0-5][0-9]) (E|W/)'
-  )
-  if re.search(reg, content):
-    return True
-  return False
+  return bool(_TF_ERROR_LOG_RE.search(content))
 
 
 def read_test_record(path):
@@ -1326,9 +1303,10 @@ def load_json_safely(jsonfile):
   """
   if isinstance(jsonfile, bytes):
     jsonfile = jsonfile.decode('utf-8')
-  if Path(jsonfile).is_file():
+  file_path = Path(jsonfile)
+  if file_path.is_file():
     try:
-      with open(jsonfile, 'r', encoding='utf-8') as cache:
+      with file_path.open('r', encoding='utf-8') as cache:
         return json.load(cache)
     except json.JSONDecodeError:
       logging.debug('Exception happened while loading %s.', jsonfile)
@@ -1429,7 +1407,7 @@ def get_manifest_branch(show_aosp=False):
       # to be treat as test failure. Or test_get_manifest_branch unit test
       # could be fix if return None if portal_xml or default_xml not
       # exist.
-      logging.info('%s could not be read.', xml)
+      logging.info(f'{xml} could not be read.')
       return ''
     default_tags = xml_root.findall('./default')
     if default_tags:
@@ -1449,7 +1427,7 @@ def get_manifest_branch(show_aosp=False):
       # to be treat as test failure. Or test_get_manifest_branch unit test
       # could be fix if return None if portal_xml or default_xml not
       # exist.
-      logging.info('%s could not be read.', xml)
+      logging.info(f'{xml} could not be read.')
       return Path()
     include_tags = xml_root.findall('./include')
     if include_tags:
@@ -1472,12 +1450,11 @@ def get_manifest_branch(show_aosp=False):
 
 def get_build_target():
   """Get the build target form system environment TARGET_PRODUCT."""
-  build_target = '%s-%s-%s' % (
-      os.getenv(constants.ANDROID_TARGET_PRODUCT, None),
-      os.getenv('TARGET_RELEASE', None),
-      os.getenv(constants.TARGET_BUILD_VARIANT, None),
+  return (
+      f'{os.getenv(constants.ANDROID_TARGET_PRODUCT, None)}-'
+      f"{os.getenv('TARGET_RELEASE', None)}-"
+      f'{os.getenv(constants.TARGET_BUILD_VARIANT, None)}'
   )
-  return build_target
 
 
 def has_wildcard(test_name):
@@ -1507,7 +1484,7 @@ def is_build_file(path):
   Return:
       True if path is android build file, False otherwise.
   """
-  return bool(os.path.splitext(path)[-1] in _ANDROID_BUILD_EXT)
+  return os.path.splitext(path)[-1] in _ANDROID_BUILD_EXT
 
 
 def quote(input_str):
@@ -1523,7 +1500,7 @@ def quote(input_str):
   Returns: A string with single quotes if regex chars were detected.
   """
   if has_chars(input_str, _REGEX_CHARS):
-    return "'" + input_str + "'"
+    return f"'{input_str}'"
   return input_str
 
 
@@ -1537,10 +1514,7 @@ def has_chars(input_str, chars):
   Returns:
       True if the input string contains one of the special chars.
   """
-  for char in chars:
-    if char in input_str:
-      return True
-  return False
+  return any(char in input_str for char in chars)
 
 
 def prompt_with_yn_result(msg, default=True):
@@ -1575,7 +1549,7 @@ def strtobool(val):
     return True
   if val.lower() in ('n', 'no', 'f', 'false', 'off', '0'):
     return False
-  raise ValueError('invalid truth value %r' % (val,))
+  raise ValueError(f'invalid truth value {val!r}')
 
 
 def get_android_junit_config_filters(test_config):
@@ -1593,10 +1567,8 @@ def get_android_junit_config_filters(test_config):
   for tag in option_tags:
     name = tag.attrib['name'].strip()
     if name in constants.SUPPORTED_FILTERS:
-      filter_values = filter_dict.get(name, [])
       value = tag.attrib['value'].strip()
-      filter_values.append(value)
-      filter_dict.update({name: filter_values})
+      filter_dict.setdefault(name, []).append(value)
   return filter_dict
 
 
@@ -1640,7 +1612,7 @@ def get_config_device(test_config):
       devices.add(name)
   except ET.ParseError as e:
     colorful_print('Config has invalid format.', constants.RED)
-    colorful_print('File %s : %s' % (test_config, str(e)), constants.YELLOW)
+    colorful_print(f'File {test_config} : {e}', constants.YELLOW)
     sys.exit(ExitCode.CONFIG_INVALID_FORMAT)
   return devices
 
@@ -1674,7 +1646,7 @@ def get_adb_devices():
       A list of devices. e.g.
       ['127.0.0.1:40623', '127.0.0.1:40625']
   """
-  probe_cmd = 'adb devices | egrep -v "^List|^$"||true'
+  probe_cmd = 'adb devices | grep -E -v "^List|^$"||true'
   suts = subprocess.check_output(probe_cmd, shell=True).decode().splitlines()
   return [sut.split('\t')[0] for sut in suts]
 
@@ -1690,7 +1662,7 @@ def get_android_config():
   android_config = {}
   for element in raw_config.splitlines():
     if not element.startswith('='):
-      key, value = tuple(element.split('=', 1))
+      key, value = element.split('=', 1)
       android_config.setdefault(key, value)
   return android_config
 
@@ -1820,7 +1792,7 @@ def get_config_preparer_options(test_config, class_name):
   options = {}
   xml_root = ET.parse(test_config).getroot()
   option_tags = xml_root.findall(
-      './/target_preparer[@class="%s"]/option' % class_name
+      f'.//target_preparer[@class="{class_name}"]/option'
   )
   for tag in option_tags:
     name = tag.attrib['name'].strip()
@@ -1843,7 +1815,7 @@ def get_verify_key(tests, extra_args):
   # For example, "ITERATIONS=5 hello_world_test"
   test_commands = tests
   for key, value in extra_args.items():
-    test_commands.append('%s=%s' % (key, str(value)))
+    test_commands.append(f'{key}={value}')
   test_commands.sort()
   return ' '.join(test_commands)
 
@@ -1915,7 +1887,7 @@ def get_prebuilt_sdk_tools_dir():
   """
   build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP, ''))
   return build_top.joinpath(
-      'prebuilts/sdk/tools/', str(platform.system()).lower(), 'bin'
+      'prebuilts/sdk/tools/', platform.system().lower(), 'bin'
   )
 
 
@@ -1960,12 +1932,8 @@ def get_full_annotation_class_name(module_info, class_name):
   Returns:
       A string of fully qualified class name, empty string otherwise.
   """
-  fullname_re = re.compile(
-      r'import\s+(?P<fqcn>{})(|;)$'.format(class_name), re.I
-  )
-  keyword_re = re.compile(
-      r'import\s+(?P<fqcn>.*\.{})(|;)$'.format(class_name), re.I
-  )
+  fullname_re = re.compile(rf'import\s+(?P<fqcn>{class_name})(|;)$', re.I)
+  keyword_re = re.compile(rf'import\s+(?P<fqcn>.*\.{class_name})(|;)$', re.I)
   build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP, ''))
   for f in module_info.get(constants.MODULE_SRCS, []):
     full_path = build_top.joinpath(f)
@@ -2138,7 +2106,7 @@ def get_manifest_info(manifest: Path) -> Dict[str, Any]:
   manifest_package_re = re.compile(r'[a-z][\w]+(\.[\w]+)*')
   # 1. Must probe 'package' name from the top.
   for item in xml_root.findall('.'):
-    if 'package' in item.attrib.keys():
+    if 'package' in item.attrib:
       pkg = item.attrib.get('package')
       match = manifest_package_re.match(pkg)
       if match:
