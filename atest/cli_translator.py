@@ -37,7 +37,7 @@ from atest import constants
 from atest import rollout_control
 from atest import test_finder_handler
 from atest import test_mapping
-from atest.acme import acme_utils
+from atest.acme import run_affected_mode
 from atest.atest_enum import DetectType, ExitCode
 from atest.metrics import metrics
 from atest.metrics import metrics_utils
@@ -768,7 +768,9 @@ class CLITranslator:
           args, not bool(host_unit_tests)
       )
     if args.run_affected:
-      tests, test_details_list = acme_utils.get_affected_test_details()
+      tests, test_details_list = run_affected_mode.get_affected_test_details(
+          args.scheduling_plan
+      )
 
     atest_utils.colorful_print('\nFinding Tests...', constants.CYAN)
     logging.debug('Finding Tests: %s', tests)

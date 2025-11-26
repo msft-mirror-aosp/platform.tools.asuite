@@ -14,41 +14,22 @@
 
 """Util functions for running ACME Test Configurations via atest."""
 
-import argparse
 import subprocess
-import sys
 
-from atest import atest_enum
 from atest import atest_utils
 from atest import constants
 from atest import test_mapping
 from test_configs_proto import test_configs_pb2
 
-RUN_AFFECTED_ARG_NAME = '--run-affected'
 REDUCE_TEST_CONFIGS_CMD = 'build/soong/testconfigs/scripts/reduce-test-configs'
 REDUCE_TEST_CONFIGS_OUTPUT_SUB_PATH = (
     'soong/test-configs-reduced/test_configs.pb'
 )
 
 
-def add_global_arguments(parser: argparse.ArgumentParser):
-  """Adds flags for running ACME test configs to the global argument parser."""
-
-  parser.add_argument(
-      RUN_AFFECTED_ARG_NAME,
-      default=False,
-      action='store_true',
-      help=(
-          'Run all tests defined in test_execution_plans affected by the'
-          ' locally modified files.'
-      ),
-  )
-
-
-def _get_affected_test_execution_plans() -> (
-    list[test_configs_pb2.TestExecutionPlan]
-):
-  """Returns the execution plans affected by the changes in the checkout."""
+def get_reduced_test_configs() -> test_configs_pb2.TestConfigs:
+  """Runs the reduce-test-configs script and returns the TestConfigs proto."""
+  # TODO: b/460119831 - Return a more informative error message.
   subprocess.run(
       REDUCE_TEST_CONFIGS_CMD, cwd=atest_utils.get_build_top(), check=True
   )
@@ -58,22 +39,48 @@ def _get_affected_test_execution_plans() -> (
   with open(output_path, 'rb') as f:
     test_configs = test_configs_pb2.TestConfigs()
     test_configs.ParseFromString(f.read())
-  test_exec_plans = test_configs.execution_plans
+  return test_configs
+
+
+def get_filtered_test_execution_plans(
+    test_configs: test_configs_pb2.TestConfigs, scheduling_plan_name: str
+) -> list[test_configs_pb2.TestExecutionPlan]:
+  """Returns TestExecutionPlans from TestConfigs for a scheduling plan."""
+
+  # Create a mapping from execution plan name to the plan object.
+  named_test_exec_plans_map = {
+      exec_plan.name: exec_plan for exec_plan in test_configs.execution_plans
+  }
+
+  # Filter test execution plans based on the scheduling plan.
+  test_execution_plans = []
   for test_trigger in test_configs.triggers:
-    module_plans = test_trigger.inline.tests
-    test_exec_plans.append(
-        test_configs_pb2.TestExecutionPlan(tests=module_plans)
-    )
-  return test_exec_plans
+    # Handle inline workflows.
+    if test_trigger.inline.scheduling_plan.name == scheduling_plan_name:
+      test_exec_plan = test_configs_pb2.TestExecutionPlan(
+          name=f'{test_trigger.name}_inline_plan',  # Give it a unique name.
+          tests=test_trigger.inline.tests,
+      )
+      test_execution_plans.append(test_exec_plan)
+    # Handle a list workflows.
+    else:
+      for workflow in test_trigger.list.workflows:
+        if workflow.scheduling_plan.name != scheduling_plan_name:
+          continue
+        test_exec_plan_name = workflow.execution_plan.name
+        test_exec_plan = named_test_exec_plans_map.get(test_exec_plan_name)
+        if test_exec_plan:
+          test_execution_plans.append(test_exec_plan)
+
+  return test_execution_plans
 
 
-def _create_test_details_from_test_exec_plans(
-    test_exec_plans: list[test_configs_pb2.TestExecutionPlan],
-) -> tuple[list[str], list[test_mapping.TestDetail]]:
-  """Parses TestExecutionPlans into lists of test modules and test details."""
-  tests, test_details = [], []
-  unique_test_details = set()
-  for test_exec_plan in test_exec_plans:
+def create_test_details_from_test_execution_plans(
+    test_execution_plans: list[test_configs_pb2.TestExecutionPlan],
+) -> list[test_mapping.TestDetail]:
+  """Parses TestExecutionPlans into a list of test details."""
+  test_details = set()
+  for test_exec_plan in test_execution_plans:
     for module_plan in test_exec_plan.tests:
       detail_dict = {'name': module_plan.module, 'options': []}
       for include_filter in module_plan.include:
@@ -87,21 +94,6 @@ def _create_test_details_from_test_exec_plans(
       for arg in module_plan.module_args:
         detail_dict['options'].append({arg.key: arg.value})
       test_detail = test_mapping.TestDetail(detail_dict)
-      # Deduplicate identical TestDetails
-      if test_detail not in unique_test_details:
-        unique_test_details.add(test_detail)
-        tests.append(module_plan.module)
-        test_details.append(test_mapping.TestDetail(detail_dict))
-  return tests, test_details
-
-
-def get_affected_test_details() -> list[test_mapping.TestDetail]:
-  """Returns the TestDetails for the relevant TestExecutionPlans."""
-  exec_plans = _get_affected_test_execution_plans()
-  tests, test_details = _create_test_details_from_test_exec_plans(exec_plans)
-  if not tests:
-    atest_utils.print_and_log_warning(
-        'No relevant test execution configs found.'
-    )
-    sys.exit(atest_enum.ExitCode.TEST_NOT_FOUND)
-  return tests, test_details
+      # Deduplicate identical TestDetails.
+      test_details.add(test_detail)
+  return list(test_details)
