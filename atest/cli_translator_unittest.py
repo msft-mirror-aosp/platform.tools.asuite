@@ -35,7 +35,7 @@ from atest import test_finder_handler
 from atest import test_mapping
 from atest import unittest_constants as uc
 from atest import unittest_utils
-from atest.acme import run_affected_mode
+from atest.acme import run_affected_triggers_mode
 from atest.metrics import metrics
 from atest.test_finders import module_finder
 from atest.test_finders import test_finder_base
@@ -671,7 +671,7 @@ class CLITranslatorUnittests(unittest.TestCase):
     )
 
   @mock.patch.object(
-      run_affected_mode,
+      run_affected_triggers_mode,
       'get_affected_test_details',
       autospec=True,
   )
@@ -692,12 +692,14 @@ class CLITranslatorUnittests(unittest.TestCase):
     )
 
     # Function call.
-    args = arg_parser.parse_args([run_affected_mode.RUN_AFFECTED_ARG_NAME])
+    args = arg_parser.parse_args(
+        [run_affected_triggers_mode.RUN_AFFECTED_TRIGGERS_ARG_NAME]
+    )
     test_infos = self.ctr.translate(args)
 
     # Assertions.
     mock_get_trigged_test_details.assert_called_once_with(
-        run_affected_mode.DEFAULT_SCHEDULING_PLAN
+        run_affected_triggers_mode.DEFAULT_SCHEDULING_PLAN
     )
     mock_get_test_infos.assert_called_once_with([uc.MODULE_NAME], [test_detail])
     unittest_utils.assert_equal_testinfo_lists(
@@ -705,7 +707,7 @@ class CLITranslatorUnittests(unittest.TestCase):
     )
 
   @mock.patch.object(
-      run_affected_mode,
+      run_affected_triggers_mode,
       'get_affected_test_details',
       autospec=True,
   )
@@ -728,8 +730,8 @@ class CLITranslatorUnittests(unittest.TestCase):
     # Function call.
     mock_plan_name = 'some-custom-plan'
     args = arg_parser.parse_args([
-        run_affected_mode.RUN_AFFECTED_ARG_NAME,
-        run_affected_mode.SCHEDULING_PLAN_ARG_NAME,
+        run_affected_triggers_mode.RUN_AFFECTED_TRIGGERS_ARG_NAME,
+        run_affected_triggers_mode.SCHEDULING_PLAN_ARG_NAME,
         mock_plan_name,
     ])
     test_infos = self.ctr.translate(args)

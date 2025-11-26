@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Module for running tests affected by the locally modified files."""
+"""Module for running test triggers affected by the locally modified files."""
 
 import argparse
 import sys
@@ -22,7 +22,7 @@ from atest import atest_utils
 from atest import test_mapping
 from atest.acme import acme_utils
 
-RUN_AFFECTED_ARG_NAME = '--run-affected'
+RUN_AFFECTED_TRIGGERS_ARG_NAME = '--run-affected-triggers'
 SCHEDULING_PLAN_ARG_NAME = '--scheduling-plan'
 DEFAULT_SCHEDULING_PLAN = 'presubmit'
 
@@ -31,24 +31,25 @@ def add_global_arguments(parser: argparse.ArgumentParser):
   """Adds flags for running ACME test configs to the global argument parser."""
 
   parser.add_argument(
-      RUN_AFFECTED_ARG_NAME,
+      RUN_AFFECTED_TRIGGERS_ARG_NAME,
       default=False,
       action='store_true',
       help=(
-          'Run all tests defined in test_execution_plans affected by the'
+          'Run all tests defined in the test_triggers affected by the'
           ' locally modified files.'
       ),
   )
 
 
 def add_arguments(parser: argparse.ArgumentParser):
-  """Adds arguments specific to --run-affected mode to the argument parser."""
+  """Adds arguments specific to --run-affected-triggers mode to the argument parser."""
   parser.add_argument(
       SCHEDULING_PLAN_ARG_NAME,
       type=str,
       help=(
-          '(For use with --run-affected) Only consider test_execution_plans for'
-          ' the given scheduling plan. Defaults to "presubmit".'
+          '(For use with --run-affected-triggers) Only consider'
+          ' test_execution_plans for the given scheduling plan. Defaults to'
+          ' "presubmit".'
       ),
       default=DEFAULT_SCHEDULING_PLAN,
   )
@@ -56,7 +57,7 @@ def add_arguments(parser: argparse.ArgumentParser):
 
 # pylint: disable=unused-argument
 def process_parsed_args(args: argparse.Namespace):
-  """Processes --run-affected related arguments."""
+  """Processes --run-affected-triggers related arguments."""
   pass
 
 

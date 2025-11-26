@@ -21,13 +21,15 @@ import logging
 
 from atest import atest_utils
 from atest import constants
-from atest.acme import run_affected_mode
+from atest.acme import run_affected_triggers_mode
 from atest.atest_utils import BuildOutputMode
 from atest.crystalball import perf_mode
 
 _EXTRA_MODULE_MAP = {
     perf_mode.PERF_MODE_ARG_NAME: perf_mode,
-    run_affected_mode.RUN_AFFECTED_ARG_NAME: run_affected_mode,
+    run_affected_triggers_mode.RUN_AFFECTED_TRIGGERS_ARG_NAME: (
+        run_affected_triggers_mode
+    ),
 }
 
 _INCLUDE_PREVIEW_TESTS_FLAG = '--include-preview-tests'
@@ -265,7 +267,7 @@ def create_atest_arg_parser():
           ' need to be setup again with "-i".'
       ),
   )
-  run_affected_mode.add_global_arguments(parser)
+  run_affected_triggers_mode.add_global_arguments(parser)
   parser.add_argument(
       '--sts',
       default=False,

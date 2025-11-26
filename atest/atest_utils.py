@@ -652,7 +652,7 @@ def is_test_mapping(args):
   if any((
       args.host_unit_test_only,
       args.smart_test_selection,
-      args.run_affected,
+      args.run_affected_triggers,
   )):
     return False
   if any((args.test_mapping, args.include_subdirs, not args.tests)):

@@ -19,11 +19,11 @@ from atest import atest_enum
 from atest import unittest_constants
 from atest.acme import acme_test_constants
 from atest.acme import acme_utils
-from atest.acme import run_affected_mode
+from atest.acme import run_affected_triggers_mode
 from test_configs_proto import test_configs_pb2
 
 
-class TestRunAffectedModeModule(unittest.TestCase):
+class TestRunAffectedTriggersModeModule(unittest.TestCase):
 
   @unittest.mock.patch.object(
       acme_utils, 'get_reduced_test_configs', autospec=True
@@ -39,7 +39,7 @@ class TestRunAffectedModeModule(unittest.TestCase):
     )
 
     # Function call.
-    run_affected_mode.get_affected_test_details(
+    run_affected_triggers_mode.get_affected_test_details(
         acme_test_constants.SCHEDULING_PLAN.name
     )
 
@@ -62,7 +62,9 @@ class TestRunAffectedModeModule(unittest.TestCase):
     )
 
     # Function call.
-    run_affected_mode.get_affected_test_details('some-other-scheduling-plan')
+    run_affected_triggers_mode.get_affected_test_details(
+        'some-other-scheduling-plan'
+    )
 
     # Assertions.
     mock_sys_exit.assert_called_once_with(atest_enum.ExitCode.TEST_NOT_FOUND)
@@ -78,7 +80,7 @@ class TestRunAffectedModeModule(unittest.TestCase):
     )
 
     # Function call.
-    tests, test_details = run_affected_mode.get_affected_test_details(
+    tests, test_details = run_affected_triggers_mode.get_affected_test_details(
         acme_test_constants.SCHEDULING_PLAN.name
     )
     actual_return_val = zip(tests, test_details)

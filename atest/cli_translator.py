@@ -37,7 +37,7 @@ from atest import constants
 from atest import rollout_control
 from atest import test_finder_handler
 from atest import test_mapping
-from atest.acme import run_affected_mode
+from atest.acme import run_affected_triggers_mode
 from atest.atest_enum import DetectType, ExitCode
 from atest.metrics import metrics
 from atest.metrics import metrics_utils
@@ -739,7 +739,7 @@ class CLITranslator:
     if any((
         not args.tests,
         atest_utils.is_test_mapping(args),
-        args.run_affected,
+        args.run_affected_triggers,
         args.smart_test_selection,
     )):
       self.fuzzy_search = False
@@ -752,7 +752,7 @@ class CLITranslator:
         args.tests,
         args.test_mapping,
         args.smart_test_selection,
-        args.run_affected,
+        args.run_affected_triggers,
     )):
       logging.debug('Finding Host Unit Tests...')
       host_unit_tests = test_finder_utils.find_host_unit_tests(
@@ -767,9 +767,11 @@ class CLITranslator:
       tests, test_details_list = self._get_test_mapping_tests(
           args, not bool(host_unit_tests)
       )
-    if args.run_affected:
-      tests, test_details_list = run_affected_mode.get_affected_test_details(
-          args.scheduling_plan
+    if args.run_affected_triggers:
+      tests, test_details_list = (
+          run_affected_triggers_mode.get_affected_test_details(
+              args.scheduling_plan
+          )
       )
 
     atest_utils.colorful_print('\nFinding Tests...', constants.CYAN)
