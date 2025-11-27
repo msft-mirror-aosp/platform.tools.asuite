@@ -16,7 +16,6 @@
 
 # pylint: disable=too-many-lines
 
-from __future__ import print_function
 
 from dataclasses import dataclass
 import fnmatch
@@ -365,7 +364,7 @@ class CLITranslator:
     elif len(results) > 1:
       self._print_fuzzy_searching_results(results)
     else:
-      print('No matching result for {0}.'.format(test))
+      print(f'No matching result for {test}.')
     if find_test_err_msg:
       print(f'{atest_utils.mark_magenta(find_test_err_msg)}\n')
     return None
