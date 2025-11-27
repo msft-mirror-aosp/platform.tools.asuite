@@ -217,13 +217,9 @@ class CLITranslator:
 
           # Only add dependencies to build_targets when they are in
           # module info
-          test_deps_in_mod_info = [
-              test_dep
-              for test_dep in test_deps
-              if self.mod_info.is_module(test_dep)
-          ]
-          for dep in test_deps_in_mod_info:
-            t_info.add_build_target(dep)
+          for dep in test_deps:
+            if self.mod_info.is_module(dep):
+              t_info.add_build_target(dep)
           test_infos.append(t_info)
         test_found = True
         print("Found '%s' as %s" % (atest_utils.mark_green(test), finder_info))
