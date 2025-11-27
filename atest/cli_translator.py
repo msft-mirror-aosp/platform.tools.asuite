@@ -282,9 +282,8 @@ class CLITranslator:
     """Determine the test_name and mainline modules are modules."""
     if not self.mod_info.is_module(identifier.test_name):
       print(
-          'Error: "{}" is not a testable module.'.format(
-              atest_utils.mark_red(identifier.test_name)
-          )
+          f'Error: "{atest_utils.mark_red(identifier.test_name)}" is not a '
+          'testable module.'
       )
       return False
 
@@ -297,9 +296,8 @@ class CLITranslator:
     ]
     if unknown_modules:
       print(
-          'Error: Cannot find {} in module info!'.format(
-              atest_utils.mark_red(', '.join(unknown_modules))
-          )
+          'Error: Cannot find'
+          f" {atest_utils.mark_red(', '.join(unknown_modules))} in module info!"
       )
       return False
 
@@ -313,12 +311,10 @@ class CLITranslator:
             unsupported_binaries.append(binary)
     if unsupported_binaries:
       print(
-          'The output format {} are not in a supported format; '
-          'did you run mainline local setup script? '
-          'Please refer to {}.'.format(
-              atest_utils.mark_red(', '.join(unsupported_binaries)),
-              atest_utils.mark_yellow(MAINLINE_LOCAL_DOC),
-          )
+          'The output format'
+          f' {atest_utils.mark_red(", ".join(unsupported_binaries))} are not in'
+          ' a supported format; did you run mainline local setup script?'
+          f' Please refer to {atest_utils.mark_yellow(MAINLINE_LOCAL_DOC)}.'
       )
       return False
 
