@@ -221,7 +221,7 @@ class CLITranslator:
               t_info.add_build_target(dep)
           test_infos.append(t_info)
         test_found = True
-        print("Found '%s' as %s" % (atest_utils.mark_green(test), finder_info))
+        print(f"Found '{atest_utils.mark_green(test)}' as {finder_info}")
         if finder_info == CACHE_FINDER and test_infos:
           test_finders.append(list(test_infos)[0].test_finder)
         test_finders.append(finder_info)
@@ -460,7 +460,7 @@ class CLITranslator:
     try:
       test_mapping_dict = json.loads(self.filter_comments(test_mapping_file))
     except json.JSONDecodeError as e:
-      msg = 'Test Mapping file has invalid format: %s.' % e
+      msg = f'Test Mapping file has invalid format: {e}.'
       logging.debug(msg)
       atest_utils.colorful_print(msg, constants.RED)
       sys.exit(ExitCode.INVALID_TM_FORMAT)
@@ -483,27 +483,23 @@ class CLITranslator:
           test_mod_info = self.mod_info.name_to_module_info.get(test_name)
           if not test_mod_info:
             print(
-                'WARNING: %s is not a valid build target and '
-                'may not be discoverable by TreeHugger. If you '
-                'want to specify a class or test-package, '
-                "please set 'name' to the test module and use "
-                "'options' to specify the right tests via "
-                "'include-filter'.\nNote: this can also occur "
-                'if the test module is not built for your '
-                'current lunch target.\n'
-                % atest_utils.mark_red(test['name'])
+                f'WARNING: {atest_utils.mark_red(test["name"])} is not a valid'
+                ' build target and may not be discoverable by TreeHugger. If'
+                ' you want to specify a class or test-package, please set'
+                " 'name' to the test module and use 'options' to specify"
+                " the right tests via 'include-filter'.\nNote: this can also"
+                ' occur if the test module is not built for your current lunch'
+                ' target.\n'
             )
           elif not any(
               x in test_mod_info.get('compatibility_suites', [])
               for x in constants.TEST_MAPPING_SUITES
           ):
             print(
-                'WARNING: Please add %s to either suite: %s for '
-                'this TEST_MAPPING file to work with TreeHugger.'
-                % (
-                    atest_utils.mark_red(test['name']),
-                    atest_utils.mark_green(constants.TEST_MAPPING_SUITES),
-                )
+                f'WARNING: Please add {atest_utils.mark_red(test["name"])} to'
+                ' either suite:'
+                f' {atest_utils.mark_green(constants.TEST_MAPPING_SUITES)} for'
+                ' this TEST_MAPPING file to work with TreeHugger.'
             )
           tests.append(test_mapping.TestDetail(test))
         grouped_tests.update(tests)
