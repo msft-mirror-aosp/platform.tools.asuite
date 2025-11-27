@@ -313,9 +313,9 @@ class CLITranslator:
     for name in identifier.module_names:
       info = self.mod_info.get_module_info(name)
       if info.get('installed'):
-        for bin in info.get('installed'):
-          if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, bin):
-            unsupported_binaries.append(bin)
+        for binary in info.get('installed'):
+          if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, binary):
+            unsupported_binaries.append(binary)
     if unsupported_binaries:
       print(
           'The output format {} are not in a supported format; '
