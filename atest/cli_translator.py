@@ -543,8 +543,7 @@ class CLITranslator:
         grouped_tests.update(test_list)
     tests = set()
     for test_group in test_groups:
-      temp_tests = set(merged_all_tests.get(test_group, []))
-      tests.update(temp_tests)
+      tests.update(merged_all_tests.get(test_group, []))
       if test_group == constants.TEST_GROUP_ALL:
         for grouped_tests in merged_all_tests.values():
           tests.update(grouped_tests)
