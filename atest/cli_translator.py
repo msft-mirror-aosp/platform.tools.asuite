@@ -229,7 +229,7 @@ class CLITranslator:
         test_info_str = ','.join([str(x) for x in found_test_infos])
         break
     if not test_found:
-      print('No test found for: {}'.format(atest_utils.mark_red(test)))
+      print(f'No test found for: {atest_utils.mark_red(test)}')
       if self.fuzzy_search:
         f_results = self._fuzzy_search_and_msg(test, find_test_err_msg)
         if f_results:
