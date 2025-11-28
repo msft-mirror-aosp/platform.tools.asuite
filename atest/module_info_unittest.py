@@ -1275,11 +1275,8 @@ class IsTestableModuleTest(ModuleInfoTestFixture):
 
 
 def create_module_info(modules=None):
-  name_to_module_info = {}
   modules = modules or []
-
-  for m in modules:
-    name_to_module_info[m['module_name']] = m
+  name_to_module_info = {m['module_name']: m for m in modules}
 
   return module_info.load_from_dict(name_to_module_info)
 
