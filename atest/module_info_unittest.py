@@ -281,24 +281,18 @@ class ModuleInfoUnittests(unittest.TestCase):
     """Test is_auto_gen_test_config correctly detects the module."""
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
     mock_is_module.return_value = True
-    is_auto_test_config = {constants.MODULE_AUTO_TEST_CONFIG: [True]}
-    is_not_auto_test_config = {constants.MODULE_AUTO_TEST_CONFIG: [False]}
-    is_not_auto_test_config_again = {constants.MODULE_AUTO_TEST_CONFIG: []}
-    mod_name1 = 'mod1'
-    mod_name2 = 'mod2'
-    mod_name3 = 'mod3'
-    mod_name4 = 'mod4'
+
     mod_info.name_to_module_info = {
-        mod_name1: is_auto_test_config,
-        mod_name2: is_not_auto_test_config,
-        mod_name3: is_not_auto_test_config_again,
-        mod_name4: {},
+        'mod1': {constants.MODULE_AUTO_TEST_CONFIG: [True]},
+        'mod2': {constants.MODULE_AUTO_TEST_CONFIG: [False]},
+        'mod3': {constants.MODULE_AUTO_TEST_CONFIG: []},
+        'mod4': {},
     }
 
-    self.assertTrue(mod_info.is_auto_gen_test_config(mod_name1))
-    self.assertFalse(mod_info.is_auto_gen_test_config(mod_name2))
-    self.assertFalse(mod_info.is_auto_gen_test_config(mod_name3))
-    self.assertFalse(mod_info.is_auto_gen_test_config(mod_name4))
+    self.assertTrue(mod_info.is_auto_gen_test_config('mod1'))
+    self.assertFalse(mod_info.is_auto_gen_test_config('mod2'))
+    self.assertFalse(mod_info.is_auto_gen_test_config('mod3'))
+    self.assertFalse(mod_info.is_auto_gen_test_config('mod4'))
 
   def test_merge_build_system_infos(self):
     """Test _merge_build_system_infos."""
