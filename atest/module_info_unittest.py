@@ -854,7 +854,7 @@ class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
     return mod_info
 
 
-class HasTestConfonfigTest(ModuleInfoTestFixture):
+class HasTestConfigTest(ModuleInfoTestFixture):
   """Tests has_test_config in various conditions."""
 
   def test_return_true_if_test_config_is_not_empty(self):
