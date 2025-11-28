@@ -398,13 +398,12 @@ class ModuleInfoUnittests(unittest.TestCase):
             manifest: 'AndroidManifest.xml',
             instrumentation_for: "AmSlam"
         }"""
-    bp_file = os.path.join(uc.TEST_DATA_DIR, 'foo/bar/AmSlam/test/Android.bp')
-    with open(bp_file, 'w', encoding='utf-8') as cache:
-      cache.write(bp_context)
+    bp_file = Path(uc.TEST_DATA_DIR, 'foo/bar/AmSlam/test/Android.bp')
+    bp_file.write_text(bp_context, encoding='utf-8')
     self.assertEqual(
         mod_info.get_instrumentation_target_apps('AmSlamTests'), artifacts
     )
-    os.remove(bp_file)
+    bp_file.unlink(missing_ok=True)
     # 2. If Android.bp is unavailable, search `AndroidManifest.xml`
     # arbitrarily.
     self.assertEqual(
