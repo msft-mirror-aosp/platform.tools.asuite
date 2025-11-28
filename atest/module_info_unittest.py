@@ -99,8 +99,7 @@ class ModuleInfoUnittests(unittest.TestCase):
 
   def setUp(self) -> None:
     for path in [BUILD_TOP_DIR, PRODUCT_OUT_DIR, SOONG_OUT_DIR, HOST_OUT_DIR]:
-      if not Path(path).is_dir():
-        Path(path).mkdir(parents=True)
+      Path(path).mkdir(parents=True, exist_ok=True)
     shutil.copy2(JSON_FILE_PATH, PRODUCT_OUT_DIR)
     self.json_file_path = Path(PRODUCT_OUT_DIR).joinpath(uc.JSON_FILE)
     shutil.copy2(CC_DEP_PATH, SOONG_OUT_DIR)
