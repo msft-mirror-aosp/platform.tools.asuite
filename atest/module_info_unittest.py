@@ -101,12 +101,12 @@ class ModuleInfoUnittests(unittest.TestCase):
     for path in [BUILD_TOP_DIR, PRODUCT_OUT_DIR, SOONG_OUT_DIR, HOST_OUT_DIR]:
       Path(path).mkdir(parents=True, exist_ok=True)
     shutil.copy2(JSON_FILE_PATH, PRODUCT_OUT_DIR)
-    self.json_file_path = Path(PRODUCT_OUT_DIR).joinpath(uc.JSON_FILE)
+    self.json_file_path = Path(PRODUCT_OUT_DIR) / uc.JSON_FILE
     shutil.copy2(CC_DEP_PATH, SOONG_OUT_DIR)
-    self.cc_dep_path = Path(SOONG_OUT_DIR).joinpath(uc.CC_DEP_FILE)
+    self.cc_dep_path = Path(SOONG_OUT_DIR) / uc.CC_DEP_FILE
     shutil.copy2(JAVA_DEP_PATH, SOONG_OUT_DIR)
-    self.java_dep_path = Path(SOONG_OUT_DIR).joinpath(uc.JAVA_DEP_FILE)
-    self.merged_dep_path = Path(PRODUCT_OUT_DIR).joinpath(uc.MERGED_DEP_FILE)
+    self.java_dep_path = Path(SOONG_OUT_DIR) / uc.JAVA_DEP_FILE
+    self.merged_dep_path = Path(PRODUCT_OUT_DIR) / uc.MERGED_DEP_FILE
 
   def tearDown(self) -> None:
     self.merged_dep_path.unlink(missing_ok=True)
@@ -422,7 +422,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         'AmSlam',
         mod_info.get_target_module_by_pkg(
             package='c0m.andr0id.settingS',
-            search_from=Path(uc.TEST_DATA_DIR).joinpath('foo/bar/AmSlam/test'),
+            search_from=Path(uc.TEST_DATA_DIR) / 'foo/bar/AmSlam/test',
         ),
     )
 
@@ -439,9 +439,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         '',
         mod_info.get_target_module_by_pkg(
             package='module_1',
-            search_from=Path(uc.TEST_DATA_DIR).joinpath(
-                'foo/bar/module_1/test'
-            ),
+            search_from=Path(uc.TEST_DATA_DIR) / 'foo/bar/module_1/test',
         ),
     )
 
@@ -475,17 +473,13 @@ class ModuleInfoUnittests(unittest.TestCase):
     """Test for get_filepath_from_module."""
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
 
-    expected_filepath = Path(uc.TEST_DATA_DIR).joinpath(
-        'foo/bar/AmSlam', 'AndroidManifest.xml'
-    )
+    expected_filepath = Path(uc.TEST_DATA_DIR) / 'foo/bar/AmSlam' / 'AndroidManifest.xml'
     self.assertEqual(
         mod_info.get_filepath_from_module('AmSlam', 'AndroidManifest.xml'),
         expected_filepath,
     )
 
-    expected_filepath = Path(uc.TEST_DATA_DIR).joinpath(
-        'foo/bar/AmSlam/test', 'AndroidManifest.xml'
-    )
+    expected_filepath = Path(uc.TEST_DATA_DIR) / 'foo/bar/AmSlam/test' / 'AndroidManifest.xml'
     self.assertEqual(
         mod_info.get_filepath_from_module('AmSlamTests', 'AndroidManifest.xml'),
         expected_filepath,
