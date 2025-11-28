@@ -877,10 +877,7 @@ class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
     for m in modules:
       mod_info.name_to_module_info[m['module_name']] = m
       for path in m['path']:
-        if path in mod_info.path_to_module_info:
-          mod_info.path_to_module_info[path].append(m)
-        else:
-          mod_info.path_to_module_info[path] = [m]
+        mod_info.path_to_module_info.setdefault(path, []).append(m)
 
     return mod_info
 
