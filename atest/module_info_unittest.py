@@ -632,7 +632,7 @@ class ModuleInfoUnittests(unittest.TestCase):
   )
   def test_get_module_info_for_multi_lib_module(self):
     my_module_name = 'MyMultiArchTestModule'
-    multi_arch_json = os.path.join(
+    multi_arch_json = Path(
         uc.TEST_DATA_DIR, 'multi_arch_module-info.json'
     )
     mod_info = module_info.load_from_file(module_file=multi_arch_json)
