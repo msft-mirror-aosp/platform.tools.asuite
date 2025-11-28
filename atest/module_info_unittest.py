@@ -1315,7 +1315,7 @@ def robolectric_class_non_test_module(**kwargs):
   return non_test(robolectric_class(module(**kwargs)))
 
 
-# pylint: disable=too-many-arguments, too-many-locals
+# pylint: disable=too-many-arguments
 def module(
     name=None,
     path=None,
@@ -1334,28 +1334,25 @@ def module(
     supported_variants=None,
     code_under_test=None,
 ):
-  name = name or 'libhello'
-
-  m = {}
-
-  m['module_name'] = name
-  m['class'] = classes or ['ETC']
-  m['path'] = [path or '']
-  m['installed'] = installed or []
-  m['is_unit_test'] = 'false'
-  m['auto_test_config'] = auto_test_config or []
-  m['test_config'] = test_config or []
-  m['shared_libs'] = shared_libs or []
-  m['runtime_dependencies'] = runtime_dependencies or []
-  m['dependencies'] = dependencies or []
-  m['data'] = data or []
-  m['data_dependencies'] = data_dependencies or []
-  m['compatibility_suites'] = compatibility_suites or []
-  m['host_dependencies'] = host_dependencies or []
-  m['srcs'] = srcs or []
-  m['supported_variants'] = supported_variants or []
-  m['code_under_test'] = code_under_test or []
-  return m
+  return {
+      'module_name': name or 'libhello',
+      'class': classes or ['ETC'],
+      'path': [path or ''],
+      'installed': installed or [],
+      'is_unit_test': 'false',
+      'auto_test_config': auto_test_config or [],
+      'test_config': test_config or [],
+      'shared_libs': shared_libs or [],
+      'runtime_dependencies': runtime_dependencies or [],
+      'dependencies': dependencies or [],
+      'data': data or [],
+      'data_dependencies': data_dependencies or [],
+      'compatibility_suites': compatibility_suites or [],
+      'host_dependencies': host_dependencies or [],
+      'srcs': srcs or [],
+      'supported_variants': supported_variants or [],
+      'code_under_test': code_under_test or [],
+  }
 
 
 def test(info):
