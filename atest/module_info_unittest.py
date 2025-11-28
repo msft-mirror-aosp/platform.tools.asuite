@@ -119,7 +119,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         constants.ANDROID_PRODUCT_OUT: product_out,
     }
     expected_target = os.path.relpath(
-        os.path.join(product_out, 'module-info.json'), build_top
+        os.path.join(product_out, uc.JSON_FILE), build_top
     )
 
     with mock.patch.dict('os.environ', env_mock, clear=True):
@@ -134,7 +134,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         constants.ANDROID_BUILD_TOP: build_top,
         constants.ANDROID_PRODUCT_OUT: product_out,
     }
-    expected_target = os.path.join(product_out, 'module-info.json')
+    expected_target = os.path.join(product_out, uc.JSON_FILE)
 
     with mock.patch.dict('os.environ', env_mock, clear=True):
       actual_target = module_info.get_module_info_target()
