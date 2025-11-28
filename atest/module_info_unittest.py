@@ -206,14 +206,13 @@ class ModuleInfoUnittests(unittest.TestCase):
   def test_path_to_mod_info(self):
     """test that we get the module name properly."""
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
-    module_list = []
-    for path_to_mod_info in mod_info.path_to_module_info[
-        PATH_TO_MULT_MODULES_WITH_MULTI_ARCH
-    ]:
-      module_list.append(path_to_mod_info.get(constants.MODULE_NAME))
-    module_list.sort()
-    TESTABLE_MODULES_WITH_SHARED_PATH.sort()
-    self.assertEqual(module_list, TESTABLE_MODULES_WITH_SHARED_PATH)
+    module_list = [
+        path_to_mod_info.get(constants.MODULE_NAME)
+        for path_to_mod_info in mod_info.path_to_module_info[
+            PATH_TO_MULT_MODULES_WITH_MULTI_ARCH
+        ]
+    ]
+    self.assertCountEqual(module_list, TESTABLE_MODULES_WITH_SHARED_PATH)
 
   def test_is_suite_in_compatibility_suites(self):
     """Test is_suite_in_compatibility_suites."""
@@ -1066,9 +1065,7 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     run_module_name = f'Run{module_name}'
     mod_info = self.create_module_info(
         modules=[
-            modern_robolectric_test_module(
-                name=module_name, path=module_path
-            ),
+            modern_robolectric_test_module(name=module_name, path=module_path),
             robolectric_class_non_test_module(
                 name=run_module_name, path=module_path
             ),
