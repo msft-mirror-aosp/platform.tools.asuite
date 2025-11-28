@@ -40,7 +40,7 @@ EXPECTED_MOD_TARGET_PATH = ['tf/core']
 UNEXPECTED_MOD_TARGET = 'this_should_not_be_in_module-info.json'
 MOD_NO_PATH = 'module-no-path'
 PATH_TO_MULT_MODULES = 'shared/path/to/be/used'
-MULT_MOODULES_WITH_SHARED_PATH = ['module2', 'module1']
+MULT_MODULES_WITH_SHARED_PATH = ['module2', 'module1']
 PATH_TO_MULT_MODULES_WITH_MULTI_ARCH = 'shared/path/to/be/used2'
 TESTABLE_MODULES_WITH_SHARED_PATH = [
     'multiarch1',
@@ -200,7 +200,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     unittest_utils.assert_strict_equal(
         self,
         mod_info.get_module_names(PATH_TO_MULT_MODULES),
-        MULT_MOODULES_WITH_SHARED_PATH,
+        MULT_MODULES_WITH_SHARED_PATH,
     )
 
   def test_path_to_mod_info(self):
