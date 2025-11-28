@@ -62,6 +62,11 @@ SOONG_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/soong')
 PRODUCT_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/target/product/vsoc_x86_64')
 HOST_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/host/linux-x86')
 
+ENV_MOCK_TOP_IS_TEST_DATA = {
+    constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR,
+    constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR,
+}
+
 
 # TODO: (b/263199608) Suppress too-many-public-methods after refactoring.
 # pylint: disable=protected-access, too-many-public-methods
@@ -350,13 +355,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         expect_deps,
     )
 
-  @mock.patch.dict(
-      'os.environ',
-      {
-          constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR,
-          constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR,
-      },
-  )
+  @mock.patch.dict('os.environ', ENV_MOCK_TOP_IS_TEST_DATA)
   def test_get_instrumentation_target_apps(self):
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
     artifacts = {
@@ -386,13 +385,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         mod_info.get_instrumentation_target_apps('AmSlamTests'), artifacts
     )
 
-  @mock.patch.dict(
-      'os.environ',
-      {
-          constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR,
-          constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR,
-      },
-  )
+  @mock.patch.dict('os.environ', ENV_MOCK_TOP_IS_TEST_DATA)
   def test_get_target_module_by_pkg(self):
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
     self.assertEqual(
@@ -403,13 +396,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         ),
     )
 
-  @mock.patch.dict(
-      'os.environ',
-      {
-          constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR,
-          constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR,
-      },
-  )
+  @mock.patch.dict('os.environ', ENV_MOCK_TOP_IS_TEST_DATA)
   def test_get_target_module_by_pkg_module_not_found(self):
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
     self.assertEqual(
@@ -420,13 +407,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         ),
     )
 
-  @mock.patch.dict(
-      'os.environ',
-      {
-          constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR,
-          constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR,
-      },
-  )
+  @mock.patch.dict('os.environ', ENV_MOCK_TOP_IS_TEST_DATA)
   def test_get_artifact_map(self):
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
     artifacts = {
@@ -439,13 +420,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     }
     self.assertEqual(mod_info.get_artifact_map('AmSlam'), artifacts)
 
-  @mock.patch.dict(
-      'os.environ',
-      {
-          constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR,
-          constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR,
-      },
-  )
+  @mock.patch.dict('os.environ', ENV_MOCK_TOP_IS_TEST_DATA)
   def test_get_filepath_from_module(self):
     """Test for get_filepath_from_module."""
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
