@@ -192,12 +192,12 @@ class ModuleInfoUnittests(unittest.TestCase):
   def test_is_suite_in_compatibility_suites(self):
     """Test is_suite_in_compatibility_suites."""
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
-    info = {'compatibility_suites': []}
+    info = {constants.MODULE_COMPATIBILITY_SUITES: []}
     self.assertFalse(mod_info.is_suite_in_compatibility_suites('cts', info))
-    info2 = {'compatibility_suites': ['cts']}
+    info2 = {constants.MODULE_COMPATIBILITY_SUITES: ['cts']}
     self.assertTrue(mod_info.is_suite_in_compatibility_suites('cts', info2))
     self.assertFalse(mod_info.is_suite_in_compatibility_suites('vts10', info2))
-    info3 = {'compatibility_suites': ['cts', 'vts10']}
+    info3 = {constants.MODULE_COMPATIBILITY_SUITES: ['cts', 'vts10']}
     self.assertTrue(mod_info.is_suite_in_compatibility_suites('cts', info3))
     self.assertTrue(mod_info.is_suite_in_compatibility_suites('vts10', info3))
     self.assertFalse(mod_info.is_suite_in_compatibility_suites('ats', info3))
@@ -281,9 +281,9 @@ class ModuleInfoUnittests(unittest.TestCase):
     """Test is_auto_gen_test_config correctly detects the module."""
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
     mock_is_module.return_value = True
-    is_auto_test_config = {'auto_test_config': [True]}
-    is_not_auto_test_config = {'auto_test_config': [False]}
-    is_not_auto_test_config_again = {'auto_test_config': []}
+    is_auto_test_config = {constants.MODULE_AUTO_TEST_CONFIG: [True]}
+    is_not_auto_test_config = {constants.MODULE_AUTO_TEST_CONFIG: [False]}
+    is_not_auto_test_config_again = {constants.MODULE_AUTO_TEST_CONFIG: []}
     mod_name1 = 'mod1'
     mod_name2 = 'mod2'
     mod_name3 = 'mod3'
@@ -536,9 +536,9 @@ class ModuleInfoUnittests(unittest.TestCase):
     maininfo_with_host_unittest = {
         constants.MODULE_NAME: module_name,
         constants.MODULE_IS_UNIT_TEST: 'true',
-        'compatibility_suites': ['host-unit-tests'],
+        constants.MODULE_COMPATIBILITY_SUITES: ['host-unit-tests'],
         constants.MODULE_INSTALLED: uc.DEFAULT_INSTALL_PATH,
-        'auto_test_config': ['true'],
+        constants.MODULE_AUTO_TEST_CONFIG: ['true'],
     }
 
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
@@ -553,7 +553,7 @@ class ModuleInfoUnittests(unittest.TestCase):
             os.path.join(uc.TEST_CONFIG_DATA_DIR, 'a.xml.data')
         ],
         constants.MODULE_INSTALLED: uc.DEFAULT_INSTALL_PATH,
-        'supported_variants': ['DEVICE'],
+        constants.MODULE_SUPPORTED_VARIANTS: ['DEVICE'],
     }
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
 
@@ -569,8 +569,8 @@ class ModuleInfoUnittests(unittest.TestCase):
             os.path.join(uc.TEST_CONFIG_DATA_DIR, 'a.xml.data')
         ],
         constants.MODULE_INSTALLED: uc.DEFAULT_INSTALL_PATH,
-        'supported_variants': ['DEVICE'],
-        'compatibility_suites': ['robolectric-tests'],
+        constants.MODULE_SUPPORTED_VARIANTS: ['DEVICE'],
+        constants.MODULE_COMPATIBILITY_SUITES: ['robolectric-tests'],
     }
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
 
@@ -587,7 +587,7 @@ class ModuleInfoUnittests(unittest.TestCase):
             os.path.join(uc.TEST_CONFIG_DATA_DIR, 'a.xml.data')
         ],
         constants.MODULE_INSTALLED: uc.DEFAULT_INSTALL_PATH,
-        'supported_variants': ['HOST'],
+        constants.MODULE_SUPPORTED_VARIANTS: ['HOST'],
     }
     mod_info = create_module_info([
         module(
@@ -1282,46 +1282,48 @@ def module(
     code_under_test=None,
 ):
   return {
-      'module_name': name or 'libhello',
-      'class': classes or ['ETC'],
-      'path': [path or ''],
-      'installed': installed or [],
-      'is_unit_test': 'false',
-      'auto_test_config': auto_test_config or [],
-      'test_config': test_config or [],
-      'shared_libs': shared_libs or [],
-      'runtime_dependencies': runtime_dependencies or [],
-      'dependencies': dependencies or [],
+      constants.MODULE_NAME: name or 'libhello',
+      constants.MODULE_CLASS: classes or ['ETC'],
+      constants.MODULE_PATH: [path or ''],
+      constants.MODULE_INSTALLED: installed or [],
+      constants.MODULE_IS_UNIT_TEST: 'false',
+      constants.MODULE_AUTO_TEST_CONFIG: auto_test_config or [],
+      constants.MODULE_TEST_CONFIG: test_config or [],
+      constants.MODULE_SHARED_LIBS: shared_libs or [],
+      constants.MODULE_RUNTIME_DEPS: runtime_dependencies or [],
+      constants.MODULE_DEPENDENCIES: dependencies or [],
       'data': data or [],
-      'data_dependencies': data_dependencies or [],
-      'compatibility_suites': compatibility_suites or [],
-      'host_dependencies': host_dependencies or [],
-      'srcs': srcs or [],
-      'supported_variants': supported_variants or [],
+      constants.MODULE_DATA_DEPS: data_dependencies or [],
+      constants.MODULE_COMPATIBILITY_SUITES: compatibility_suites or [],
+      constants.MODULE_HOST_DEPS: host_dependencies or [],
+      constants.MODULE_SRCS: srcs or [],
+      constants.MODULE_SUPPORTED_VARIANTS: supported_variants or [],
       'code_under_test': code_under_test or [],
   }
 
 
 def test(info):
-  info['auto_test_config'] = ['true']
-  info['installed'] = ['installed_path']
+  info[constants.MODULE_AUTO_TEST_CONFIG] = ['true']
+  info[constants.MODULE_INSTALLED] = ['installed_path']
   return info
 
 
 def non_test(info):
-  info['auto_test_config'] = []
-  info['installed'] = []
+  info[constants.MODULE_AUTO_TEST_CONFIG] = []
+  info[constants.MODULE_INSTALLED] = []
   return info
 
 
 def robolectric_class(info):
-  info['class'] = ['ROBOLECTRIC']
+  info[constants.MODULE_CLASS] = ['ROBOLECTRIC']
   return info
 
 
 def robolectric_tests_suite(info):
   info = test(info)
-  info.setdefault('compatibility_suites', []).append('robolectric-tests')
+  info.setdefault(constants.MODULE_COMPATIBILITY_SUITES, []).append(
+      'robolectric-tests'
+  )
   return info
 
 
