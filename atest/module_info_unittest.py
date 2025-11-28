@@ -958,7 +958,7 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
 
   def test_return_empty_for_a_modern_robolectric_test(self):
     module_name = 'hello_world_test'
-    info = modern_robolectric_test_module(name=f'{module_name}')
+    info = modern_robolectric_test_module(name=module_name)
     mod_info = self.create_module_info(modules=[info])
 
     return_module = mod_info.get_robolectric_test_name(info)
@@ -969,12 +969,12 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
     module_name = 'hello_world_test'
     run_module_name = f'Run{module_name}'
     module_path = 'robolectric_path'
-    info = non_test_module(name=f'{module_name}', path=module_path)
+    info = non_test_module(name=module_name, path=module_path)
     mod_info = self.create_module_info(
         modules=[
             info,
             robolectric_class_non_test_module(
-                name=f'{run_module_name}', path=module_path
+                name=run_module_name, path=module_path
             ),
         ]
     )
@@ -987,11 +987,11 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
     module_name = 'hello_world_test'
     run_module_name = f'Run{module_name}'
     module_path = 'robolectric_path'
-    info = non_test_module(name=f'{module_name}', path=module_path)
+    info = non_test_module(name=module_name, path=module_path)
     mod_info = self.create_module_info(
         modules=[
             info,
-            non_test_module(name=f'{run_module_name}', path=module_path),
+            non_test_module(name=run_module_name, path=module_path),
         ]
     )
 
@@ -1004,11 +1004,11 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
     run_module_name = f'Not_Run{module_name}'
     module_path = 'robolectric_path'
     info = robolectric_class_non_test_module(
-        name=f'{run_module_name}', path=module_path
+        name=run_module_name, path=module_path
     )
     mod_info = self.create_module_info(
         modules=[
-            non_test_module(name=f'{module_name}', path=module_path),
+            non_test_module(name=module_name, path=module_path),
             info,
         ]
     )
@@ -1019,7 +1019,7 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
 
   def test_return_itself_for_a_robolectric_class_test_module(self):
     module_name = 'Run_hello_world_test'
-    info = robolectric_class_non_test_module(name=f'{module_name}')
+    info = robolectric_class_non_test_module(name=module_name)
     mod_info = self.create_module_info(modules=[info])
 
     return_module = mod_info.get_robolectric_test_name(info)
@@ -1028,7 +1028,7 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
 
   def test_return_empty_if_robolectric_class_module_not_start_with_Run(self):
     module_name = 'hello_world_test'
-    info = robolectric_class_non_test_module(name=f'{module_name}')
+    info = robolectric_class_non_test_module(name=module_name)
     mod_info = self.create_module_info(modules=[info])
 
     return_module = mod_info.get_robolectric_test_name(info)
@@ -1052,7 +1052,7 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     module_name = 'hello_world_test'
     mod_info = self.create_module_info(
         modules=[
-            modern_robolectric_test_module(name=f'{module_name}'),
+            modern_robolectric_test_module(name=module_name),
         ]
     )
 
@@ -1067,10 +1067,10 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     mod_info = self.create_module_info(
         modules=[
             modern_robolectric_test_module(
-                name=f'{module_name}', path=module_path
+                name=module_name, path=module_path
             ),
             robolectric_class_non_test_module(
-                name=f'{run_module_name}', path=module_path
+                name=run_module_name, path=module_path
             ),
         ]
     )
@@ -1084,7 +1084,7 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     mod_info = self.create_module_info(
         modules=[
             non_test_module(
-                name=f'{module_name}',
+                name=module_name,
                 compatibility_suites='not_robolectric_tests',
             ),
         ]
@@ -1102,9 +1102,9 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     module_path = 'robolectric_path'
     mod_info = self.create_module_info(
         modules=[
-            non_test_module(name=f'{module_name}', path=module_path),
+            non_test_module(name=module_name, path=module_path),
             robolectric_class_non_test_module(
-                name=f'{run_module_name}', path=module_path
+                name=run_module_name, path=module_path
             ),
         ]
     )
@@ -1121,9 +1121,9 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     module_path = 'robolectric_path'
     mod_info = self.create_module_info(
         modules=[
-            test_module(name=f'{module_name}', path=module_path),
+            test_module(name=module_name, path=module_path),
             robolectric_class_test_module(
-                name=f'{run_module_name}', path=module_path
+                name=run_module_name, path=module_path
             ),
         ]
     )
@@ -1136,7 +1136,7 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     module_name = 'Run_hello_world_test'
     mod_info = self.create_module_info(
         modules=[
-            robolectric_class_non_test_module(name=f'{module_name}'),
+            robolectric_class_non_test_module(name=module_name),
         ]
     )
 
@@ -1148,7 +1148,7 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     module_name = 'hello_world_test'
     mod_info = self.create_module_info(
         modules=[
-            robolectric_class_non_test_module(name=f'{module_name}'),
+            robolectric_class_non_test_module(name=module_name),
         ]
     )
 
@@ -1162,8 +1162,8 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     module_path = 'robolectric_path'
     mod_info = self.create_module_info(
         modules=[
-            non_test_module(name=f'{module_name}', path=module_path),
-            non_test_module(name=f'{run_module_name}', path=module_path),
+            non_test_module(name=module_name, path=module_path),
+            non_test_module(name=run_module_name, path=module_path),
         ]
     )
 
@@ -1177,9 +1177,9 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     module_path = 'robolectric_path'
     mod_info = self.create_module_info(
         modules=[
-            non_test_module(name=f'{module_name}', path=module_path),
+            non_test_module(name=module_name, path=module_path),
             robolectric_class_non_test_module(
-                name=f'{run_module_name}', path=module_path
+                name=run_module_name, path=module_path
             ),
         ]
     )
