@@ -50,37 +50,7 @@ TESTABLE_MODULES_WITH_SHARED_PATH = [
     'multiarch3_32',
 ]
 
-ROBO_MOD_PATH = ['/shared/robo/path']
 ROBO_MODULE = 'FooTests'
-ASSOCIATED_ROBO_MODULE = 'RunFooTests'
-ROBO_MODULE_INFO = {
-    constants.MODULE_NAME: ROBO_MODULE,
-    constants.MODULE_PATH: ROBO_MOD_PATH,
-    constants.MODULE_CLASS: [constants.MODULE_CLASS_JAVA_LIBRARIES],
-}
-ASSOCIATED_ROBO_MODULE_INFO = {
-    constants.MODULE_NAME: ASSOCIATED_ROBO_MODULE,
-    constants.MODULE_PATH: ROBO_MOD_PATH,
-    constants.MODULE_CLASS: [constants.MODULE_CLASS_ROBOLECTRIC],
-}
-MOD_PATH_INFO_DICT = {
-    ROBO_MOD_PATH[0]: [ASSOCIATED_ROBO_MODULE_INFO, ROBO_MODULE_INFO]
-}
-MOD_NAME_INFO_DICT = {
-    ASSOCIATED_ROBO_MODULE: ASSOCIATED_ROBO_MODULE_INFO,
-    ROBO_MODULE: ROBO_MODULE_INFO,
-}
-MOD_NAME1 = 'mod1'
-MOD_NAME2 = 'mod2'
-MOD_NAME3 = 'mod3'
-MOD_NAME4 = 'mod4'
-MOD_INFO_DICT = {}
-MODULE_INFO = {
-    constants.MODULE_NAME: 'random_name',
-    constants.MODULE_PATH: 'a/b/c/path',
-    constants.MODULE_CLASS: ['random_class'],
-}
-NAME_TO_MODULE_INFO = {'random_name': MODULE_INFO}
 
 MOBLY_MODULE = 'mobly-test'
 MOBLY_MODULE_NO_TAG = 'mobly-test-no-tag'
@@ -309,15 +279,21 @@ class ModuleInfoUnittests(unittest.TestCase):
     is_auto_test_config = {'auto_test_config': [True]}
     is_not_auto_test_config = {'auto_test_config': [False]}
     is_not_auto_test_config_again = {'auto_test_config': []}
-    MOD_INFO_DICT[MOD_NAME1] = is_auto_test_config
-    MOD_INFO_DICT[MOD_NAME2] = is_not_auto_test_config
-    MOD_INFO_DICT[MOD_NAME3] = is_not_auto_test_config_again
-    MOD_INFO_DICT[MOD_NAME4] = {}
-    mod_info.name_to_module_info = MOD_INFO_DICT
-    self.assertTrue(mod_info.is_auto_gen_test_config(MOD_NAME1))
-    self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME2))
-    self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME3))
-    self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME4))
+    mod_name1 = 'mod1'
+    mod_name2 = 'mod2'
+    mod_name3 = 'mod3'
+    mod_name4 = 'mod4'
+    mod_info.name_to_module_info = {
+        mod_name1: is_auto_test_config,
+        mod_name2: is_not_auto_test_config,
+        mod_name3: is_not_auto_test_config_again,
+        mod_name4: {},
+    }
+
+    self.assertTrue(mod_info.is_auto_gen_test_config(mod_name1))
+    self.assertFalse(mod_info.is_auto_gen_test_config(mod_name2))
+    self.assertFalse(mod_info.is_auto_gen_test_config(mod_name3))
+    self.assertFalse(mod_info.is_auto_gen_test_config(mod_name4))
 
   def test_merge_build_system_infos(self):
     """Test _merge_build_system_infos."""
