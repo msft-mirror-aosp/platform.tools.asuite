@@ -109,8 +109,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     self.merged_dep_path = Path(PRODUCT_OUT_DIR).joinpath(uc.MERGED_DEP_FILE)
 
   def tearDown(self) -> None:
-    if self.merged_dep_path.is_file():
-      os.remove(self.merged_dep_path)
+    self.merged_dep_path.unlink(missing_ok=True)
 
   def test_target_name_is_relative_to_build_top(self):
     build_top = '/src/build_top'
