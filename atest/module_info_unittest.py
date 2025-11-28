@@ -26,6 +26,7 @@ import shutil
 import tempfile
 import unittest
 from unittest import mock
+import uuid
 from atest import constants
 from atest import module_info
 from atest import unittest_constants as uc
@@ -473,13 +474,17 @@ class ModuleInfoUnittests(unittest.TestCase):
     """Test for get_filepath_from_module."""
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
 
-    expected_filepath = Path(uc.TEST_DATA_DIR) / 'foo/bar/AmSlam' / 'AndroidManifest.xml'
+    expected_filepath = (
+        Path(uc.TEST_DATA_DIR) / 'foo/bar/AmSlam' / 'AndroidManifest.xml'
+    )
     self.assertEqual(
         mod_info.get_filepath_from_module('AmSlam', 'AndroidManifest.xml'),
         expected_filepath,
     )
 
-    expected_filepath = Path(uc.TEST_DATA_DIR) / 'foo/bar/AmSlam/test' / 'AndroidManifest.xml'
+    expected_filepath = (
+        Path(uc.TEST_DATA_DIR) / 'foo/bar/AmSlam/test' / 'AndroidManifest.xml'
+    )
     self.assertEqual(
         mod_info.get_filepath_from_module('AmSlamTests', 'AndroidManifest.xml'),
         expected_filepath,
@@ -854,9 +859,8 @@ class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
   def setUp(self):
     self.setUpPyfakefs()
 
-  # pylint: disable=protected-access
   def create_empty_module_info(self):
-    fake_temp_file_name = next(tempfile._get_candidate_names())
+    fake_temp_file_name = str(uuid.uuid4())
     self.fs.create_file(fake_temp_file_name, contents='{}')
     return module_info.load_from_file(module_file=fake_temp_file_name)
 
