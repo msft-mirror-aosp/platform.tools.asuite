@@ -215,9 +215,9 @@ class ModuleInfoUnittests(unittest.TestCase):
     actual_test_suite_modules = mod_info.get_testable_modules('test-suite')
     actual_null_suite_modules = mod_info.get_testable_modules('null-suite')
 
-    self.assertEqual(actual_all_testable_modules, expected_testable_modules)
-    self.assertEqual(actual_test_suite_modules, expected_test_suite_modules)
-    self.assertEqual(actual_null_suite_modules, expected_null_suite_modules)
+    self.assertSetEqual(actual_all_testable_modules, expected_testable_modules)
+    self.assertSetEqual(actual_test_suite_modules, expected_test_suite_modules)
+    self.assertSetEqual(actual_null_suite_modules, expected_null_suite_modules)
 
   def test_get_testable_modules_failed_to_find_suite(self):
     """Test get_testable_modules."""
@@ -483,7 +483,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     loader._merge_build_system_infos(
         loader.name_to_module_info, java_bp_info_path=self.java_dep_path
     )
-    self.assertEqual(
+    self.assertSetEqual(
         mod_info.get_module_dependency('dep_test_module'), expect_deps
     )
 
@@ -508,7 +508,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     loader._merge_build_system_infos(
         loader.name_to_module_info, java_bp_info_path=java_dep_file
     )
-    self.assertEqual(
+    self.assertSetEqual(
         mod_info.get_module_dependency('dep_test_module'), expect_deps
     )
 
@@ -522,7 +522,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     loader._merge_build_system_infos(
         loader.name_to_module_info, java_bp_info_path=self.java_dep_path
     )
-    self.assertEqual(
+    self.assertSetEqual(
         mod_info.get_install_module_dependency('dep_test_module'), expect_deps
     )
 
@@ -678,19 +678,19 @@ class ModuleInfoUnittests(unittest.TestCase):
     module_2 = module(name='module_2', dependencies=['dep1', 'dep3'])
     mod_info = create_module_info([module_1, module_2])
 
-    self.assertEqual(
+    self.assertSetEqual(
         {'module_1', 'module_2'},
         mod_info.get_modules_by_include_deps(
             {'dep1'}, testable_module_only=False
         ),
     )
-    self.assertEqual(
+    self.assertSetEqual(
         {'module_1'},
         mod_info.get_modules_by_include_deps(
             {'dep2'}, testable_module_only=False
         ),
     )
-    self.assertEqual(
+    self.assertSetEqual(
         {'module_2'},
         mod_info.get_modules_by_include_deps(
             {'dep3'}, testable_module_only=False
@@ -709,7 +709,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     mod_info = create_module_info([module_1, module_2])
     _testable_modules.return_value = []
 
-    self.assertEqual(
+    self.assertSetEqual(
         set(),
         mod_info.get_modules_by_include_deps(
             {'dep1'}, testable_module_only=True
@@ -724,7 +724,9 @@ class ModuleInfoUnittests(unittest.TestCase):
     module_2 = module(name='module_2', srcs=['path/src2', 'path/src3'])
     mod_info = create_module_info([module_1, module_2])
 
-    self.assertEqual(set(), mod_info.get_modules_by_path_in_srcs('path/src4'))
+    self.assertSetEqual(
+        set(), mod_info.get_modules_by_path_in_srcs('path/src4')
+    )
 
   def test_get_modules_by_path_in_srcs_one_module_found(self):
     module_1 = module(
@@ -734,7 +736,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     module_2 = module(name='module_2', srcs=['path/src2', 'path/src3'])
     mod_info = create_module_info([module_1, module_2])
 
-    self.assertEqual(
+    self.assertSetEqual(
         {'module_1'}, mod_info.get_modules_by_path_in_srcs('path/src1')
     )
 
@@ -746,7 +748,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     module_2 = module(name='module_2', srcs=['path/src2', 'path/src3'])
     mod_info = create_module_info([module_1, module_2])
 
-    self.assertEqual(
+    self.assertSetEqual(
         {'module_1', 'module_2'},
         mod_info.get_modules_by_path_in_srcs('path/src2'),
     )
