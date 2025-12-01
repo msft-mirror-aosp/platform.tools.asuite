@@ -33,7 +33,6 @@ from typing import List
 from atest import atest_error
 from atest import atest_utils
 from atest import constants
-from atest import rollout_control
 from atest import test_finder_handler
 from atest import test_mapping
 from atest.acme import run_affected_triggers_mode
