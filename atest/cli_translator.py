@@ -732,7 +732,7 @@ class CLITranslator:
     )):
       logging.debug('Finding Host Unit Tests...')
       host_unit_tests = test_finder_utils.find_host_unit_tests(
-          self.mod_info, str(Path(os.getcwd()).relative_to(self.root_dir))
+          self.mod_info, str(Path.cwd().relative_to(self.root_dir))
       )
       logging.debug('Found host_unit_tests: %s', host_unit_tests)
     # Test details from TEST_MAPPING files
