@@ -19,7 +19,6 @@
 
 from dataclasses import dataclass
 import fnmatch
-import functools
 import json
 import logging
 import os
@@ -119,7 +118,6 @@ class CLITranslator:
     self.fuzzy_search = True
     self._indexing_thread = indexing_thread
 
-  @functools.cache
   def _wait_for_index_if_needed(self) -> None:
     """Checks indexing status and wait for it to complete if necessary."""
     if (
