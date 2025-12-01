@@ -437,8 +437,9 @@ class CLITranslator:
       Returns:
           "" if it matches _COMMENTS, otherwise original string.
       """
-      line = match.group(0).strip()
-      return '' if line.startswith(_COMMENTS) else line
+      if match.group(2):
+        return match.group(2)
+      return ''
 
     with open(test_mapping_file, encoding='utf-8') as json_file:
       return ''.join(re.sub(_COMMENTS_RE, _replace, line) for line in json_file)
