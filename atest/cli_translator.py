@@ -28,7 +28,7 @@ import re
 import sys
 import threading
 import time
-from typing import List, Set
+from typing import List
 
 from atest import atest_error
 from atest import atest_utils
