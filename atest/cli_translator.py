@@ -133,7 +133,7 @@ class CLITranslator:
     self._indexing_thread.join()
     metrics.LocalDetectEvent(
         detect_type=DetectType.WAIT_FOR_INDEXING_MS,
-        result=int(round((time.time() - start_wait_for_indexing) * 1000)),
+        result=round((time.time() - start_wait_for_indexing) * 1000),
     )
 
   # pylint: disable=too-many-locals
