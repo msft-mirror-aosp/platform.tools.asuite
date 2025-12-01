@@ -73,7 +73,7 @@ class TestIdentifier:
 
 
 class CLITranslator:
-  """CLITranslator class contains public method translate() and some private
+  """CLITranslator class contains public method translate() and some private.
 
   helper methods. The atest tool can call the translate() method with a list
   of strings, each string referencing a test to run. Translate() will
@@ -95,7 +95,7 @@ class CLITranslator:
       host=False,
       indexing_thread: threading.Thread = None,
   ):
-    """CLITranslator constructor
+    """CLITranslator constructor.
 
     Args:
         mod_info: ModuleInfo class that has cached module-info.json.
