@@ -329,11 +329,10 @@ class CLITranslator:
     mainline_binaries = identifier.binary_names
     if not self.mod_info.has_mainline_modules(test, mainline_binaries):
       print(
-          'Error: Mainline modules "{}" were not defined for {} in '
-          'neither build file nor test config.'.format(
-              atest_utils.mark_red(', '.join(mainline_binaries)),
-              atest_utils.mark_red(test),
-          )
+          'Error: Mainline modules '
+          f'"{atest_utils.mark_red(", ".join(mainline_binaries))}" '
+          f'were not defined for {atest_utils.mark_red(test)} in '
+          'neither build file nor test config.'
       )
       return False
 
