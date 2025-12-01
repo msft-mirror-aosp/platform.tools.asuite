@@ -447,7 +447,6 @@ class CLITranslator:
     """
     all_tests = {}
     imports = []
-    test_mapping_dict = {}
     try:
       test_mapping_dict = json.loads(self.filter_comments(test_mapping_file))
     except json.JSONDecodeError as e:
