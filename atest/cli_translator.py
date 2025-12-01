@@ -426,21 +426,11 @@ class CLITranslator:
         Valid json string without comments.
     """
 
-    def _replace(match):
-      """Replace comments if found matching the defined regular
-
-      expression.
-
-      Args:
-          match: The matched regex pattern
-
-      Returns:
-          "" if it matches _COMMENTS, otherwise original string.
-      """
-      return match.group(2) or ''
-
     with open(test_mapping_file, encoding='utf-8') as json_file:
-      return ''.join(re.sub(_COMMENTS_RE, _replace, line) for line in json_file)
+      return ''.join(
+          re.sub(_COMMENTS_RE, lambda m: m.group(2) or '', line)
+          for line in json_file
+      )
 
   def _read_tests_in_test_mapping(self, test_mapping_file):
     """Read tests from a TEST_MAPPING file.
