@@ -38,7 +38,6 @@ class BugDetectorUnittest(unittest.TestCase):
   def setUp(self):
     """Set up stuff for testing."""
     self.history_file = os.path.join(uc.TEST_DATA_DIR, 'bug_detector.json')
-    self.detector = bug_detector.BugDetector(['test1'], 5, self.history_file)
     self._reset_history_file()
     self.history_file2 = os.path.join(uc.TEST_DATA_DIR, 'bug_detector2.json')
 
@@ -55,60 +54,50 @@ class BugDetectorUnittest(unittest.TestCase):
       json.dump(TEST_DICT, outfile)
 
   def _make_test_file(self, file_size):
-    temp_history = {}
-    for i in range(file_size):
-      latest_bug = {
-          i: {
-              'latest_exit_code': i,
-              'updated_at': datetime.datetime.now().isoformat(),
-          }
-      }
-      temp_history.update(latest_bug)
+    temp_history = {
+        i: {
+            'latest_exit_code': i,
+            'updated_at': datetime.datetime.now().isoformat(),
+        }
+        for i in range(file_size)
+    }
     with open(self.history_file2, 'w', encoding='utf-8') as outfile:
       json.dump(temp_history, outfile, indent=0)
 
   @mock.patch.object(bug_detector.BugDetector, 'update_history')
   def test_get_detect_key(self, _):
     """Test get_detect_key."""
-    # argv without -v
-    argv = ['test2', 'test1']
-    want_key = 'test1 test2'
-    dtr = bug_detector.BugDetector(argv, 0)
-    self.assertEqual(dtr.get_detect_key(argv), want_key)
+    test_cases = [
+        (['test2', 'test1'], 'test1 test2'),
+        (['-v', 'test2', 'test1'], 'test1 test2'),
+        (['--verbose', 'test2', 'test3', 'test1'], 'test1 test2 test3'),
+    ]
+    for argv, want_key in test_cases:
+      with self.subTest(argv=argv):
+        dtr = bug_detector.BugDetector(argv, 0)
+        self.assertEqual(dtr.get_detect_key(argv), want_key)
 
-    # argv with -v
-    argv = ['-v', 'test2', 'test1']
-    want_key = 'test1 test2'
-    dtr = bug_detector.BugDetector(argv, 0)
-    self.assertEqual(dtr.get_detect_key(argv), want_key)
-
-    # argv with --verbose
-    argv = ['--verbose', 'test2', 'test3', 'test1']
-    want_key = 'test1 test2 test3'
-    dtr = bug_detector.BugDetector(argv, 0)
-    self.assertEqual(dtr.get_detect_key(argv), want_key)
-
-  def test_get_history(self):
+  @mock.patch.object(bug_detector.BugDetector, 'update_history')
+  def test_get_history(self, _):
     """Test get_history."""
-    self.assertEqual(self.detector.get_history(), TEST_DICT)
+    detector = bug_detector.BugDetector(['test1'], 5, self.history_file)
+    self.assertEqual(detector.get_history(), TEST_DICT)
 
   @mock.patch.object(bug_detector.BugDetector, 'update_history')
   def test_detect_bug_caught(self, _):
     """Test detect_bug_caught."""
     self._reset_history_file()
     dtr = bug_detector.BugDetector(['test1'], 0, self.history_file)
-    success = 1
-    self.assertEqual(dtr.detect_bug_caught(), success)
+    self.assertEqual(dtr.detect_bug_caught(), 1)
 
+  @mock.patch.object(constants, 'UPPER_LIMIT', 10)
+  @mock.patch.object(constants, 'TRIM_TO_SIZE', 3)
   def test_update_history(self):
     """Test update_history."""
-    constants.UPPER_LIMIT = 10
-    constants.TRIM_TO_SIZE = 3
-
     mock_file_size = 0
     self._make_test_file(mock_file_size)
     dtr = bug_detector.BugDetector(['test1'], 0, self.history_file2)
-    self.assertTrue('test1' in dtr.history)
+    self.assertIn('test1', dtr.history)
 
     # History is larger than constants.UPPER_LIMIT. Trim to size.
     mock_file_size = 10
@@ -117,7 +106,7 @@ class BugDetectorUnittest(unittest.TestCase):
     self.assertEqual(len(dtr.history), constants.TRIM_TO_SIZE)
     keys = ['test1', '9', '8']
     for key in keys:
-      self.assertTrue(key in dtr.history)
+      self.assertIn(key, dtr.history)
 
     # History is not larger than constants.UPPER_LIMIT.
     mock_file_size = 5
@@ -126,7 +115,7 @@ class BugDetectorUnittest(unittest.TestCase):
     self.assertEqual(len(dtr.history), mock_file_size + 1)
     keys = ['test1', '4', '3', '2', '1', '0']
     for key in keys:
-      self.assertTrue(key in dtr.history)
+      self.assertIn(key, dtr.history)
 
 
 if __name__ == '__main__':

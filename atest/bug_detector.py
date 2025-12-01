@@ -23,9 +23,7 @@ from atest import atest_utils
 from atest import constants
 from atest.metrics import metrics_utils
 
-_META_FILE = os.path.join(
-    atest_utils.get_misc_dir(), '.config', 'asuite', 'atest_history.json'
-)
+_META_FILE = f'{atest_utils.get_misc_dir()}/.config/asuite/atest_history.json'
 _DETECT_OPTION_FILTER = ['-v', '--verbose']
 _DETECTED_SUCCESS = 1
 _DETECTED_FAIL = 0
@@ -65,8 +63,7 @@ class BugDetector:
         A string of ordered command line.
     """
     argv_without_option = [x for x in argv if x not in _DETECT_OPTION_FILTER]
-    argv_without_option.sort()
-    return ' '.join(argv_without_option)
+    return ' '.join(sorted(argv_without_option))
 
   def get_history(self):
     """Get a history object from a history file.

@@ -18,9 +18,8 @@ from __future__ import annotations
 
 from datetime import date
 import json
-import logging
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable, Optional
 
 from atest import atest_utils
 from atest import constants
@@ -31,24 +30,24 @@ class BannerHistory:
 
   _LAST_BANNER_PROMPT_DATE = 'last_banner_prompt_date'
 
-  @staticmethod
-  def create(config_dir: Path) -> BannerHistory:
+  @classmethod
+  def create(cls, config_dir: Path) -> BannerHistory:
+    """Create a BannerHistory instance."""
     config_dir.mkdir(parents=True, exist_ok=True)
-    history_file = config_dir.joinpath('banner.json')
+    history_file = config_dir / 'banner.json'
 
     if not history_file.exists():
-      history_file.touch()
-      history = {}
-    else:
-      try:
-        history = json.loads(history_file.read_text())
-      except json.JSONDecodeError as e:
-        atest_utils.print_and_log_error(
-            'Banner history json file is in a bad format: %s', e
-        )
-        history = {}
+      return BannerHistory(history_file, {})
 
-    return BannerHistory(history_file, history)
+    try:
+      history = json.loads(history_file.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as e:
+      atest_utils.print_and_log_error(
+          f'Banner history json file is in a bad format: {e}'
+      )
+      history = {}
+
+    return cls(history_file, history)
 
   def __init__(self, history_file: Path, history: dict):
     self._history_file = history_file
@@ -58,28 +57,34 @@ class BannerHistory:
     """Get the last date when banner was prompt."""
     return self._history.get(BannerHistory._LAST_BANNER_PROMPT_DATE, '')
 
-  def set_last_banner_prompt_date(self, date: str):
+  def set_last_banner_prompt_date(self, prompt_date: str) -> None:
     """Set the last date when banner was prompt."""
-    self._history[BannerHistory._LAST_BANNER_PROMPT_DATE] = date
-    self._history_file.write_text(json.dumps(self._history))
+    self._history[BannerHistory._LAST_BANNER_PROMPT_DATE] = prompt_date
+    self._history_file.write_text(
+        json.dumps(self._history, indent=2), encoding='utf-8'
+    )
 
 
 class BannerPrinter:
   """A printer used to collect and print banners."""
 
-  @staticmethod
-  def create() -> BannerPrinter:
-    return BannerPrinter(atest_utils.get_config_folder())
+  @classmethod
+  def create(cls) -> BannerPrinter:
+    return cls(atest_utils.get_config_folder())
 
   def __init__(self, config_dir: Path):
     self._messages = []
     self._config_dir = config_dir
 
-  def register(self, message: str):
+  def register(self, message: str) -> None:
     """Register a banner message."""
     self._messages.append(message)
 
-  def print(self, print_func: Callable = None, date_supplier: Callable = None):
+  def print(
+      self,
+      print_func: Optional[Callable] = None,
+      date_supplier: Optional[Callable] = None,
+  ) -> None:
     """Print the banners."""
 
     if not self._messages:
@@ -93,8 +98,10 @@ class BannerPrinter:
 
     today = date_supplier()
     history = BannerHistory.create(self._config_dir)
-    if history.get_last_banner_prompt_date() != today:
-      for message in self._messages:
-        print_func(message)
+    if history.get_last_banner_prompt_date() == today:
+      return
 
-      history.set_last_banner_prompt_date(today)
+    for message in self._messages:
+      print_func(message)
+
+    history.set_last_banner_prompt_date(today)

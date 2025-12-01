@@ -7,7 +7,6 @@ use crate::{fingerprint, time};
 use anyhow::{anyhow, bail, Context, Result};
 use itertools::Itertools;
 use regex::Regex;
-use serde::__private::ToString;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;

@@ -136,25 +136,20 @@ class Loader:
       need_merge_fn: Callable = None,
   ):
     logging.debug(
-        'Creating module info loader object with module_file: %s, force_build:'
-        ' %s, sqlite_module_cache: %s, need_merge_fn: %s',
-        module_file,
-        force_build,
-        sqlite_module_cache,
-        need_merge_fn,
+        f'Creating module info loader object with module_file: {module_file},'
+        f' force_build: {force_build}, sqlite_module_cache:'
+        f' {sqlite_module_cache}, need_merge_fn: {need_merge_fn}'
     )
     self.java_dep_path = atest_utils.get_build_out_dir('soong', _JAVA_DEP_INFO)
     self.cc_dep_path = atest_utils.get_build_out_dir('soong', _CC_DEP_INFO)
     self.merged_dep_path = atest_utils.get_product_out(_MERGED_INFO)
     logging.debug(
-        'java_dep_path: %s, cc_dep_path: %s, merged_dep_path: %s',
-        self.java_dep_path,
-        self.cc_dep_path,
-        self.merged_dep_path,
+        f'java_dep_path: {self.java_dep_path}, cc_dep_path: {self.cc_dep_path},'
+        f' merged_dep_path: {self.merged_dep_path}'
     )
 
     self.sqlite_module_cache = sqlite_module_cache
-    logging.debug('sqlite_module_cache: %s', sqlite_module_cache)
+    logging.debug(f'sqlite_module_cache: {sqlite_module_cache}')
     if self.sqlite_module_cache:
       self.cache_file = atest_utils.get_product_out(_DB_NAME)
       self.save_cache_async = self._save_db_async
@@ -522,9 +517,7 @@ class ModuleInfo:
     # be treated as a build target using m. Only treat input name as module
     # if it also has the module_name attribute which means it could be a
     # build target for m.
-    if info and info.get(constants.MODULE_NAME):
-      return True
-    return False
+    return bool(info and info.get(constants.MODULE_NAME))
 
   def get_paths(self, name) -> list[str]:
     """Return paths of supplied module name, Empty list if non-existent."""
@@ -667,9 +660,7 @@ class ModuleInfo:
     Returns:
         Boolean whether it's a robotest or not.
     """
-    if self.get_robolectric_type(module_name):
-      return True
-    return False
+    return bool(self.get_robolectric_type(module_name))
 
   def get_robolectric_type(self, module_name: str) -> int:
     """Check if the given module is a robolectric test and return type of it.
@@ -896,7 +887,7 @@ class ModuleInfo:
     """Return absolute path of the given module and filename."""
     mod_path = self.get_paths(module_name)
     if mod_path:
-      return Path(self.root_dir).joinpath(mod_path[0], filename)
+      return Path(self.root_dir) / mod_path[0] / filename
     return Path()
 
   def get_module_dependency(self, module_name, depend_on=None):
@@ -1167,7 +1158,7 @@ class ModuleInfo:
     def _to_abs_path(p):
       if os.path.isabs(p):
         return Path(p)
-      return Path(os.getenv(constants.ANDROID_BUILD_TOP), p)
+      return Path(os.getenv(constants.ANDROID_BUILD_TOP)) / p
 
     return [_to_abs_path(p) for p in mod_info.get('installed', [])]
 
@@ -1215,7 +1206,7 @@ def _create_db(data_map: Dict[str, Dict[str, Any]], db_path: Path):
     _create_db_in_path(data_map, tmp_db.name)
     shutil.move(tmp_db.name, db_path)
 
-    logging.debug('%s is created successfully.', db_path)
+    logging.debug(f'{db_path} is created successfully.')
 
 
 def _create_db_in_path(data_map: Dict[str, Dict[str, Any]], db_path: Path):
@@ -1231,9 +1222,7 @@ def _create_db_in_path(data_map: Dict[str, Dict[str, Any]], db_path: Path):
     for table, contents in data_map.items():
       cur.execute(f'CREATE TABLE {table}(key TEXT PRIMARY KEY, value TEXT)')
 
-      data = []
-      for k, v in contents.items():
-        data.append({'key': k, 'value': json.dumps(v)})
+      data = [{'key': k, 'value': json.dumps(v)} for k, v in contents.items()]
       cur.executemany(f'INSERT INTO {table} VALUES(:key, :value)', data)
 
 
@@ -1252,7 +1241,7 @@ def _create_json(data_map: Dict[str, Any], json_path: Path):
       json.dump(data_map, _temp, indent=0)
     shutil.move(temp_json.name, json_path)
 
-    logging.debug('%s is created successfully.', json_path)
+    logging.debug(f'{json_path} is created successfully.')
 
 
 def _save_data_async(function: Callable, contents: Any, target_path: Path):
@@ -1330,10 +1319,10 @@ def contains_same_mainline_modules(
       True if the set mainline modules from triggered test is in the test
         configs.
   """
-  for module_string in module_lists:
-    if mainline_modules == set(module_string.split('+')):
-      return True
-  return False
+  return any(
+      mainline_modules == set(module_string.split('+'))
+      for module_string in module_lists
+  )
 
 
 def get_path_to_module_info(name_to_module_info):
@@ -1354,10 +1343,7 @@ def get_path_to_module_info(name_to_module_info):
     for path in mod_info.get(constants.MODULE_PATH, []):
       mod_info[constants.MODULE_NAME] = mod_name
       # There could be multiple modules in a path.
-      if path in path_to_module_info:
-        path_to_module_info[path].append(mod_info)
-      else:
-        path_to_module_info[path] = [mod_info]
+      path_to_module_info.setdefault(path, []).append(mod_info)
   return path_to_module_info
 
 
@@ -1530,11 +1516,7 @@ def _get_suite_to_modules(
   for _, info in name_to_module_info.items():
     if _is_testable_module(name_to_module_info, path_to_module_info, info):
       testable_module = info.get(constants.MODULE_NAME)
-      suites = (
-          info.get('compatibility_suites')
-          if info.get('compatibility_suites')
-          else ['null-suite']
-      )
+      suites = info.get('compatibility_suites') or ['null-suite']
 
       for suite in suites:
         suite_to_modules.setdefault(suite, set()).add(testable_module)
@@ -1564,9 +1546,8 @@ def _index_testable_modules(contents: Any, index_path: Path):
       index_path: Path to the saved index file.
   """
   logging.debug(
-      r'Indexing testable modules... '
-      r'(This is required whenever module-info.json '
-      r'was rebuilt.)'
+      f'Indexing testable modules... '
+      f'(This is required whenever module-info.json was rebuilt.)'
   )
   index_path.parent.mkdir(parents=True, exist_ok=True)
   with tempfile.NamedTemporaryFile(delete=False) as cache:

@@ -28,7 +28,7 @@ Usage:
 """
 
 import argparse
-from collections import deque
+from collections import defaultdict, deque
 import enum
 import os
 
@@ -40,7 +40,9 @@ from tools.asuite.atest.test_finders import test_filter_utils
 class CCCommentType(enum.Enum):
   BLOCK_COMMENT = '/*'
   LINE_COMMENT = '//'
-  NO_COMMENT = 'no comment'
+
+
+BLOCK_COMMENT_END = '*/'
 
 
 def trim_comments(content):
@@ -66,28 +68,28 @@ def trim_comments(content):
 
       // line comment /* contains block comment */
   """
-  trimed_lines = []
+  trimmed_lines = []
   lines = deque(content.splitlines())
 
   while lines:
     line = lines.popleft()
     comment_type, index = _get_comment_type(line)
 
-    if comment_type == CCCommentType.NO_COMMENT:
-      trimed_lines.append(line.rstrip())
+    if comment_type is None:
+      trimmed_lines.append(line.rstrip())
     elif comment_type == CCCommentType.LINE_COMMENT:
-      trimed_line = line[0:index] if index > 0 else ''
-      trimed_lines.append(trimed_line.rstrip())
-      continue
+      trimmed_lines.append(line[:index].rstrip())
     else:
       code_lines = []
-      code_line, comment_ended = _handle_block_comment_line(
-          line[index + 2 :] if index + 2 < len(line) else ''
+      suffix, comment_ended = _handle_block_comment_line(
+          line[index + len(CCCommentType.BLOCK_COMMENT) :]
       )
 
       # Replace each character in the comment by a single space including
       # '/*' and '*/'.
-      code_line = f'{line[:index]}  {code_line}'
+      code_line = (
+          f'{line[:index]}{" " * len(CCCommentType.BLOCK_COMMENT)}{suffix}'
+      )
       code_lines.append(code_line)
       while not comment_ended and lines:
         code_line, comment_ended = _handle_block_comment_line(lines.popleft())
@@ -95,71 +97,55 @@ def trim_comments(content):
 
       # Add the code lines back into unprocessed lines to handle the case
       # like /* x */ code /* x */.
-      while code_lines:
-        lines.appendleft(code_lines.pop())
+      lines.extendleft(reversed(code_lines))
 
-  return '\n'.join(trimed_lines).strip('\n')
+  return '\n'.join(trimmed_lines).strip('\n')
 
 
 def _handle_block_comment_line(line):
-  if not line:
-    return '', False
+  head, sep, tail = line.partition(BLOCK_COMMENT_END)
+  if sep:
+    return ' ' * (len(head) + len(sep)) + tail, True
 
-  # By default, the whole line is comment.
-  comment_ended = False
-  index_end = len(line) - 1
-  if '*/' in line:
-    index_end = line.index('*/') + 1
-    comment_ended = True
-
-  # Replace each character in the comment by a single space.
-  chars = []
-  for idx in range(0, len(line)):
-    chars.append(line[idx] if idx > index_end else ' ')
-
-  return ''.join(chars), comment_ended
+  return ' ' * len(line), False
 
 
 def _get_comment_type(line):
-  for idx in range(0, len(line) - 1):
-    mark = line[idx : idx + 2]
-    if mark == CCCommentType.LINE_COMMENT.value:
-      return CCCommentType.LINE_COMMENT, idx
-    if mark == CCCommentType.BLOCK_COMMENT.value:
-      return CCCommentType.BLOCK_COMMENT, idx
+  line_comment_idx = line.find(CCCommentType.LINE_COMMENT.value)
+  block_comment_idx = line.find(CCCommentType.BLOCK_COMMENT.value)
 
-  return CCCommentType.NO_COMMENT, -1
+  if line_comment_idx != -1:
+    if block_comment_idx == -1 or line_comment_idx < block_comment_idx:
+      return CCCommentType.LINE_COMMENT, line_comment_idx
+
+  if block_comment_idx != -1:
+    return CCCommentType.BLOCK_COMMENT, block_comment_idx
+
+  return None, -1
 
 
 def _parse_class_method_reference(class_method_reference):
-  if '#' not in class_method_reference:
-    if ',' in class_method_reference:
+  class_name, separator, methods_str = class_method_reference.partition('#')
+
+  if not separator:
+    if ',' in class_name:
       raise ValueError(
           'Test methods must follow their class name separated by a `#`, '
           'for example, class#method1,method2'
       )
+    return class_name, []
 
-  methods = []
-  if '#' not in class_method_reference:
-    class_name = class_method_reference
-  else:
-    class_name, methods = class_method_reference.split('#', 1)
-    methods = methods.split(',')
-
-  return class_name, methods
+  return class_name, methods_str.split(',')
 
 
-def _get_test_filters(args):
-  class_to_methods = {}
-  for class_method_reference in args.class_method_reference:
+def _get_test_filters(class_method_references, class_files):
+  class_to_methods = defaultdict(set)
+  for class_method_reference in class_method_references:
     class_name, methods = _parse_class_method_reference(class_method_reference)
-    if class_name not in class_to_methods:
-      class_to_methods[class_name] = set(methods)
-    else:
-      class_to_methods[class_name] |= set(methods)
+    class_to_methods[class_name].update(methods)
 
   class_info = {}
-  for class_file in args.class_file:
+  for class_file in class_files:
     if not constants_default.CC_EXT_RE.match(class_file):
       continue
 
@@ -172,22 +158,20 @@ def _get_test_filters(args):
     class_info.update(info)
 
   test_filters = []
-  for cls in class_to_methods:
+  for cls, methods in class_to_methods.items():
     if cls not in class_info:
       raise ValueError(f'Class, {cls}, not found in the source files!')
 
     test_filters.append(
-        test_filter_utils.get_cc_filter(class_info, cls, class_to_methods[cls])
+        test_filter_utils.get_cc_filter(class_info, cls, methods)
     )
 
   return test_filters
 
 
-if __name__ == '__main__':
+def main():
   parser = argparse.ArgumentParser()
-  parser.add_argument(
-      '--out', action='store', required=True, help='Write output to <file>'
-  )
+  parser.add_argument('--out', required=True, help='Write output to <file>')
   parser.add_argument(
       '--class-file',
       action='append',
@@ -204,7 +188,13 @@ if __name__ == '__main__':
 
   test_filters = []
   if args.class_method_reference and args.class_file:
-    test_filters = _get_test_filters(args)
+    test_filters = _get_test_filters(
+        args.class_method_reference, args.class_file
+    )
 
   with open(args.out, 'w', encoding='utf-8') as f:
     f.write(':'.join(test_filters))
+
+
+if __name__ == '__main__':
+  main()
