@@ -54,7 +54,7 @@ MAINLINE_LOCAL_DOC = 'go/mainline-local-build'
 
 # Pattern used to identify comments start with '//' or '#' in TEST_MAPPING.
 _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
-_COMMENTS = frozenset(['//', '#'])
+_COMMENTS = ('//', '#')
 
 # Finders that do not require module indexing.
 _FINDERS_NOT_REQUIRING_INDEX = frozenset({
@@ -439,7 +439,7 @@ class CLITranslator:
           "" if it matches _COMMENTS, otherwise original string.
       """
       line = match.group(0).strip()
-      return '' if line.startswith(tuple(_COMMENTS)) else line
+      return '' if line.startswith(_COMMENTS) else line
 
     with open(test_mapping_file, encoding='utf-8') as json_file:
       return ''.join(re.sub(_COMMENTS_RE, _replace, line) for line in json_file)
