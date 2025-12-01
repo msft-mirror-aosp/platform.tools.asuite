@@ -226,7 +226,7 @@ class CLITranslator:
         test_found = True
         print(f"Found '{atest_utils.mark_green(test)}' as {finder_info}")
         if finder_info == CACHE_FINDER and test_infos:
-          test_finders.append(list(test_infos)[0].test_finder)
+          test_finders.append(test_infos[0].test_finder)
         test_finders.append(finder_info)
         test_info_str = ','.join([str(x) for x in found_test_infos])
         break
