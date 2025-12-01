@@ -666,13 +666,14 @@ class CLITranslator:
           ', '.join(all_test_details.keys()),
       )
       if all_test_details:
-        tests = ''
+        tests = []
         for test_group, test_list in all_test_details.items():
-          tests += '%s:\n' % test_group
+          tests.append('%s:' % test_group)
           for test_detail in sorted(test_list, key=str):
-            tests += '\t%s\n' % test_detail
+            tests.append('\t%s' % test_detail)
         atest_utils.print_and_log_warning(
-            'All available tests in TEST_MAPPING files are:\n%s', tests
+            'All available tests in TEST_MAPPING files are:\n%s',
+            '\n'.join(tests),
         )
       metrics_utils.send_exit_event(ExitCode.TEST_NOT_FOUND)
       sys.exit(ExitCode.TEST_NOT_FOUND)
