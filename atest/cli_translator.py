@@ -154,7 +154,6 @@ class CLITranslator:
     test_find_starts = time.time()
     test_found = False
     test_finders = []
-    test_info_str = ''
     find_test_err_msg = None
     test_identifier = parse_test_identifier(test)
     test_name = test_identifier.test_name
@@ -224,7 +223,6 @@ class CLITranslator:
         if finder_info == CACHE_FINDER and test_infos:
           test_finders.append(test_infos[0].test_finder)
         test_finders.append(finder_info)
-        test_info_str = ','.join(str(x) for x in found_test_infos)
         break
     if not test_found:
       print(f'No test found for: {atest_utils.mark_red(test)}')
@@ -234,6 +232,7 @@ class CLITranslator:
           test_infos.extend(f_results)
           test_found = True
           test_finders.append(FUZZY_FINDER)
+    test_info_str = ','.join(str(x) for x in test_infos)
     metrics.FindTestFinishEvent(
         duration=metrics_utils.convert_duration(time.time() - test_find_starts),
         success=test_found,
