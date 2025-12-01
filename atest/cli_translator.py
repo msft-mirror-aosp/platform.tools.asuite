@@ -202,12 +202,12 @@ class CLITranslator:
           mainline_modules = test_identifier.module_names
           if mainline_modules:
             t_info.test_name = test
-            # TODO(b/261607500): Replace usages of raw_test_name
+            # TODO: b/261607500 - Replace usages of raw_test_name
             # with test_name once we can ensure that it doesn't
             # break any code that expects Mainline modules in the
             # string.
             t_info.raw_test_name = test_name
-            # TODO: remove below statement when soong can also
+            # TODO: b/261607500 - Remove below statement when soong can also
             # parse TestConfig and inject mainline modules information
             # to module-info.
             for mod in mainline_modules:
@@ -668,9 +668,7 @@ class CLITranslator:
     return test_names, test_details_list
 
   def _extract_testable_modules_by_wildcard(self, user_input):
-    """Extract the given string with wildcard symbols to testable
-
-    module names.
+    """Extract the given string with wildcard symbols to testable module names.
 
     Assume the available testable modules is:
         ['Google', 'google', 'G00gle', 'g00gle']
@@ -790,7 +788,7 @@ class CLITranslator:
     return test_infos
 
 
-# TODO: (b/265359291) Raise Exception when the brackets are not in pair.
+# TODO: b/265359291 - Raise Exception when the brackets are not in pair.
 def parse_test_identifier(test: str) -> TestIdentifier:
   """Get mainline module names and binaries information."""
   result = atest_utils.get_test_and_mainline_modules(test)
