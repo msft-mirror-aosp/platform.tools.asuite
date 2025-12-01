@@ -164,11 +164,11 @@ class CLITranslator:
     )
 
     for finder in find_methods:
-      # Ideally whether a find method requires indexing should be defined within the
-      # finder class itself. However the current finder class design prevent
-      # us from defining property without a bigger change. Here we use a set
-      # to specify the finders that doesn't require indexing and leave the
-      # class redesign work for future work.
+      # Ideally whether a find method requires indexing should be defined within
+      # the finder class itself. However the current finder class design prevent
+      # us from defining property without a bigger change. Here we use a set to
+      # specify the finders that doesn't require indexing and leave the class
+      # redesign work for future work.
       if finder.finder_info not in _FINDERS_NOT_REQUIRING_INDEX:
         self._wait_for_index_if_needed()
 
