@@ -52,7 +52,6 @@ MAINLINE_LOCAL_DOC = 'go/mainline-local-build'
 
 # Pattern used to identify comments start with '//' or '#' in TEST_MAPPING.
 _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
-_COMMENTS = ('//', '#')
 
 # Finders that do not require module indexing.
 _FINDERS_NOT_REQUIRING_INDEX = frozenset({
