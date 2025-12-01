@@ -515,11 +515,12 @@ class CLITranslator:
         grouped_tests = merged_all_tests.setdefault(test_group_name, set())
         grouped_tests.update(test_list)
     tests = set()
-    for test_group in test_groups:
-      tests.update(merged_all_tests.get(test_group, []))
-      if test_group == constants.TEST_GROUP_ALL:
-        for grouped_tests in merged_all_tests.values():
-          tests.update(grouped_tests)
+    if constants.TEST_GROUP_ALL in test_groups:
+      for grouped_tests in merged_all_tests.values():
+        tests.update(grouped_tests)
+    else:
+      for test_group in test_groups:
+        tests.update(merged_all_tests.get(test_group, []))
     return tests, merged_all_tests, all_imports
 
   # pylint: disable=too-many-arguments
