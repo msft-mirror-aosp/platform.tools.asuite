@@ -493,9 +493,9 @@ class CLITranslator:
                 ' occur if the test module is not built for your current lunch'
                 ' target.\n'
             )
-          elif not set(
-              test_mod_info.get('compatibility_suites', [])
-          ).intersection(constants.TEST_MAPPING_SUITES):
+          elif set(test_mod_info.get('compatibility_suites', [])).isdisjoint(
+              constants.TEST_MAPPING_SUITES
+          ):
             print(
                 f'WARNING: Please add {atest_utils.mark_red(test["name"])} to'
                 ' either suite:'
