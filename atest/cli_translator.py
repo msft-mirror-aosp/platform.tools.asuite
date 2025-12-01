@@ -56,6 +56,16 @@ MAINLINE_LOCAL_DOC = 'go/mainline-local-build'
 _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
 _COMMENTS = frozenset(['//', '#'])
 
+# Finders that do not require module indexing.
+_FINDERS_NOT_REQUIRING_INDEX = frozenset({
+    'EXAMPLE',
+    CACHE_FINDER,
+    'MODULE',
+    'INTEGRATION',
+    'CONFIG',
+    'SUITE_PLAN',
+})
+
 
 @dataclass
 class TestIdentifier:
@@ -161,17 +171,10 @@ class CLITranslator:
     for finder in find_methods:
       # Ideally whether a find method requires indexing should be defined within the
       # finder class itself. However the current finder class design prevent
-      # us from defining property without a bigger change. Here we use a tuple
+      # us from defining property without a bigger change. Here we use a set
       # to specify the finders that doesn't require indexing and leave the
       # class redesign work for future work.
-      if finder.finder_info not in (
-          'EXAMPLE',
-          'CACHE',
-          'MODULE',
-          'INTEGRATION',
-          'CONFIG',
-          'SUITE_PLAN',
-      ):
+      if finder.finder_info not in _FINDERS_NOT_REQUIRING_INDEX:
         self._wait_for_index_if_needed()
 
       # For tests in TEST_MAPPING, find method is only related to
