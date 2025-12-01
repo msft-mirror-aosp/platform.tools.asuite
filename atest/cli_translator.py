@@ -22,7 +22,7 @@ import fnmatch
 import json
 import logging
 import os
-from pathlib import Path
+import pathlib
 import re
 import sys
 import threading
@@ -726,7 +726,7 @@ class CLITranslator:
     )):
       logging.debug('Finding Host Unit Tests...')
       host_unit_tests = test_finder_utils.find_host_unit_tests(
-          self.mod_info, str(Path.cwd().relative_to(self.root_dir))
+          self.mod_info, str(pathlib.Path.cwd().relative_to(self.root_dir))
       )
       logging.debug('Found host_unit_tests: %s', host_unit_tests)
     # Test details from TEST_MAPPING files
@@ -796,6 +796,6 @@ def parse_test_identifier(test: str) -> TestIdentifier:
     return TestIdentifier(test, [], [])
   test_name = result.group('test')
   mainline_binaries = result.group('mainline_modules').split('+')
-  mainline_modules = [Path(m).stem for m in mainline_binaries]
+  mainline_modules = [pathlib.Path(m).stem for m in mainline_binaries]
   logging.debug('mainline_modules: %s', mainline_modules)
   return TestIdentifier(test_name, mainline_modules, mainline_binaries)
