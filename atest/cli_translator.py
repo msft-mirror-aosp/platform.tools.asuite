@@ -610,8 +610,9 @@ class CLITranslator:
     """Find the tests in TEST_MAPPING files.
 
     Args:
-        args: arg parsed object. exit_if_no_test(s)_found: A flag to exit atest
-          if no test mapping tests found.
+        args: arg parsed object.
+        exit_if_no_test_found: A flag to exit atest if no test mapping tests
+          found.
 
     Returns:
         A tuple of (test_names, test_details_list), where
