@@ -668,9 +668,9 @@ class CLITranslator:
       if all_test_details:
         tests = []
         for test_group, test_list in all_test_details.items():
-          tests.append('%s:' % test_group)
+          tests.append(f'{test_group}:')
           for test_detail in sorted(test_list, key=str):
-            tests.append('\t%s' % test_detail)
+            tests.append(f'\t{test_detail}')
         atest_utils.print_and_log_warning(
             'All available tests in TEST_MAPPING files are:\n%s',
             '\n'.join(tests),
