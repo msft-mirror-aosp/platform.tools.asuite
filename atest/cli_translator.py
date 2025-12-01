@@ -28,7 +28,6 @@ import re
 import sys
 import threading
 import time
-from typing import List
 
 from atest import atest_error
 from atest import atest_utils
@@ -71,8 +70,8 @@ class TestIdentifier:
   """Class that stores test and the corresponding mainline modules (if any)."""
 
   test_name: str
-  module_names: List[str]
-  binary_names: List[str]
+  module_names: list[str]
+  binary_names: list[str]
 
 
 class CLITranslator:
@@ -143,7 +142,7 @@ class CLITranslator:
   # pylint: disable=too-many-statements
   def _find_test_infos(
       self, test: str, tm_test_detail: test_mapping.TestDetail
-  ) -> List[test_info.TestInfo]:
+  ) -> list[test_info.TestInfo]:
     """Return set of TestInfos based on a given test.
 
     Args:
