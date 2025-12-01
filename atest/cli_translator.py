@@ -74,9 +74,9 @@ class TestIdentifier:
 
 
 class CLITranslator:
-  """CLITranslator class contains public method translate() and some private.
+  """CLITranslator class contains translate() and private helper methods.
 
-  helper methods. The atest tool can call the translate() method with a list
+  The atest tool can call the translate() method with a list
   of strings, each string referencing a test to run. Translate() will
   "translate" this list of test strings into a list of build targets and a
   list of TradeFederation run commands.
