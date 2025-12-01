@@ -34,7 +34,8 @@ from atest import constants
 from atest import test_finder_handler
 from atest import test_mapping
 from atest.acme import run_affected_triggers_mode
-from atest.atest_enum import DetectType, ExitCode
+from atest.atest_enum import DetectType
+from atest.atest_enum import ExitCode
 from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.test_finders import module_finder
