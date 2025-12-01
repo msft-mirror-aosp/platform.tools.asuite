@@ -459,7 +459,6 @@ class CLITranslator:
           imports.append(test_mapping.Import(test_mapping_file, import_detail))
       else:
         grouped_tests = all_tests.setdefault(test_group_name, set())
-        tests = []
         for test in test_list:
           if (
               self.enable_file_patterns
@@ -489,8 +488,7 @@ class CLITranslator:
                 f' {atest_utils.mark_green(constants.TEST_MAPPING_SUITES)} for'
                 ' this TEST_MAPPING file to work with TreeHugger.'
             )
-          tests.append(test_mapping.TestDetail(test))
-        grouped_tests.update(tests)
+          grouped_tests.add(test_mapping.TestDetail(test))
     return all_tests, imports
 
   def _get_tests_from_test_mapping_files(self, test_groups, test_mapping_files):
