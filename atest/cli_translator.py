@@ -426,7 +426,7 @@ class CLITranslator:
         Valid json string without comments.
     """
 
-    with open(test_mapping_file, encoding='utf-8') as json_file:
+    with Path(test_mapping_file).open(encoding='utf-8') as json_file:
       return ''.join(
           re.sub(_COMMENTS_RE, lambda m: m.group(2) or '', line)
           for line in json_file
