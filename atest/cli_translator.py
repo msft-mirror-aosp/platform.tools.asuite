@@ -308,10 +308,11 @@ class CLITranslator:
     unsupported_binaries = []
     for name in identifier.module_names:
       info = self.mod_info.get_module_info(name)
-      if info.get('installed'):
-        for binary in info.get('installed'):
-          if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, binary):
-            unsupported_binaries.append(binary)
+      unsupported_binaries.extend(
+          binary
+          for binary in (info.get('installed') or [])
+          if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, binary)
+      )
     if unsupported_binaries:
       print(
           'The output format'
