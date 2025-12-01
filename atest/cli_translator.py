@@ -396,7 +396,7 @@ class CLITranslator:
         True is the answer is affirmative.
     """
     return atest_utils.prompt_with_yn_result(
-        'Did you mean {0}?'.format(atest_utils.mark_green(results[0])), True
+        f'Did you mean {atest_utils.mark_green(results[0])}?', True
     )
 
   def _print_fuzzy_searching_results(self, results):
