@@ -17,7 +17,7 @@
 # pylint: disable=too-many-lines
 
 
-from dataclasses import dataclass
+import dataclasses
 import fnmatch
 import json
 import logging
@@ -63,7 +63,7 @@ _FINDERS_NOT_REQUIRING_INDEX = frozenset({
 })
 
 
-@dataclass
+@dataclasses.dataclass
 class TestIdentifier:
   """Class that stores test and the corresponding mainline modules (if any)."""
 
