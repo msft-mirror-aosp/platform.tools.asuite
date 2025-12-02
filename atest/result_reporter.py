@@ -211,6 +211,13 @@ class ResultReporter:
 
     Args:
         silent: A boolean of silence or not.
+        collect_only: A boolean of collect tests only or not.
+        wait_for_debugger: A boolean of wait for debugger or not.
+        args: An argparse.Namespace class instance holding parsed args.
+        test_infos: A list of TestInfo instances.
+        class_level_report: A boolean of class level report or not.
+        runner_errors_as_warnings: A boolean of treating runner errors as
+          warnings or not.
     """
     self.run_stats = RunStat()
     self.runners = OrderedDict()
