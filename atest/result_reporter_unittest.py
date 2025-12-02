@@ -429,7 +429,7 @@ class ResultReporterUnittests(unittest.TestCase):
     rr = result_reporter.ResultReporter(collect_only=True)
     rr.process_test_result(RESULT_PASSED_TEST)
 
-    self.assertEqual(0, self.rr.print_collect_tests())
+    self.assertEqual(0, rr.print_collect_tests())
 
 
 if __name__ == '__main__':
