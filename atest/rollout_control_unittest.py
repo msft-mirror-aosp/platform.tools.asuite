@@ -56,23 +56,21 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
     sut = self._create_sut(rollout_percentage=99)
     self.assertFalse(sut.is_enabled(''))
 
-  def test_is_enabled_flag_set_to_true_returns_true(self):
-    sut = self._create_sut(rollout_percentage=0)
+  def _assert_enabled_with_env_flag(
+      self, flag_value: str, rollout_percentage: float, expected_enabled: bool
+  ):
+    sut = self._create_sut(rollout_percentage=rollout_percentage)
+    with mock.patch.dict('os.environ', {self._ENV_CONTROL_FLAG: flag_value}):
+      self.assertEqual(sut.is_enabled(), expected_enabled)
 
-    with mock.patch.dict('os.environ', {self._ENV_CONTROL_FLAG: 'true'}):
-      self.assertTrue(sut.is_enabled())
+  def test_is_enabled_flag_set_to_true_returns_true(self):
+    self._assert_enabled_with_env_flag('true', 0, True)
 
   def test_is_enabled_flag_set_to_1_returns_true(self):
-    sut = self._create_sut(rollout_percentage=0)
-
-    with mock.patch.dict('os.environ', {self._ENV_CONTROL_FLAG: '1'}):
-      self.assertTrue(sut.is_enabled())
+    self._assert_enabled_with_env_flag('1', 0, True)
 
   def test_is_enabled_flag_set_to_false_returns_false(self):
-    sut = self._create_sut(rollout_percentage=100)
-
-    with mock.patch.dict('os.environ', {self._ENV_CONTROL_FLAG: 'false'}):
-      self.assertFalse(sut.is_enabled())
+    self._assert_enabled_with_env_flag('false', 100, False)
 
   def test_is_enabled_is_owner_returns_true(self):
     sut = self._create_sut(rollout_percentage=0, owners=['owner_name'])
