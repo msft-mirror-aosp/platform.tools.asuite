@@ -26,7 +26,6 @@ from atest import arg_parser
 from atest import atest_configs
 from atest import atest_enum
 from atest import result_reporter
-from atest.test_finders import test_info
 from atest.test_runners import test_runner_base
 
 
