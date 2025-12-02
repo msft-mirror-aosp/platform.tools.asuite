@@ -405,7 +405,7 @@ class ResultReporter:
 
     self.run_stats.perf_info.print_perf_info()
     print()
-    if not UNSUPPORTED_FLAG in self.runners.values():
+    if UNSUPPORTED_FLAG not in self.runners.values():
       if tests_ret == ExitCode.SUCCESS:
         if run_error_count > 0:
           print(
