@@ -31,130 +31,68 @@ from atest.test_runners import test_runner_base
 DEFAULT_ARGS = arg_parser.create_atest_arg_parser().parse_args([])
 
 
-RESULT_PASSED_TEST = test_runner_base.TestResult(
-    runner_name='someTestRunner',
-    group_name='someTestModule',
-    test_name='someClassName#sostName',
-    status=test_runner_base.PASSED_STATUS,
-    details=None,
-    test_count=1,
-    test_time='(10ms)',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
-)
+def _test_result(**kwargs):
+  """Helper to create a TestResult with default values."""
+  defaults = {
+      'runner_name': 'someTestRunner',
+      'group_name': 'someTestModule',
+      'test_name': 'someClassName#sostName',
+      'status': test_runner_base.PASSED_STATUS,
+      'details': None,
+      'test_count': 1,
+      'test_time': '(10ms)',
+      'runner_total': None,
+      'group_total': 2,
+      'additional_info': {},
+      'test_run_name': 'com.android.UnitTests',
+  }
+  defaults.update(kwargs)
+  return test_runner_base.TestResult(**defaults)
 
-RESULT_PASSED_TEST_MODULE_2 = test_runner_base.TestResult(
-    runner_name='someTestRunner',
-    group_name='someTestModule2',
-    test_name='someClassName#sostName',
-    status=test_runner_base.PASSED_STATUS,
-    details=None,
-    test_count=1,
-    test_time='(10ms)',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
-)
 
-RESULT_PASSED_TEST_RUNNER_2_NO_MODULE = test_runner_base.TestResult(
+RESULT_PASSED_TEST = _test_result()
+
+RESULT_PASSED_TEST_MODULE_2 = _test_result(group_name='someTestModule2')
+
+RESULT_PASSED_TEST_RUNNER_2_NO_MODULE = _test_result(
     runner_name='someTestRunner2',
     group_name=None,
-    test_name='someClassName#sostName',
-    status=test_runner_base.PASSED_STATUS,
-    details=None,
-    test_count=1,
-    test_time='(10ms)',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
 )
 
-RESULT_FAILED_TEST = test_runner_base.TestResult(
-    runner_name='someTestRunner',
-    group_name='someTestModule',
+RESULT_FAILED_TEST = _test_result(
     test_name='someClassName2#sestName2',
     status=test_runner_base.FAILED_STATUS,
     details='someTrace',
-    test_count=1,
     test_time='',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
 )
 
-RESULT_RUN_FAILURE = test_runner_base.TestResult(
-    runner_name='someTestRunner',
-    group_name='someTestModule',
-    test_name='someClassName#sostName',
+RESULT_RUN_FAILURE = _test_result(
     status=test_runner_base.ERROR_STATUS,
     details='someRunFailureReason',
-    test_count=1,
     test_time='',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
 )
 
-RESULT_RUN_FAILURE_2 = test_runner_base.TestResult(
-    runner_name='someTestRunner',
+RESULT_RUN_FAILURE_2 = _test_result(
     group_name='someTestModule2',
     test_name='someClassName2#sostName2',
     status=test_runner_base.ERROR_STATUS,
     details='someRunFailureReason',
-    test_count=1,
     test_time='',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
 )
 
-RESULT_INVOCATION_FAILURE = test_runner_base.TestResult(
-    runner_name='someTestRunner',
+RESULT_INVOCATION_FAILURE = _test_result(
     group_name=None,
     test_name=None,
     status=test_runner_base.ERROR_STATUS,
     details='someInvocationFailureReason',
-    test_count=1,
     test_time='',
-    runner_total=None,
     group_total=None,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
 )
 
-RESULT_IGNORED_TEST = test_runner_base.TestResult(
-    runner_name='someTestRunner',
-    group_name='someTestModule',
-    test_name='someClassName#sostName',
-    status=test_runner_base.IGNORED_STATUS,
-    details=None,
-    test_count=1,
-    test_time='(10ms)',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
-)
+RESULT_IGNORED_TEST = _test_result(status=test_runner_base.IGNORED_STATUS)
 
-RESULT_ASSUMPTION_FAILED_TEST = test_runner_base.TestResult(
-    runner_name='someTestRunner',
-    group_name='someTestModule',
-    test_name='someClassName#sostName',
-    status=test_runner_base.ASSUMPTION_FAILED,
-    details=None,
-    test_count=1,
-    test_time='(10ms)',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
+RESULT_ASSUMPTION_FAILED_TEST = _test_result(
+    status=test_runner_base.ASSUMPTION_FAILED
 )
 
 
