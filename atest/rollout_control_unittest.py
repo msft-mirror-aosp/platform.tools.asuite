@@ -23,6 +23,8 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   _FEATURE_NAME = 'test_feature'
   _ENV_CONTROL_FLAG = 'TEST_FEATURE'
   _TEST_USERNAME = 'username'
+  # The hash of "username test_feature" modulo 100.
+  _USERNAME_HASH_MOD_100 = 67
 
   def _create_sut(
       self, rollout_percentage: float, owners: list[str] | None = None
@@ -37,19 +39,19 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   def test_is_enabled_username_hash_is_greater_than_rollout_percentage_returns_false(
       self,
   ):
-    sut = self._create_sut(rollout_percentage=66)
+    sut = self._create_sut(rollout_percentage=self._USERNAME_HASH_MOD_100 - 1)
     self.assertFalse(sut.is_enabled(self._TEST_USERNAME))
 
   def test_is_enabled_username_hash_is_equal_to_rollout_percentage_returns_false(
       self,
   ):
-    sut = self._create_sut(rollout_percentage=67)
+    sut = self._create_sut(rollout_percentage=self._USERNAME_HASH_MOD_100)
     self.assertFalse(sut.is_enabled(self._TEST_USERNAME))
 
   def test_is_enabled_username_hash_is_less_than_rollout_percentage_returns_true(
       self,
   ):
-    sut = self._create_sut(rollout_percentage=68)
+    sut = self._create_sut(rollout_percentage=self._USERNAME_HASH_MOD_100 + 1)
     self.assertTrue(sut.is_enabled(self._TEST_USERNAME))
 
   def test_is_enabled_username_undetermined_returns_false(self):
