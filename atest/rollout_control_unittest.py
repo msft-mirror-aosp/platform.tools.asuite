@@ -42,7 +42,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
 
     self.assertFalse(sut.is_enabled('username'))
 
-  def test_is_enabled_username_hash_is_less_or_equal_than_rollout_percentage_returns_true(
+  def test_is_enabled_username_hash_is_less_than_rollout_percentage_returns_true(
       self,
   ):
     sut = rollout_control.RolloutControlledFeature(
