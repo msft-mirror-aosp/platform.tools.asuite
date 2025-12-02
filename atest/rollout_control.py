@@ -101,9 +101,10 @@ class RolloutControlledFeature:
     Returns:
         True if the feature is enabled, False if disabled, None if not set.
     """
-    if self._env_control_flag not in os.environ:
+    flag_value = os.getenv(self._env_control_flag)
+    if flag_value is None:
       return None
-    return os.environ[self._env_control_flag].lower() in _ENABLED_VALUES
+    return flag_value.lower() in _ENABLED_VALUES
 
   def _is_enabled_for_user(self, username: str | None) -> bool:
     """Checks whether the feature is enabled for the user.
