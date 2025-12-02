@@ -20,7 +20,6 @@
 from io import StringIO
 import unittest
 from unittest import mock
-from unittest.mock import patch
 
 from atest import arg_parser
 from atest import atest_configs
@@ -365,8 +364,8 @@ class ResultReporterUnittests(unittest.TestCase):
     self.rr._update_stats(RESULT_ASSUMPTION_FAILED_TEST, group)
     self.assertEqual(group.assumption_failed, 2)
 
-  @patch('atest.metrics.metrics.LocalDetectEvent')
-  @patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
+  @mock.patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
   def test_print_summary_ret_val(self, mock_detect_event):
     """Test print_summary method's return value."""
     # PASS Case
@@ -380,7 +379,7 @@ class ResultReporterUnittests(unittest.TestCase):
     self.assertNotEqual(0, self.rr.print_summary())
     mock_detect_event.assert_not_called()
 
-  @patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
+  @mock.patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
   def test_print_summary_ret_val_err_stat(self):
     """Test print_summary method's return value."""
     # PASS Case
@@ -393,8 +392,8 @@ class ResultReporterUnittests(unittest.TestCase):
     self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
     self.assertNotEqual(0, self.rr.print_summary())
 
-  @patch('atest.metrics.metrics.LocalDetectEvent')
-  @patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
+  @mock.patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
   def test_print_summary_ret_val_err_stat2(self, mock_detect_event):
     """Test print_summary method's return value."""
     # PASS Case
@@ -412,7 +411,7 @@ class ResultReporterUnittests(unittest.TestCase):
         result=2,
     )
 
-  @patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
+  @mock.patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
   def test_print_summary_ret_val_err_stat_with_run_error_downgraded(self):
     """Test print_summary method's return value."""
     reporter = result_reporter.ResultReporter(runner_errors_as_warnings=True)
