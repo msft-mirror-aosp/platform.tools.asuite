@@ -26,6 +26,9 @@ from atest import atest_utils
 from atest.metrics import metrics
 
 
+_ENABLED_VALUES = ('TRUE', 'True', 'true', '1')
+
+
 @functools.cache
 def _get_project_owners() -> list[str]:
   """Returns the owners of the feature."""
@@ -101,7 +104,7 @@ class RolloutControlledFeature:
     """
     if self._env_control_flag not in os.environ:
       return None
-    return os.environ[self._env_control_flag] in ('TRUE', 'True', 'true', '1')
+    return os.environ[self._env_control_flag] in _ENABLED_VALUES
 
   def _is_enabled_for_user(self, username: str | None) -> bool:
     """Checks whether the feature is enabled for the user.
