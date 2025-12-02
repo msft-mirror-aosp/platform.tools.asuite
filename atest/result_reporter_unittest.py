@@ -227,25 +227,26 @@ class ResultReporterUnittests(unittest.TestCase):
         ('com.android.UnitTests2', '(2h43m36.402s)'),
     ]
     for run_name, test_time in test_cases:
-      with mock.patch('sys.stdout', new_callable=StringIO) as capture_output:
-        self.rr._print_result(
-            test_runner_base.TestResult(
-                runner_name='runner_name',
-                group_name='someTestModule',
-                test_name='someClassName#someTestName',
-                status=test_runner_base.FAILED_STATUS,
-                details='someTrace',
-                test_count=2,
-                test_time=test_time,
-                runner_total=None,
-                group_total=2,
-                additional_info={},
-                test_run_name=run_name,
-            )
-        )
-        # Make sure run name in the first line.
-        capture_output_str = capture_output.getvalue().strip()
-        self.assertIn(run_name, capture_output_str.split('\n')[0])
+      with self.subTest(run_name=run_name, test_time=test_time):
+        with mock.patch('sys.stdout', new_callable=StringIO) as capture_output:
+          self.rr._print_result(
+              test_runner_base.TestResult(
+                  runner_name='runner_name',
+                  group_name='someTestModule',
+                  test_name='someClassName#someTestName',
+                  status=test_runner_base.FAILED_STATUS,
+                  details='someTrace',
+                  test_count=2,
+                  test_time=test_time,
+                  runner_total=None,
+                  group_total=2,
+                  additional_info={},
+                  test_run_name=run_name,
+              )
+          )
+          # Make sure run name in the first line.
+          capture_output_str = capture_output.getvalue().strip()
+          self.assertIn(run_name, capture_output_str.split('\n')[0])
 
   def test_register_unsupported_runner(self):
     """Test register_unsupported_runner method."""
