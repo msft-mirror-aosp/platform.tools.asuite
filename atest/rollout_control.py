@@ -133,7 +133,7 @@ class RolloutControlledFeature:
       return True
 
     hash_object = hashlib.sha256()
-    hash_object.update((username + ' ' + self._name).encode('utf-8'))
+    hash_object.update(f'{username} {self._name}'.encode('utf-8'))
     return int(hash_object.hexdigest(), 16) % 100 < self._rollout_percentage
 
   @functools.cache
