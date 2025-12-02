@@ -370,7 +370,7 @@ class ResultReporterUnittests(unittest.TestCase):
     """Test print_summary method's return value."""
     # PASS Case
     self.rr.process_test_result(RESULT_PASSED_TEST)
-    self.assertEqual(0, self.rr.print_summary())
+    self.assertEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     # PASS Case + Fail Case
     self.rr.process_test_result(RESULT_FAILED_TEST)
     self.assertNotEqual(0, self.rr.print_summary())
@@ -384,7 +384,7 @@ class ResultReporterUnittests(unittest.TestCase):
     """Test print_summary method's return value."""
     # PASS Case
     self.rr.process_test_result(RESULT_PASSED_TEST)
-    self.assertEqual(0, self.rr.print_summary())
+    self.assertEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     # PASS Case + Fail Case
     self.rr.process_test_result(RESULT_RUN_FAILURE)
     self.assertNotEqual(0, self.rr.print_summary())
@@ -417,19 +417,19 @@ class ResultReporterUnittests(unittest.TestCase):
     reporter = result_reporter.ResultReporter(runner_errors_as_warnings=True)
     # PASS Case
     reporter.process_test_result(RESULT_PASSED_TEST)
-    self.assertEqual(0, reporter.print_summary())
+    self.assertEqual(atest_enum.ExitCode.SUCCESS, reporter.print_summary())
     # PASS Case + Fail Case
     reporter.process_test_result(RESULT_RUN_FAILURE)
-    self.assertEqual(0, reporter.print_summary())
+    self.assertEqual(atest_enum.ExitCode.SUCCESS, reporter.print_summary())
     # PASS Case + Fail Case + PASS Case
     reporter.process_test_result(RESULT_PASSED_TEST_MODULE_2)
-    self.assertEqual(0, reporter.print_summary())
+    self.assertEqual(atest_enum.ExitCode.SUCCESS, reporter.print_summary())
 
   def test_collect_tests_only_no_throw(self):
     rr = result_reporter.ResultReporter(collect_only=True)
     rr.process_test_result(RESULT_PASSED_TEST)
 
-    self.assertEqual(0, rr.print_collect_tests())
+    self.assertEqual(atest_enum.ExitCode.SUCCESS, rr.print_collect_tests())
 
 
 if __name__ == '__main__':
