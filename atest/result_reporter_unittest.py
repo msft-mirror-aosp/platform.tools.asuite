@@ -222,14 +222,13 @@ class ResultReporterUnittests(unittest.TestCase):
 
   def test_print_result_run_name(self):
     """Test print run name function in print_result method."""
-    rr = result_reporter.ResultReporter()
     test_cases = [
         ('com.android.UnitTests', '(2h44m36.402s)'),
         ('com.android.UnitTests2', '(2h43m36.402s)'),
     ]
     for run_name, test_time in test_cases:
       with mock.patch('sys.stdout', new_callable=StringIO) as capture_output:
-        rr._print_result(
+        self.rr._print_result(
             test_runner_base.TestResult(
                 runner_name='runner_name',
                 group_name='someTestModule',
