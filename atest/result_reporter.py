@@ -588,7 +588,7 @@ class ResultReporter:
       return
     title = self._get_group_name(test) or test.runner_name
     underline = '-' * (len(title))
-    print('\n%s\n%s' % (title, underline))
+    print(f'\n{title}\n{underline}')
 
   # pylint: disable=too-many-branches
   def _print_result(self, test):
