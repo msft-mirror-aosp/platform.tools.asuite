@@ -124,8 +124,7 @@ class RolloutControlledFeature:
 
     if not username:
       logging.debug(
-          'Unable to determine the username. Disabling the feature %s.',
-          self._name,
+          f'Unable to determine the username. Disabling the feature {self._name}.'
       )
       return False
 
