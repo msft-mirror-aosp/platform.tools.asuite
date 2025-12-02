@@ -539,18 +539,12 @@ class ResultReporter:
     ITER_COUNTS[name] = temp
 
     summary_name = f'{name}:{test_run_name}' if test_run_name else name
-    summary = '%s: %s: %s, %s: %s, %s: %s, %s: %s %s %s' % (
-        summary_name,
-        passed_label,
-        stats.passed,
-        failed_label,
-        stats.failed,
-        ignored_label,
-        stats.ignored,
-        assumption_failed_label,
-        stats.assumption_failed,
-        error_label,
-        host_log_content,
+    summary = (
+        f'{summary_name}: {passed_label}: {stats.passed}, '
+        f'{failed_label}: {stats.failed}, '
+        f'{ignored_label}: {stats.ignored}, '
+        f'{assumption_failed_label}: {stats.assumption_failed} '
+        f'{error_label} {host_log_content}'
     )
     return summary
 
