@@ -190,11 +190,7 @@ rolling_tf_subprocess_output = RolloutControlledFeature(
     rollout_percentage=100,
     env_control_flag='ROLLING_TF_SUBPROCESS_OUTPUT',
     feature_id=2,
-    print_message=(
-        atest_utils.mark_magenta(
-            'Rolling subprocess output feature is enabled.'
-        )
-    ),
+    print_message='Rolling subprocess output feature is enabled.',
 )
 
 tf_preparer_incremental_setup = RolloutControlledFeature(
@@ -202,9 +198,5 @@ tf_preparer_incremental_setup = RolloutControlledFeature(
     rollout_percentage=100,
     env_control_flag='TF_PREPARER_INCREMENTAL_SETUP',
     feature_id=3,
-    print_message=(
-        atest_utils.mark_magenta(
-            'Incremental APK installation is enabled (b/381900378).'
-        )
-    ),
+    print_message='Incremental APK installation is enabled (b/381900378).',
 )
