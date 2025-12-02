@@ -116,6 +116,7 @@ from atest import constants
 from atest.atest_enum import ExitCode
 from atest.crystalball import metric_printer
 from atest.metrics import metrics
+from atest.test_runners import atest_tf_test_runner
 from atest.test_runners import test_runner_base
 
 UNSUPPORTED_FLAG = 'UNSUPPORTED_RUNNER'
@@ -495,7 +496,6 @@ class ResultReporter:
         error_label = au.mark_red('(Completed With ERRORS)')
       # Only extract host_log_content if test name is tradefed
       # Import here to prevent circular-import error.
-      from atest.test_runners import atest_tf_test_runner
 
       if name == atest_tf_test_runner.AtestTradefedTestRunner.NAME:
         find_logs = au.find_files(
