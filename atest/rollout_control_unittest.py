@@ -23,7 +23,9 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   _FEATURE_NAME = 'test_feature'
   _ENV_CONTROL_FLAG = 'TEST_FEATURE'
 
-  def _create_sut(self, rollout_percentage, owners=None):
+  def _create_sut(
+      self, rollout_percentage: float, owners: list[str] | None = None
+  ) -> rollout_control.RolloutControlledFeature:
     return rollout_control.RolloutControlledFeature(
         name=self._FEATURE_NAME,
         rollout_percentage=rollout_percentage,
