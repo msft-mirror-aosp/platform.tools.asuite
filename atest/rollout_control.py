@@ -156,11 +156,12 @@ class RolloutControlledFeature:
           self._env_control_flag,
       )
       if self._feature_id:
+        feature_result = (
+            self._feature_id if override_flag_value else -self._feature_id
+        )
         metrics.LocalDetectEvent(
             detect_type=atest_enum.DetectType.ROLLOUT_CONTROLLED_FEATURE_ID_OVERRIDE,
-            result=self._feature_id
-            if override_flag_value
-            else -self._feature_id,
+            result=feature_result,
         )
       return override_flag_value
 
