@@ -80,12 +80,12 @@ class RolloutControlledFeature:
     """
     if rollout_percentage < 0 or rollout_percentage > 100:
       raise ValueError(
-          'Rollout percentage must be in [0, 100]. Got %s instead.'
-          % rollout_percentage
+          'Rollout percentage must be in [0, 100]. Got'
+          f' {rollout_percentage} instead.'
       )
     if feature_id is not None and feature_id <= 0:
       raise ValueError(
-          'Feature ID must be a positive integer. Got %s instead.' % feature_id
+          f'Feature ID must be a positive integer. Got {feature_id} instead.'
       )
     if owners is None:
       owners = _get_project_owners()
