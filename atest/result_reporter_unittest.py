@@ -175,9 +175,9 @@ class ResultReporterUnittests(unittest.TestCase):
   def test_process_test_result(self, mock_print, mock_update, mock_title):
     """Test process_test_result method."""
     # Passed Test
-    self.assertTrue('someTestRunner' not in self.rr.runners)
+    self.assertNotIn('someTestRunner', self.rr.runners)
     self.rr.process_test_result(RESULT_PASSED_TEST)
-    self.assertTrue('someTestRunner' in self.rr.runners)
+    self.assertIn('someTestRunner', self.rr.runners)
     group = self.rr.runners['someTestRunner'].get('someTestModule')
     self.assertIsNotNone(group)
     mock_title.assert_called_with(RESULT_PASSED_TEST)
@@ -192,12 +192,12 @@ class ResultReporterUnittests(unittest.TestCase):
     # Test with new Group
     mock_title.reset_mock()
     self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
-    self.assertTrue('someTestModule2' in self.rr.runners['someTestRunner'])
+    self.assertIn('someTestModule2', self.rr.runners['someTestRunner'])
     mock_title.assert_called_with(RESULT_PASSED_TEST_MODULE_2)
     # Test with new Runner
     mock_title.reset_mock()
     self.rr.process_test_result(RESULT_PASSED_TEST_RUNNER_2_NO_MODULE)
-    self.assertTrue('someTestRunner2' in self.rr.runners)
+    self.assertIn('someTestRunner2', self.rr.runners)
     mock_title.assert_called_with(RESULT_PASSED_TEST_RUNNER_2_NO_MODULE)
 
   @mock.patch.object(result_reporter.ResultReporter, '_print_group_title')
@@ -211,7 +211,7 @@ class ResultReporterUnittests(unittest.TestCase):
 
     reporter.process_test_result(RESULT_PASSED_TEST)
 
-    self.assertTrue('someTestRunner' in reporter.runners)
+    self.assertIn('someTestRunner', reporter.runners)
     group = reporter.runners['someTestRunner'].get(
         'someTestModule:someClassName'
     )
@@ -244,7 +244,7 @@ class ResultReporterUnittests(unittest.TestCase):
       )
       # Make sure run name in the first line.
       capture_output_str = capture_output.getvalue().strip()
-      self.assertTrue(run_name in capture_output_str.split('\n')[0])
+      self.assertIn(run_name, capture_output_str.split('\n')[0])
       run_name2 = 'com.android.UnitTests2'
       capture_output = StringIO()
       sys.stdout = capture_output
@@ -265,7 +265,7 @@ class ResultReporterUnittests(unittest.TestCase):
       )
       # Make sure run name in the first line.
       capture_output_str = capture_output.getvalue().strip()
-      self.assertTrue(run_name2 in capture_output_str.split('\n')[0])
+      self.assertIn(run_name2, capture_output_str.split('\n')[0])
     finally:
       sys.stdout = sys.__stdout__
 
