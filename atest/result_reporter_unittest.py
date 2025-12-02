@@ -29,6 +29,9 @@ from atest import result_reporter
 from atest.test_runners import test_runner_base
 
 
+DEFAULT_ARGS = arg_parser.create_atest_arg_parser().parse_args([])
+
+
 RESULT_PASSED_TEST = test_runner_base.TestResult(
     runner_name='someTestRunner',
     group_name='someTestModule',
@@ -363,11 +366,7 @@ class ResultReporterUnittests(unittest.TestCase):
     self.assertEqual(group.assumption_failed, 2)
 
   @patch('atest.metrics.metrics.LocalDetectEvent')
-  @patch.object(
-      atest_configs,
-      'GLOBAL_ARGS',
-      arg_parser.create_atest_arg_parser().parse_args([]),
-  )
+  @patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
   def test_print_summary_ret_val(self, mock_detect_event):
     """Test print_summary method's return value."""
     # PASS Case
@@ -381,11 +380,7 @@ class ResultReporterUnittests(unittest.TestCase):
     self.assertNotEqual(0, self.rr.print_summary())
     mock_detect_event.assert_not_called()
 
-  @patch.object(
-      atest_configs,
-      'GLOBAL_ARGS',
-      arg_parser.create_atest_arg_parser().parse_args([]),
-  )
+  @patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
   def test_print_summary_ret_val_err_stat(self):
     """Test print_summary method's return value."""
     # PASS Case
@@ -399,11 +394,7 @@ class ResultReporterUnittests(unittest.TestCase):
     self.assertNotEqual(0, self.rr.print_summary())
 
   @patch('atest.metrics.metrics.LocalDetectEvent')
-  @patch.object(
-      atest_configs,
-      'GLOBAL_ARGS',
-      arg_parser.create_atest_arg_parser().parse_args([]),
-  )
+  @patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
   def test_print_summary_ret_val_err_stat2(self, mock_detect_event):
     """Test print_summary method's return value."""
     # PASS Case
@@ -421,11 +412,7 @@ class ResultReporterUnittests(unittest.TestCase):
         result=2,
     )
 
-  @patch.object(
-      atest_configs,
-      'GLOBAL_ARGS',
-      arg_parser.create_atest_arg_parser().parse_args([]),
-  )
+  @patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
   def test_print_summary_ret_val_err_stat_with_run_error_downgraded(self):
     """Test print_summary method's return value."""
     reporter = result_reporter.ResultReporter(runner_errors_as_warnings=True)
