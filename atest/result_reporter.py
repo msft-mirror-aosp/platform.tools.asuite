@@ -107,13 +107,9 @@ WmTests:com.android.tradefed.targetprep.UnitTests: Passed: 0, Failed: 0
 from __future__ import print_function
 
 from collections import OrderedDict
-import logging
 import os
-import pathlib
-import re
 import zipfile
 
-from atest import atest_configs
 from atest import atest_enum
 from atest import atest_utils as au
 from atest import constants
