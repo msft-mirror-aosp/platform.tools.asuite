@@ -168,17 +168,13 @@ class ResultReporterUnittests(unittest.TestCase):
       with self.subTest(run_name=run_name, test_time=test_time):
         with mock.patch('sys.stdout', new_callable=StringIO) as capture_output:
           self.rr._print_result(
-              test_runner_base.TestResult(
+              _test_result(
                   runner_name='runner_name',
-                  group_name='someTestModule',
                   test_name='someClassName#someTestName',
                   status=test_runner_base.FAILED_STATUS,
                   details='someTrace',
                   test_count=2,
                   test_time=test_time,
-                  runner_total=None,
-                  group_total=2,
-                  additional_info={},
                   test_run_name=run_name,
               )
           )
