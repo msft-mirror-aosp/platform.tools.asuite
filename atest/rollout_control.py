@@ -58,7 +58,7 @@ class RolloutControlledFeature:
       name: str,
       rollout_percentage: float,
       env_control_flag: str,
-      feature_id: int = None,
+      feature_id: int | None = None,
       owners: list[str] | None = None,
       print_message: str | None = None,
   ):
