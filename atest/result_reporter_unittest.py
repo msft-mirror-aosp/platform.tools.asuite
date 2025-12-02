@@ -303,10 +303,10 @@ class ResultReporterUnittests(unittest.TestCase):
     self.assertEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     # PASS Case + Fail Case
     self.rr.process_test_result(RESULT_FAILED_TEST)
-    self.assertNotEqual(0, self.rr.print_summary())
+    self.assertNotEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     # PASS Case + Fail Case + PASS Case
     self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
-    self.assertNotEqual(0, self.rr.print_summary())
+    self.assertNotEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     mock_detect_event.assert_not_called()
 
   @mock.patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
@@ -317,10 +317,10 @@ class ResultReporterUnittests(unittest.TestCase):
     self.assertEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     # PASS Case + Fail Case
     self.rr.process_test_result(RESULT_RUN_FAILURE)
-    self.assertNotEqual(0, self.rr.print_summary())
+    self.assertNotEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     # PASS Case + Fail Case + PASS Case
     self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
-    self.assertNotEqual(0, self.rr.print_summary())
+    self.assertNotEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
 
   @mock.patch('atest.metrics.metrics.LocalDetectEvent')
   @mock.patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
@@ -335,7 +335,7 @@ class ResultReporterUnittests(unittest.TestCase):
     # PASS Case + Run Error Case + PASS Case + Run Error Case
     self.rr.process_test_result(RESULT_RUN_FAILURE_2)
 
-    self.assertNotEqual(0, self.rr.print_summary())
+    self.assertNotEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     mock_detect_event.assert_called_with(
         detect_type=atest_enum.DetectType.RUN_ERROR_COUNT,
         result=2,
