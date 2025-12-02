@@ -29,7 +29,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   def _username_hash_mod_100(self):
     hash_object = hashlib.sha256()
     hash_object.update(
-        (self._TEST_USERNAME + ' ' + self._FEATURE_NAME).encode('utf-8')
+        f'{self._TEST_USERNAME} {self._FEATURE_NAME}'.encode('utf-8')
     )
     return int(hash_object.hexdigest(), 16) % 100
 
