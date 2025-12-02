@@ -178,8 +178,8 @@ class ResultReporterUnittests(unittest.TestCase):
     self.assertNotIn('someTestRunner', self.rr.runners)
     self.rr.process_test_result(RESULT_PASSED_TEST)
     self.assertIn('someTestRunner', self.rr.runners)
-    group = self.rr.runners['someTestRunner'].get('someTestModule')
-    self.assertIsNotNone(group)
+    self.assertIn('someTestModule', self.rr.runners['someTestRunner'])
+    group = self.rr.runners['someTestRunner']['someTestModule']
     mock_title.assert_called_with(RESULT_PASSED_TEST)
     mock_update.assert_called_with(RESULT_PASSED_TEST, group)
     mock_print.assert_called_with(RESULT_PASSED_TEST)
@@ -212,10 +212,10 @@ class ResultReporterUnittests(unittest.TestCase):
     reporter.process_test_result(RESULT_PASSED_TEST)
 
     self.assertIn('someTestRunner', reporter.runners)
-    group = reporter.runners['someTestRunner'].get(
-        'someTestModule:someClassName'
+    self.assertIn(
+        'someTestModule:someClassName', reporter.runners['someTestRunner']
     )
-    self.assertIsNotNone(group)
+    group = reporter.runners['someTestRunner']['someTestModule:someClassName']
     mock_title.assert_called_with(RESULT_PASSED_TEST)
     mock_update.assert_called_with(RESULT_PASSED_TEST, group)
     mock_print.assert_called_with(RESULT_PASSED_TEST)
