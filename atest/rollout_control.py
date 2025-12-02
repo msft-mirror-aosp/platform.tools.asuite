@@ -80,8 +80,7 @@ class RolloutControlledFeature:
     """
     if rollout_percentage < 0 or rollout_percentage > 100:
       raise ValueError(
-          'Rollout percentage must be in [0, 100]. Got'
-          f' {rollout_percentage} instead.'
+          f'Rollout percentage must be in [0, 100]. Got {rollout_percentage} instead.'
       )
     if feature_id is not None and feature_id <= 0:
       raise ValueError(
