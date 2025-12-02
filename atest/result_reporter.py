@@ -139,7 +139,7 @@ class RunStat:
         assumption_failed: Count of assumption failure tests.
         run_errors: A boolean if there were run errors
     """
-    # TODO(b/109822985): Track group and run estimated totals for updating
+    # TODO: b/109822985 - Track group and run estimated totals for updating
     # summary line
     self.passed = passed
     self.failed = failed
@@ -427,9 +427,9 @@ class ResultReporter:
     metric_printer.PerfInfo.print_perf_test_metrics(
         self._test_infos, self.log_path, self._args
     )
-    # TODO(b/174535786) Error handling while uploading test results has
+    # TODO: b/174535786 - Error handling while uploading test results has
     # unexpected exceptions.
-    # TODO (b/174627499) Saving this information in atest history.
+    # TODO: b/174627499 - Saving this information in atest history.
     if self.test_result_link:
       print('Test Result uploaded to %s' % au.mark_green(self.test_result_link))
     return tests_ret
@@ -551,7 +551,7 @@ class ResultReporter:
         test: a TestResult namedtuple.
         group: a RunStat instance for a test group.
     """
-    # TODO(109822985): Track group and run estimated totals for updating
+    # TODO: b/109822985 - Track group and run estimated totals for updating
     # summary line
     if test.status == test_runner_base.PASSED_STATUS:
       self.run_stats.passed += 1
