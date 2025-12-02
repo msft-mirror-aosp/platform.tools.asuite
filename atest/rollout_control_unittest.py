@@ -27,11 +27,10 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
 
   @property
   def _username_hash_mod_100(self):
-    hash_object = hashlib.sha256()
-    hash_object.update(
+    digest = hashlib.sha256(
         f'{self._TEST_USERNAME} {self._FEATURE_NAME}'.encode('utf-8')
-    )
-    return int(hash_object.hexdigest(), 16) % 100
+    ).hexdigest()
+    return int(digest, 16) % 100
 
   def _create_feature(
       self, rollout_percentage: float, owners: list[str] | None = None
