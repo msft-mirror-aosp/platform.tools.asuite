@@ -26,7 +26,7 @@ from atest import atest_utils
 from atest.metrics import metrics
 
 
-_ENABLED_VALUES = frozenset({'true', '1'})
+_ENABLED_VALUES = {'true', '1'}
 
 
 @functools.cache
