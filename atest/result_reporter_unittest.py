@@ -18,7 +18,6 @@
 
 
 from io import StringIO
-import sys
 import unittest
 from unittest import mock
 from unittest.mock import patch
@@ -222,11 +221,9 @@ class ResultReporterUnittests(unittest.TestCase):
 
   def test_print_result_run_name(self):
     """Test print run name function in print_result method."""
-    try:
-      rr = result_reporter.ResultReporter()
-      capture_output = StringIO()
-      sys.stdout = capture_output
-      run_name = 'com.android.UnitTests'
+    rr = result_reporter.ResultReporter()
+    run_name = 'com.android.UnitTests'
+    with mock.patch('sys.stdout', new_callable=StringIO) as capture_output:
       rr._print_result(
           test_runner_base.TestResult(
               runner_name='runner_name',
@@ -245,9 +242,9 @@ class ResultReporterUnittests(unittest.TestCase):
       # Make sure run name in the first line.
       capture_output_str = capture_output.getvalue().strip()
       self.assertIn(run_name, capture_output_str.split('\n')[0])
-      run_name2 = 'com.android.UnitTests2'
-      capture_output = StringIO()
-      sys.stdout = capture_output
+
+    run_name2 = 'com.android.UnitTests2'
+    with mock.patch('sys.stdout', new_callable=StringIO) as capture_output:
       rr._print_result(
           test_runner_base.TestResult(
               runner_name='runner_name',
@@ -266,8 +263,6 @@ class ResultReporterUnittests(unittest.TestCase):
       # Make sure run name in the first line.
       capture_output_str = capture_output.getvalue().strip()
       self.assertIn(run_name2, capture_output_str.split('\n')[0])
-    finally:
-      sys.stdout = sys.__stdout__
 
   def test_register_unsupported_runner(self):
     """Test register_unsupported_runner method."""
