@@ -311,13 +311,12 @@ class ResultReporter:
     for runner_name, groups in self.runners.items():
       for group_name, stats in groups.items():
         name = group_name if group_name else runner_name
-        test_run_name = (
-            self.all_test_results[-1].test_run_name
-            # If `name` contains all information in `test_run_name`, do not
-            # attach the test run name.
-            if self.all_test_results[-1].test_run_name not in name
-            else None
-        )
+        # If `name` contains all information in `test_run_name`, do not
+        # attach the test run name.
+        if self.all_test_results[-1].test_run_name not in name:
+          test_run_name = self.all_test_results[-1].test_run_name
+        else:
+          test_run_name = None
         summary = self.process_summary(name, stats, test_run_name=test_run_name)
         run_summary.append(summary)
     summary_list = ITER_SUMMARY.get(iteration_num, [])
