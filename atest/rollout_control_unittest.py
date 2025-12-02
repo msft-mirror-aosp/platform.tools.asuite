@@ -102,3 +102,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
 
     self.assertFalse(sut.is_enabled('name'))
     self.assertTrue(sut.is_enabled('owner_name'))
+
+
+if __name__ == '__main__':
+  unittest.main()
