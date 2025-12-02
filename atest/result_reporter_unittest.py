@@ -103,9 +103,6 @@ class ResultReporterUnittests(unittest.TestCase):
   def setUp(self):
     self.rr = result_reporter.ResultReporter()
 
-  def tearDown(self):
-    mock.patch.stopall()
-
   @mock.patch.object(result_reporter.ResultReporter, '_print_group_title')
   @mock.patch.object(result_reporter.ResultReporter, '_update_stats')
   @mock.patch.object(result_reporter.ResultReporter, '_print_result')
