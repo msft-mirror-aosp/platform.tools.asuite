@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import unittest
 from unittest import mock
 from atest import rollout_control
@@ -23,8 +24,14 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   _FEATURE_NAME = 'test_feature'
   _ENV_CONTROL_FLAG = 'TEST_FEATURE'
   _TEST_USERNAME = 'username'
-  # The hash of "username test_feature" modulo 100.
-  _USERNAME_HASH_MOD_100 = 67
+
+  @property
+  def _username_hash_mod_100(self):
+    hash_object = hashlib.sha256()
+    hash_object.update(
+        (self._TEST_USERNAME + ' ' + self._FEATURE_NAME).encode('utf-8')
+    )
+    return int(hash_object.hexdigest(), 16) % 100
 
   def _create_feature(
       self, rollout_percentage: float, owners: list[str] | None = None
@@ -40,7 +47,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
       self,
   ):
     feature = self._create_feature(
-        rollout_percentage=self._USERNAME_HASH_MOD_100 - 1
+        rollout_percentage=self._username_hash_mod_100 - 1
     )
     self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
 
@@ -48,7 +55,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
       self,
   ):
     feature = self._create_feature(
-        rollout_percentage=self._USERNAME_HASH_MOD_100
+        rollout_percentage=self._username_hash_mod_100
     )
     self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
 
@@ -56,7 +63,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
       self,
   ):
     feature = self._create_feature(
-        rollout_percentage=self._USERNAME_HASH_MOD_100 + 1
+        rollout_percentage=self._username_hash_mod_100 + 1
     )
     self.assertTrue(feature.is_enabled(self._TEST_USERNAME))
 
