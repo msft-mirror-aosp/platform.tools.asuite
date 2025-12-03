@@ -464,8 +464,8 @@ class AtestUtilsUnittests(unittest.TestCase):
     green_no_highlight_string = f'\x1b[1;32m{original_str}\x1b[0m'
     self.assertEqual(green_no_highlight_string, converted_str)
 
-  @mock.patch('atest.atest_utils.colorful_print')
-  @mock.patch('logging.error')
+  @mock.patch('atest.atest_utils.colorful_print', autospec=True)
+  @mock.patch('logging.error', autospec=True)
   def test_print_and_log_error_no_format_prints_and_logs(
       self, mocked_print, locked_error_logging
   ):
@@ -474,31 +474,31 @@ class AtestUtilsUnittests(unittest.TestCase):
     mocked_print.assert_called_once()
     locked_error_logging.assert_called_once()
 
-  @mock.patch('atest.atest_utils.colorful_print')
+  @mock.patch('atest.atest_utils.colorful_print', autospec=True)
   def test_print_and_log_error_single_non_string_prints(self, mocked_print):
     atest_utils.print_and_log_error(123)
 
     mocked_print.assert_called_once()
 
-  @mock.patch('atest.atest_utils.colorful_print')
+  @mock.patch('atest.atest_utils.colorful_print', autospec=True)
   def test_print_and_log_error_with_format_prints(self, mocked_print):
     atest_utils.print_and_log_error('1+1=%s', 2)
 
     mocked_print.assert_called_once()
 
-  @mock.patch('atest.atest_utils.colorful_print')
+  @mock.patch('atest.atest_utils.colorful_print', autospec=True)
   def test_print_and_log_error_bad_value_no_throw_no_print(self, mocked_print):
     atest_utils.print_and_log_error('bad format %', 'format arg')
 
     mocked_print.assert_not_called()
 
-  @mock.patch('atest.atest_utils.colorful_print')
+  @mock.patch('atest.atest_utils.colorful_print', autospec=True)
   def test_print_and_log_error_missing_format_arg_no_print(self, mocked_print):
     atest_utils.print_and_log_error('bad format %s %s', 'format arg')
 
     mocked_print.assert_not_called()
 
-  @mock.patch('atest.atest_utils.colorful_print')
+  @mock.patch('atest.atest_utils.colorful_print', autospec=True)
   def test_print_and_log_error_extra_format_arg_no_print(self, mocked_print):
     atest_utils.print_and_log_error(
         'bad format %s', 'format arg1', 'format arg2'
@@ -611,7 +611,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         atest_utils.load_test_info_cache(test_reference, test_cache_dir),
     )
 
-  @mock.patch('subprocess.check_output')
+  @mock.patch('subprocess.check_output', autospec=True)
   def test_get_modified_files(self, mock_co):
     """Test method get_modified_files"""
     mock_co.side_effect = [
@@ -653,6 +653,7 @@ class AtestUtilsUnittests(unittest.TestCase):
           b'11 22 tracked_fp1.java\n33 44 c/tracked_fp2.java',
           b'55 untracked_fp3.java\n66 a/b/untracked_fp4.py',
       ],
+      autospec=True,
   )
   def test_get_modified_files_with_details(self, _):
     tracked_changed_file_details1 = atest_utils.ChangedFileDetails(
@@ -702,6 +703,7 @@ class AtestUtilsUnittests(unittest.TestCase):
           ),
           b'',
       ],
+      autospec=True,
   )
   def test_get_modified_files_with_details_only_tracked_changes(self, _):
     tracked_changed_file_details1 = atest_utils.ChangedFileDetails(
@@ -746,6 +748,7 @@ class AtestUtilsUnittests(unittest.TestCase):
               b' untracked_fp3.jar'
           ),
       ],
+      autospec=True,
   )
   def test_get_modified_files_with_details_only_untracked_changes(self, _):
     untracked_changed_file_details1 = atest_utils.ChangedFileDetails(
@@ -775,7 +778,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         },
     )
 
-  @mock.patch('subprocess.check_output', return_value=b'')
+  @mock.patch('subprocess.check_output', return_value=b'', autospec=True)
   def test_get_modified_files_with_details_empty_changes(self, _):
     modified_files_with_details = atest_utils.get_modified_files_with_details()
 
@@ -860,7 +863,7 @@ class AtestUtilsUnittests(unittest.TestCase):
     )
     self.assertEqual({}, atest_utils.load_json_safely(json_file_path))
 
-  @mock.patch('os.getenv')
+  @mock.patch('os.getenv', autospec=True)
   def test_get_manifest_branch(self, mock_env):
     """Test method get_manifest_branch"""
     build_top = tempfile.TemporaryDirectory()
@@ -926,7 +929,7 @@ class AtestUtilsUnittests(unittest.TestCase):
     self.assertEqual(atest_utils.quote(target_str), expected_str)
     self.assertEqual(atest_utils.quote('TEST_P224'), 'TEST_P224')
 
-  @mock.patch('builtins.input', return_value='')
+  @mock.patch('builtins.input', return_value='', autospec=True)
   def test_prompt_with_yn_result(self, mock_input):
     """Test method of prompt_with_yn_result"""
     msg = 'Do you want to continue?'
