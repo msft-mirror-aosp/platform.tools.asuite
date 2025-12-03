@@ -365,7 +365,7 @@ class ResultReporter:
     multi_iterations = len(ITER_SUMMARY) > 1
     for iter_num, summary_list in ITER_SUMMARY.items():
       if multi_iterations:
-        print(au.mark_blue('ITERATION %s' % (int(iter_num) + 1)))
+        print(au.mark_blue(f'ITERATION {int(iter_num) + 1}'))
       for summary in summary_list:
         print(summary)
     if multi_iterations:
