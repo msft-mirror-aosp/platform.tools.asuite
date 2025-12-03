@@ -68,43 +68,55 @@ class UdcDriverPatterns(unittest.TestCase):
 
     self.assertEqual(speed, expected_response)
 
-  @mock.patch('subprocess.check_output', return_value='not found')
+  @mock.patch(
+      'subprocess.check_output', return_value='not found', autospec=True
+  )
   def test_udc_driver_unexpected_subprocess_response_returns_0(
       self, mock_output
   ):
     self._udc_driver_response(usb.UsbAttributeName.MAXIMUM_SPEED, 0)
 
-  @mock.patch('subprocess.check_output', return_value='UNKNOWN')
+  @mock.patch('subprocess.check_output', return_value='UNKNOWN', autospec=True)
   def test_udc_driver_unknown_speed_returns_0(self, mock_output):
     self._udc_driver_response(usb.UsbAttributeName.MAXIMUM_SPEED, 0)
 
-  @mock.patch('subprocess.check_output', return_value='wireless')
+  @mock.patch('subprocess.check_output', return_value='wireless', autospec=True)
   def test_udc_driver_irrelevant_speed_returns_0(self, mock_output):
     self._udc_driver_response(usb.UsbAttributeName.NEGOTIATED_SPEED, 0)
 
-  @mock.patch('subprocess.check_output', return_value='high-speed')
+  @mock.patch(
+      'subprocess.check_output', return_value='high-speed', autospec=True
+  )
   def test_udc_driver_high_speed_returns_numeric_speed(self, mock_output):
     self._udc_driver_response(usb.UsbAttributeName.MAXIMUM_SPEED, 480)
 
-  @mock.patch('subprocess.check_output', return_value='high-speed\n')
+  @mock.patch(
+      'subprocess.check_output', return_value='high-speed\n', autospec=True
+  )
   def test_udc_driver_high_speed_output_has_newline_returns_numeric_speed(
       self, mock_output
   ):
     self._udc_driver_response(usb.UsbAttributeName.MAXIMUM_SPEED, 480)
 
-  @mock.patch('subprocess.check_output', return_value='super-speed')
+  @mock.patch(
+      'subprocess.check_output', return_value='super-speed', autospec=True
+  )
   def test_udc_driver_super_speed_returns_numeric_speed(self, mock_output):
     self._udc_driver_response(usb.UsbAttributeName.MAXIMUM_SPEED, 5000)
 
-  @mock.patch('subprocess.check_output', return_value='super-speed-plus')
+  @mock.patch(
+      'subprocess.check_output', return_value='super-speed-plus', autospec=True
+  )
   def test_udc_driver_super_speed_plus_returns_numeric_speed(self, mock_output):
     self._udc_driver_response(usb.UsbAttributeName.MAXIMUM_SPEED, 10000)
 
 
 class DeviceIdentifierPatterns(unittest.TestCase):
 
-  @mock.patch.object(atest_utils, 'has_command', return_value=True)
-  @mock.patch.object(subprocess, 'check_output')
+  @mock.patch.object(
+      atest_utils, 'has_command', return_value=True, autospec=True
+  )
+  @mock.patch.object(subprocess, 'check_output', autospec=True)
   def test_get_adb_device_identifiers_port_fwd_device_returns_address(
       self, mock_output, mock_utils
   ):
@@ -131,8 +143,10 @@ class DeviceIdentifierPatterns(unittest.TestCase):
 
     self.assertEqual(device_ids.address, 'localhost:27030')
 
-  @mock.patch.object(atest_utils, 'has_command', return_value=True)
-  @mock.patch.object(subprocess, 'check_output')
+  @mock.patch.object(
+      atest_utils, 'has_command', return_value=True, autospec=True
+  )
+  @mock.patch.object(subprocess, 'check_output', autospec=True)
   def test_get_adb_device_identifiers_tcp_device_returns_address(
       self, mock_output, mock_utils
   ):
@@ -164,8 +178,10 @@ class DeviceIdentifierPatterns(unittest.TestCase):
 
     self.assertEqual(device_ids.address, '33a832a820')
 
-  @mock.patch.object(atest_utils, 'has_command', return_value=True)
-  @mock.patch.object(subprocess, 'check_output')
+  @mock.patch.object(
+      atest_utils, 'has_command', return_value=True, autospec=True
+  )
+  @mock.patch.object(subprocess, 'check_output', autospec=True)
   def test_get_adb_device_identifiers_multiple_devices_returns_none(
       self, mock_output, mock_utils
   ):
