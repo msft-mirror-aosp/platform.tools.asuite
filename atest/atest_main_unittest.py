@@ -122,8 +122,8 @@ class AtestUnittests(unittest.TestCase):
             f'Failed to validate: {args}',
         )
 
-  @mock.patch.object(atest_utils, 'get_adb_devices')
-  @mock.patch.object(metrics_utils, 'send_exit_event')
+  @mock.patch.object(atest_utils, 'get_adb_devices', autospec=True)
+  @mock.patch.object(metrics_utils, 'send_exit_event', autospec=True)
   def test_validate_exec_mode(self, _send_exit, _devs):
     """Test _validate_exec_mode."""
     _devs.return_value = ['127.0.0.1:34556']
@@ -208,8 +208,8 @@ class AtestUnittests(unittest.TestCase):
     atest_main._validate_exec_mode(parsed_args, test_infos)
     self.assertFalse(parsed_args.host)
 
-  @mock.patch.object(atest_utils, 'get_adb_devices')
-  @mock.patch.object(metrics_utils, 'send_exit_event')
+  @mock.patch.object(atest_utils, 'get_adb_devices', autospec=True)
+  @mock.patch.object(metrics_utils, 'send_exit_event', autospec=True)
   def test_validate_exec_mode_no_system_exit_with_smart_test_selection(
       self, _send_exit, _devs
   ):
@@ -501,7 +501,7 @@ class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
 class HasValidTestMappingArgsTest(unittest.TestCase):
   """Test _has_valid_test_mapping_args metric event sending."""
 
-  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent', autospec=True)
   def test_has_valid_test_mapping_args_metric_event_sending(self, mock_event):
     """Test _has_valid_test_mapping_args metric event sending."""
     test_cases = [
