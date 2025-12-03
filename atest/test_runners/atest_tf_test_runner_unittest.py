@@ -463,9 +463,9 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     self.tr._try_set_gts_authentication_key()
     self.assertEqual(os.environ.get('APE_API_KEY'), None)
 
-  @mock.patch.object(event_handler.EventHandler, 'process_event')
-  def test_process_connection(self, mock_pe):
+  def test_process_connection(self):
     """Test _process_connection method."""
+    mock_pe = mock.create_autospec(event_handler.EventHandler)
     mock_socket = mock.Mock()
     for name, data in EVENTS_NORMAL:
       data_map = {mock_socket: ''}
@@ -482,9 +482,9 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         self.tr._process_connection(data_map, mock_socket, mock_pe)
     )
 
-  @mock.patch.object(event_handler.EventHandler, 'process_event')
-  def test_process_connection_multiple_lines_in_single_recv(self, mock_pe):
+  def test_process_connection_multiple_lines_in_single_recv(self):
     """Test _process_connection when recv reads multiple lines in one go."""
+    mock_pe = mock.create_autospec(event_handler.EventHandler)
     mock_socket = mock.Mock()
     squashed_events = '\n'.join(
         ['%s %s' % (name, json.dumps(data)) for name, data in EVENTS_NORMAL]
@@ -498,9 +498,9 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     ]
     mock_pe.assert_has_calls(calls)
 
-  @mock.patch.object(event_handler.EventHandler, 'process_event')
-  def test_process_connection_with_buffering(self, mock_pe):
+  def test_process_connection_with_buffering(self):
     """Test _process_connection when events overflow socket buffer size."""
+    mock_pe = mock.create_autospec(event_handler.EventHandler)
     mock_socket = mock.Mock()
     module_events = [EVENTS_NORMAL[0], EVENTS_NORMAL[-1]]
     socket_events = [
@@ -522,9 +522,9 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     ]
     mock_pe.assert_has_calls(calls)
 
-  @mock.patch.object(event_handler.EventHandler, 'process_event')
-  def test_process_connection_with_not_completed_event_data(self, mock_pe):
+  def test_process_connection_with_not_completed_event_data(self):
     """Test _process_connection when event have \n prefix."""
+    mock_pe = mock.create_autospec(event_handler.EventHandler)
     mock_socket = mock.Mock()
     mock_socket.recv.return_value = '\n%s %s' % (
         EVENTS_NORMAL[0][0],
