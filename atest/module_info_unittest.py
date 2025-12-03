@@ -26,6 +26,7 @@ import shutil
 import tempfile
 import unittest
 from unittest import mock
+import uuid
 from atest import constants
 from atest import module_info
 from atest import unittest_constants as uc
@@ -40,7 +41,7 @@ EXPECTED_MOD_TARGET_PATH = ['tf/core']
 UNEXPECTED_MOD_TARGET = 'this_should_not_be_in_module-info.json'
 MOD_NO_PATH = 'module-no-path'
 PATH_TO_MULT_MODULES = 'shared/path/to/be/used'
-MULT_MOODULES_WITH_SHARED_PATH = ['module2', 'module1']
+MULT_MODULES_WITH_SHARED_PATH = ['module2', 'module1']
 PATH_TO_MULT_MODULES_WITH_MULTI_ARCH = 'shared/path/to/be/used2'
 TESTABLE_MODULES_WITH_SHARED_PATH = [
     'multiarch1',
@@ -49,37 +50,7 @@ TESTABLE_MODULES_WITH_SHARED_PATH = [
     'multiarch3_32',
 ]
 
-ROBO_MOD_PATH = ['/shared/robo/path']
 ROBO_MODULE = 'FooTests'
-ASSOCIATED_ROBO_MODULE = 'RunFooTests'
-ROBO_MODULE_INFO = {
-    constants.MODULE_NAME: ROBO_MODULE,
-    constants.MODULE_PATH: ROBO_MOD_PATH,
-    constants.MODULE_CLASS: [constants.MODULE_CLASS_JAVA_LIBRARIES],
-}
-ASSOCIATED_ROBO_MODULE_INFO = {
-    constants.MODULE_NAME: ASSOCIATED_ROBO_MODULE,
-    constants.MODULE_PATH: ROBO_MOD_PATH,
-    constants.MODULE_CLASS: [constants.MODULE_CLASS_ROBOLECTRIC],
-}
-MOD_PATH_INFO_DICT = {
-    ROBO_MOD_PATH[0]: [ASSOCIATED_ROBO_MODULE_INFO, ROBO_MODULE_INFO]
-}
-MOD_NAME_INFO_DICT = {
-    ASSOCIATED_ROBO_MODULE: ASSOCIATED_ROBO_MODULE_INFO,
-    ROBO_MODULE: ROBO_MODULE_INFO,
-}
-MOD_NAME1 = 'mod1'
-MOD_NAME2 = 'mod2'
-MOD_NAME3 = 'mod3'
-MOD_NAME4 = 'mod4'
-MOD_INFO_DICT = {}
-MODULE_INFO = {
-    constants.MODULE_NAME: 'random_name',
-    constants.MODULE_PATH: 'a/b/c/path',
-    constants.MODULE_CLASS: ['random_class'],
-}
-NAME_TO_MODULE_INFO = {'random_name': MODULE_INFO}
 
 MOBLY_MODULE = 'mobly-test'
 MOBLY_MODULE_NO_TAG = 'mobly-test-no-tag'
@@ -91,6 +62,11 @@ SOONG_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/soong')
 PRODUCT_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/target/product/vsoc_x86_64')
 HOST_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/host/linux-x86')
 
+ENV_MOCK_TOP_IS_TEST_DATA = {
+    constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR,
+    constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR,
+}
+
 
 # TODO: (b/263199608) Suppress too-many-public-methods after refactoring.
 # pylint: disable=protected-access, too-many-public-methods
@@ -99,19 +75,17 @@ class ModuleInfoUnittests(unittest.TestCase):
 
   def setUp(self) -> None:
     for path in [BUILD_TOP_DIR, PRODUCT_OUT_DIR, SOONG_OUT_DIR, HOST_OUT_DIR]:
-      if not Path(path).is_dir():
-        Path(path).mkdir(parents=True)
+      Path(path).mkdir(parents=True, exist_ok=True)
     shutil.copy2(JSON_FILE_PATH, PRODUCT_OUT_DIR)
-    self.json_file_path = Path(PRODUCT_OUT_DIR).joinpath(uc.JSON_FILE)
+    self.json_file_path = Path(PRODUCT_OUT_DIR) / uc.JSON_FILE
     shutil.copy2(CC_DEP_PATH, SOONG_OUT_DIR)
-    self.cc_dep_path = Path(SOONG_OUT_DIR).joinpath(uc.CC_DEP_FILE)
+    self.cc_dep_path = Path(SOONG_OUT_DIR) / uc.CC_DEP_FILE
     shutil.copy2(JAVA_DEP_PATH, SOONG_OUT_DIR)
-    self.java_dep_path = Path(SOONG_OUT_DIR).joinpath(uc.JAVA_DEP_FILE)
-    self.merged_dep_path = Path(PRODUCT_OUT_DIR).joinpath(uc.MERGED_DEP_FILE)
+    self.java_dep_path = Path(SOONG_OUT_DIR) / uc.JAVA_DEP_FILE
+    self.merged_dep_path = Path(PRODUCT_OUT_DIR) / uc.MERGED_DEP_FILE
 
   def tearDown(self) -> None:
-    if self.merged_dep_path.is_file():
-      os.remove(self.merged_dep_path)
+    self.merged_dep_path.unlink(missing_ok=True)
 
   def test_target_name_is_relative_to_build_top(self):
     build_top = '/src/build_top'
@@ -121,7 +95,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         constants.ANDROID_PRODUCT_OUT: product_out,
     }
     expected_target = os.path.relpath(
-        os.path.join(product_out, 'module-info.json'), build_top
+        os.path.join(product_out, uc.JSON_FILE), build_top
     )
 
     with mock.patch.dict('os.environ', env_mock, clear=True):
@@ -136,7 +110,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         constants.ANDROID_BUILD_TOP: build_top,
         constants.ANDROID_PRODUCT_OUT: product_out,
     }
-    expected_target = os.path.join(product_out, 'module-info.json')
+    expected_target = os.path.join(product_out, uc.JSON_FILE)
 
     with mock.patch.dict('os.environ', env_mock, clear=True):
       actual_target = module_info.get_module_info_target()
@@ -201,30 +175,29 @@ class ModuleInfoUnittests(unittest.TestCase):
     unittest_utils.assert_strict_equal(
         self,
         mod_info.get_module_names(PATH_TO_MULT_MODULES),
-        MULT_MOODULES_WITH_SHARED_PATH,
+        MULT_MODULES_WITH_SHARED_PATH,
     )
 
   def test_path_to_mod_info(self):
     """test that we get the module name properly."""
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
-    module_list = []
-    for path_to_mod_info in mod_info.path_to_module_info[
-        PATH_TO_MULT_MODULES_WITH_MULTI_ARCH
-    ]:
-      module_list.append(path_to_mod_info.get(constants.MODULE_NAME))
-    module_list.sort()
-    TESTABLE_MODULES_WITH_SHARED_PATH.sort()
-    self.assertEqual(module_list, TESTABLE_MODULES_WITH_SHARED_PATH)
+    module_list = [
+        path_to_mod_info.get(constants.MODULE_NAME)
+        for path_to_mod_info in mod_info.path_to_module_info[
+            PATH_TO_MULT_MODULES_WITH_MULTI_ARCH
+        ]
+    ]
+    self.assertCountEqual(module_list, TESTABLE_MODULES_WITH_SHARED_PATH)
 
   def test_is_suite_in_compatibility_suites(self):
     """Test is_suite_in_compatibility_suites."""
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
-    info = {'compatibility_suites': []}
+    info = {constants.MODULE_COMPATIBILITY_SUITES: []}
     self.assertFalse(mod_info.is_suite_in_compatibility_suites('cts', info))
-    info2 = {'compatibility_suites': ['cts']}
+    info2 = {constants.MODULE_COMPATIBILITY_SUITES: ['cts']}
     self.assertTrue(mod_info.is_suite_in_compatibility_suites('cts', info2))
     self.assertFalse(mod_info.is_suite_in_compatibility_suites('vts10', info2))
-    info3 = {'compatibility_suites': ['cts', 'vts10']}
+    info3 = {constants.MODULE_COMPATIBILITY_SUITES: ['cts', 'vts10']}
     self.assertTrue(mod_info.is_suite_in_compatibility_suites('cts', info3))
     self.assertTrue(mod_info.is_suite_in_compatibility_suites('vts10', info3))
     self.assertFalse(mod_info.is_suite_in_compatibility_suites('ats', info3))
@@ -247,9 +220,9 @@ class ModuleInfoUnittests(unittest.TestCase):
     actual_test_suite_modules = mod_info.get_testable_modules('test-suite')
     actual_null_suite_modules = mod_info.get_testable_modules('null-suite')
 
-    self.assertEqual(actual_all_testable_modules, expected_testable_modules)
-    self.assertEqual(actual_test_suite_modules, expected_test_suite_modules)
-    self.assertEqual(actual_null_suite_modules, expected_null_suite_modules)
+    self.assertSetEqual(actual_all_testable_modules, expected_testable_modules)
+    self.assertSetEqual(actual_test_suite_modules, expected_test_suite_modules)
+    self.assertSetEqual(actual_null_suite_modules, expected_null_suite_modules)
 
   def test_get_testable_modules_failed_to_find_suite(self):
     """Test get_testable_modules."""
@@ -308,18 +281,18 @@ class ModuleInfoUnittests(unittest.TestCase):
     """Test is_auto_gen_test_config correctly detects the module."""
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
     mock_is_module.return_value = True
-    is_auto_test_config = {'auto_test_config': [True]}
-    is_not_auto_test_config = {'auto_test_config': [False]}
-    is_not_auto_test_config_again = {'auto_test_config': []}
-    MOD_INFO_DICT[MOD_NAME1] = is_auto_test_config
-    MOD_INFO_DICT[MOD_NAME2] = is_not_auto_test_config
-    MOD_INFO_DICT[MOD_NAME3] = is_not_auto_test_config_again
-    MOD_INFO_DICT[MOD_NAME4] = {}
-    mod_info.name_to_module_info = MOD_INFO_DICT
-    self.assertTrue(mod_info.is_auto_gen_test_config(MOD_NAME1))
-    self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME2))
-    self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME3))
-    self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME4))
+
+    mod_info.name_to_module_info = {
+        'mod1': {constants.MODULE_AUTO_TEST_CONFIG: [True]},
+        'mod2': {constants.MODULE_AUTO_TEST_CONFIG: [False]},
+        'mod3': {constants.MODULE_AUTO_TEST_CONFIG: []},
+        'mod4': {},
+    }
+
+    self.assertTrue(mod_info.is_auto_gen_test_config('mod1'))
+    self.assertFalse(mod_info.is_auto_gen_test_config('mod2'))
+    self.assertFalse(mod_info.is_auto_gen_test_config('mod3'))
+    self.assertFalse(mod_info.is_auto_gen_test_config('mod4'))
 
   def test_merge_build_system_infos(self):
     """Test _merge_build_system_infos."""
@@ -376,13 +349,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         expect_deps,
     )
 
-  @mock.patch.dict(
-      'os.environ',
-      {
-          constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR,
-          constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR,
-      },
-  )
+  @mock.patch.dict('os.environ', ENV_MOCK_TOP_IS_TEST_DATA)
   def test_get_instrumentation_target_apps(self):
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
     artifacts = {
@@ -400,62 +367,41 @@ class ModuleInfoUnittests(unittest.TestCase):
             manifest: 'AndroidManifest.xml',
             instrumentation_for: "AmSlam"
         }"""
-    bp_file = os.path.join(uc.TEST_DATA_DIR, 'foo/bar/AmSlam/test/Android.bp')
-    with open(bp_file, 'w', encoding='utf-8') as cache:
-      cache.write(bp_context)
+    bp_file = Path(uc.TEST_DATA_DIR, 'foo/bar/AmSlam/test/Android.bp')
+    bp_file.write_text(bp_context, encoding='utf-8')
     self.assertEqual(
         mod_info.get_instrumentation_target_apps('AmSlamTests'), artifacts
     )
-    os.remove(bp_file)
+    bp_file.unlink(missing_ok=True)
     # 2. If Android.bp is unavailable, search `AndroidManifest.xml`
     # arbitrarily.
     self.assertEqual(
         mod_info.get_instrumentation_target_apps('AmSlamTests'), artifacts
     )
 
-  @mock.patch.dict(
-      'os.environ',
-      {
-          constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR,
-          constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR,
-      },
-  )
+  @mock.patch.dict('os.environ', ENV_MOCK_TOP_IS_TEST_DATA)
   def test_get_target_module_by_pkg(self):
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
     self.assertEqual(
         'AmSlam',
         mod_info.get_target_module_by_pkg(
             package='c0m.andr0id.settingS',
-            search_from=Path(uc.TEST_DATA_DIR).joinpath('foo/bar/AmSlam/test'),
+            search_from=Path(uc.TEST_DATA_DIR) / 'foo/bar/AmSlam/test',
         ),
     )
 
-  @mock.patch.dict(
-      'os.environ',
-      {
-          constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR,
-          constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR,
-      },
-  )
+  @mock.patch.dict('os.environ', ENV_MOCK_TOP_IS_TEST_DATA)
   def test_get_target_module_by_pkg_module_not_found(self):
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
     self.assertEqual(
         '',
         mod_info.get_target_module_by_pkg(
             package='module_1',
-            search_from=Path(uc.TEST_DATA_DIR).joinpath(
-                'foo/bar/module_1/test'
-            ),
+            search_from=Path(uc.TEST_DATA_DIR) / 'foo/bar/module_1/test',
         ),
     )
 
-  @mock.patch.dict(
-      'os.environ',
-      {
-          constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR,
-          constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR,
-      },
-  )
+  @mock.patch.dict('os.environ', ENV_MOCK_TOP_IS_TEST_DATA)
   def test_get_artifact_map(self):
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
     artifacts = {
@@ -468,27 +414,21 @@ class ModuleInfoUnittests(unittest.TestCase):
     }
     self.assertEqual(mod_info.get_artifact_map('AmSlam'), artifacts)
 
-  @mock.patch.dict(
-      'os.environ',
-      {
-          constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR,
-          constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR,
-      },
-  )
+  @mock.patch.dict('os.environ', ENV_MOCK_TOP_IS_TEST_DATA)
   def test_get_filepath_from_module(self):
     """Test for get_filepath_from_module."""
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
 
-    expected_filepath = Path(uc.TEST_DATA_DIR).joinpath(
-        'foo/bar/AmSlam', 'AndroidManifest.xml'
+    expected_filepath = (
+        Path(uc.TEST_DATA_DIR) / 'foo/bar/AmSlam' / 'AndroidManifest.xml'
     )
     self.assertEqual(
         mod_info.get_filepath_from_module('AmSlam', 'AndroidManifest.xml'),
         expected_filepath,
     )
 
-    expected_filepath = Path(uc.TEST_DATA_DIR).joinpath(
-        'foo/bar/AmSlam/test', 'AndroidManifest.xml'
+    expected_filepath = (
+        Path(uc.TEST_DATA_DIR) / 'foo/bar/AmSlam/test' / 'AndroidManifest.xml'
     )
     self.assertEqual(
         mod_info.get_filepath_from_module('AmSlamTests', 'AndroidManifest.xml'),
@@ -512,7 +452,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     loader._merge_build_system_infos(
         loader.name_to_module_info, java_bp_info_path=self.java_dep_path
     )
-    self.assertEqual(
+    self.assertSetEqual(
         mod_info.get_module_dependency('dep_test_module'), expect_deps
     )
 
@@ -537,7 +477,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     loader._merge_build_system_infos(
         loader.name_to_module_info, java_bp_info_path=java_dep_file
     )
-    self.assertEqual(
+    self.assertSetEqual(
         mod_info.get_module_dependency('dep_test_module'), expect_deps
     )
 
@@ -551,7 +491,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     loader._merge_build_system_infos(
         loader.name_to_module_info, java_bp_info_path=self.java_dep_path
     )
-    self.assertEqual(
+    self.assertSetEqual(
         mod_info.get_install_module_dependency('dep_test_module'), expect_deps
     )
 
@@ -590,9 +530,9 @@ class ModuleInfoUnittests(unittest.TestCase):
     maininfo_with_host_unittest = {
         constants.MODULE_NAME: module_name,
         constants.MODULE_IS_UNIT_TEST: 'true',
-        'compatibility_suites': ['host-unit-tests'],
+        constants.MODULE_COMPATIBILITY_SUITES: ['host-unit-tests'],
         constants.MODULE_INSTALLED: uc.DEFAULT_INSTALL_PATH,
-        'auto_test_config': ['true'],
+        constants.MODULE_AUTO_TEST_CONFIG: ['true'],
     }
 
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
@@ -607,7 +547,7 @@ class ModuleInfoUnittests(unittest.TestCase):
             os.path.join(uc.TEST_CONFIG_DATA_DIR, 'a.xml.data')
         ],
         constants.MODULE_INSTALLED: uc.DEFAULT_INSTALL_PATH,
-        'supported_variants': ['DEVICE'],
+        constants.MODULE_SUPPORTED_VARIANTS: ['DEVICE'],
     }
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
 
@@ -623,8 +563,8 @@ class ModuleInfoUnittests(unittest.TestCase):
             os.path.join(uc.TEST_CONFIG_DATA_DIR, 'a.xml.data')
         ],
         constants.MODULE_INSTALLED: uc.DEFAULT_INSTALL_PATH,
-        'supported_variants': ['DEVICE'],
-        'compatibility_suites': ['robolectric-tests'],
+        constants.MODULE_SUPPORTED_VARIANTS: ['DEVICE'],
+        constants.MODULE_COMPATIBILITY_SUITES: ['robolectric-tests'],
     }
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
 
@@ -641,7 +581,7 @@ class ModuleInfoUnittests(unittest.TestCase):
             os.path.join(uc.TEST_CONFIG_DATA_DIR, 'a.xml.data')
         ],
         constants.MODULE_INSTALLED: uc.DEFAULT_INSTALL_PATH,
-        'supported_variants': ['HOST'],
+        constants.MODULE_SUPPORTED_VARIANTS: ['HOST'],
     }
     mod_info = create_module_info([
         module(
@@ -692,7 +632,7 @@ class ModuleInfoUnittests(unittest.TestCase):
   )
   def test_get_module_info_for_multi_lib_module(self):
     my_module_name = 'MyMultiArchTestModule'
-    multi_arch_json = os.path.join(
+    multi_arch_json = Path(
         uc.TEST_DATA_DIR, 'multi_arch_module-info.json'
     )
     mod_info = module_info.load_from_file(module_file=multi_arch_json)
@@ -707,19 +647,19 @@ class ModuleInfoUnittests(unittest.TestCase):
     module_2 = module(name='module_2', dependencies=['dep1', 'dep3'])
     mod_info = create_module_info([module_1, module_2])
 
-    self.assertEqual(
+    self.assertSetEqual(
         {'module_1', 'module_2'},
         mod_info.get_modules_by_include_deps(
             {'dep1'}, testable_module_only=False
         ),
     )
-    self.assertEqual(
+    self.assertSetEqual(
         {'module_1'},
         mod_info.get_modules_by_include_deps(
             {'dep2'}, testable_module_only=False
         ),
     )
-    self.assertEqual(
+    self.assertSetEqual(
         {'module_2'},
         mod_info.get_modules_by_include_deps(
             {'dep3'}, testable_module_only=False
@@ -738,7 +678,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     mod_info = create_module_info([module_1, module_2])
     _testable_modules.return_value = []
 
-    self.assertEqual(
+    self.assertSetEqual(
         set(),
         mod_info.get_modules_by_include_deps(
             {'dep1'}, testable_module_only=True
@@ -753,7 +693,9 @@ class ModuleInfoUnittests(unittest.TestCase):
     module_2 = module(name='module_2', srcs=['path/src2', 'path/src3'])
     mod_info = create_module_info([module_1, module_2])
 
-    self.assertEqual(set(), mod_info.get_modules_by_path_in_srcs('path/src4'))
+    self.assertSetEqual(
+        set(), mod_info.get_modules_by_path_in_srcs('path/src4')
+    )
 
   def test_get_modules_by_path_in_srcs_one_module_found(self):
     module_1 = module(
@@ -763,7 +705,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     module_2 = module(name='module_2', srcs=['path/src2', 'path/src3'])
     mod_info = create_module_info([module_1, module_2])
 
-    self.assertEqual(
+    self.assertSetEqual(
         {'module_1'}, mod_info.get_modules_by_path_in_srcs('path/src1')
     )
 
@@ -775,7 +717,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     module_2 = module(name='module_2', srcs=['path/src2', 'path/src3'])
     mod_info = create_module_info([module_1, module_2])
 
-    self.assertEqual(
+    self.assertSetEqual(
         {'module_1', 'module_2'},
         mod_info.get_modules_by_path_in_srcs('path/src2'),
     )
@@ -864,9 +806,8 @@ class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
   def setUp(self):
     self.setUpPyfakefs()
 
-  # pylint: disable=protected-access
   def create_empty_module_info(self):
-    fake_temp_file_name = next(tempfile._get_candidate_names())
+    fake_temp_file_name = str(uuid.uuid4())
     self.fs.create_file(fake_temp_file_name, contents='{}')
     return module_info.load_from_file(module_file=fake_temp_file_name)
 
@@ -877,15 +818,12 @@ class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
     for m in modules:
       mod_info.name_to_module_info[m['module_name']] = m
       for path in m['path']:
-        if path in mod_info.path_to_module_info:
-          mod_info.path_to_module_info[path].append(m)
-        else:
-          mod_info.path_to_module_info[path] = [m]
+        mod_info.path_to_module_info.setdefault(path, []).append(m)
 
     return mod_info
 
 
-class HasTestConfonfigTest(ModuleInfoTestFixture):
+class HasTestConfigTest(ModuleInfoTestFixture):
   """Tests has_test_config in various conditions."""
 
   def test_return_true_if_test_config_is_not_empty(self):
@@ -962,7 +900,7 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
 
   def test_return_empty_for_a_modern_robolectric_test(self):
     module_name = 'hello_world_test'
-    info = modern_robolectric_test_module(name=f'{module_name}')
+    info = modern_robolectric_test_module(name=module_name)
     mod_info = self.create_module_info(modules=[info])
 
     return_module = mod_info.get_robolectric_test_name(info)
@@ -973,12 +911,12 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
     module_name = 'hello_world_test'
     run_module_name = f'Run{module_name}'
     module_path = 'robolectric_path'
-    info = non_test_module(name=f'{module_name}', path=module_path)
+    info = non_test_module(name=module_name, path=module_path)
     mod_info = self.create_module_info(
         modules=[
             info,
             robolectric_class_non_test_module(
-                name=f'{run_module_name}', path=module_path
+                name=run_module_name, path=module_path
             ),
         ]
     )
@@ -991,11 +929,11 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
     module_name = 'hello_world_test'
     run_module_name = f'Run{module_name}'
     module_path = 'robolectric_path'
-    info = non_test_module(name=f'{module_name}', path=module_path)
+    info = non_test_module(name=module_name, path=module_path)
     mod_info = self.create_module_info(
         modules=[
             info,
-            non_test_module(name=f'{run_module_name}', path=module_path),
+            non_test_module(name=run_module_name, path=module_path),
         ]
     )
 
@@ -1008,11 +946,11 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
     run_module_name = f'Not_Run{module_name}'
     module_path = 'robolectric_path'
     info = robolectric_class_non_test_module(
-        name=f'{run_module_name}', path=module_path
+        name=run_module_name, path=module_path
     )
     mod_info = self.create_module_info(
         modules=[
-            non_test_module(name=f'{module_name}', path=module_path),
+            non_test_module(name=module_name, path=module_path),
             info,
         ]
     )
@@ -1023,7 +961,7 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
 
   def test_return_itself_for_a_robolectric_class_test_module(self):
     module_name = 'Run_hello_world_test'
-    info = robolectric_class_non_test_module(name=f'{module_name}')
+    info = robolectric_class_non_test_module(name=module_name)
     mod_info = self.create_module_info(modules=[info])
 
     return_module = mod_info.get_robolectric_test_name(info)
@@ -1032,7 +970,7 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
 
   def test_return_empty_if_robolectric_class_module_not_start_with_Run(self):
     module_name = 'hello_world_test'
-    info = robolectric_class_non_test_module(name=f'{module_name}')
+    info = robolectric_class_non_test_module(name=module_name)
     mod_info = self.create_module_info(modules=[info])
 
     return_module = mod_info.get_robolectric_test_name(info)
@@ -1056,7 +994,7 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     module_name = 'hello_world_test'
     mod_info = self.create_module_info(
         modules=[
-            modern_robolectric_test_module(name=f'{module_name}'),
+            modern_robolectric_test_module(name=module_name),
         ]
     )
 
@@ -1070,11 +1008,9 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     run_module_name = f'Run{module_name}'
     mod_info = self.create_module_info(
         modules=[
-            modern_robolectric_test_module(
-                name=f'{module_name}', path=module_path
-            ),
+            modern_robolectric_test_module(name=module_name, path=module_path),
             robolectric_class_non_test_module(
-                name=f'{run_module_name}', path=module_path
+                name=run_module_name, path=module_path
             ),
         ]
     )
@@ -1088,7 +1024,7 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     mod_info = self.create_module_info(
         modules=[
             non_test_module(
-                name=f'{module_name}',
+                name=module_name,
                 compatibility_suites='not_robolectric_tests',
             ),
         ]
@@ -1106,9 +1042,9 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     module_path = 'robolectric_path'
     mod_info = self.create_module_info(
         modules=[
-            non_test_module(name=f'{module_name}', path=module_path),
+            non_test_module(name=module_name, path=module_path),
             robolectric_class_non_test_module(
-                name=f'{run_module_name}', path=module_path
+                name=run_module_name, path=module_path
             ),
         ]
     )
@@ -1125,9 +1061,9 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     module_path = 'robolectric_path'
     mod_info = self.create_module_info(
         modules=[
-            test_module(name=f'{module_name}', path=module_path),
+            test_module(name=module_name, path=module_path),
             robolectric_class_test_module(
-                name=f'{run_module_name}', path=module_path
+                name=run_module_name, path=module_path
             ),
         ]
     )
@@ -1140,7 +1076,7 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     module_name = 'Run_hello_world_test'
     mod_info = self.create_module_info(
         modules=[
-            robolectric_class_non_test_module(name=f'{module_name}'),
+            robolectric_class_non_test_module(name=module_name),
         ]
     )
 
@@ -1152,7 +1088,7 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     module_name = 'hello_world_test'
     mod_info = self.create_module_info(
         modules=[
-            robolectric_class_non_test_module(name=f'{module_name}'),
+            robolectric_class_non_test_module(name=module_name),
         ]
     )
 
@@ -1166,8 +1102,8 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     module_path = 'robolectric_path'
     mod_info = self.create_module_info(
         modules=[
-            non_test_module(name=f'{module_name}', path=module_path),
-            non_test_module(name=f'{run_module_name}', path=module_path),
+            non_test_module(name=module_name, path=module_path),
+            non_test_module(name=run_module_name, path=module_path),
         ]
     )
 
@@ -1181,9 +1117,9 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     module_path = 'robolectric_path'
     mod_info = self.create_module_info(
         modules=[
-            non_test_module(name=f'{module_name}', path=module_path),
+            non_test_module(name=module_name, path=module_path),
             robolectric_class_non_test_module(
-                name=f'{run_module_name}', path=module_path
+                name=run_module_name, path=module_path
             ),
         ]
     )
@@ -1284,11 +1220,8 @@ class IsTestableModuleTest(ModuleInfoTestFixture):
 
 
 def create_module_info(modules=None):
-  name_to_module_info = {}
   modules = modules or []
-
-  for m in modules:
-    name_to_module_info[m['module_name']] = m
+  name_to_module_info = {m['module_name']: m for m in modules}
 
   return module_info.load_from_dict(name_to_module_info)
 
@@ -1323,7 +1256,7 @@ def robolectric_class_non_test_module(**kwargs):
   return non_test(robolectric_class(module(**kwargs)))
 
 
-# pylint: disable=too-many-arguments, too-many-locals
+# pylint: disable=too-many-arguments
 def module(
     name=None,
     path=None,
@@ -1342,50 +1275,49 @@ def module(
     supported_variants=None,
     code_under_test=None,
 ):
-  name = name or 'libhello'
-
-  m = {}
-
-  m['module_name'] = name
-  m['class'] = classes or ['ETC']
-  m['path'] = [path or '']
-  m['installed'] = installed or []
-  m['is_unit_test'] = 'false'
-  m['auto_test_config'] = auto_test_config or []
-  m['test_config'] = test_config or []
-  m['shared_libs'] = shared_libs or []
-  m['runtime_dependencies'] = runtime_dependencies or []
-  m['dependencies'] = dependencies or []
-  m['data'] = data or []
-  m['data_dependencies'] = data_dependencies or []
-  m['compatibility_suites'] = compatibility_suites or []
-  m['host_dependencies'] = host_dependencies or []
-  m['srcs'] = srcs or []
-  m['supported_variants'] = supported_variants or []
-  m['code_under_test'] = code_under_test or []
-  return m
+  return {
+      constants.MODULE_NAME: name or 'libhello',
+      constants.MODULE_CLASS: classes or ['ETC'],
+      constants.MODULE_PATH: [path or ''],
+      constants.MODULE_INSTALLED: installed or [],
+      constants.MODULE_IS_UNIT_TEST: 'false',
+      constants.MODULE_AUTO_TEST_CONFIG: auto_test_config or [],
+      constants.MODULE_TEST_CONFIG: test_config or [],
+      constants.MODULE_SHARED_LIBS: shared_libs or [],
+      constants.MODULE_RUNTIME_DEPS: runtime_dependencies or [],
+      constants.MODULE_DEPENDENCIES: dependencies or [],
+      'data': data or [],
+      constants.MODULE_DATA_DEPS: data_dependencies or [],
+      constants.MODULE_COMPATIBILITY_SUITES: compatibility_suites or [],
+      constants.MODULE_HOST_DEPS: host_dependencies or [],
+      constants.MODULE_SRCS: srcs or [],
+      constants.MODULE_SUPPORTED_VARIANTS: supported_variants or [],
+      'code_under_test': code_under_test or [],
+  }
 
 
 def test(info):
-  info['auto_test_config'] = ['true']
-  info['installed'] = ['installed_path']
+  info[constants.MODULE_AUTO_TEST_CONFIG] = ['true']
+  info[constants.MODULE_INSTALLED] = ['installed_path']
   return info
 
 
 def non_test(info):
-  info['auto_test_config'] = []
-  info['installed'] = []
+  info[constants.MODULE_AUTO_TEST_CONFIG] = []
+  info[constants.MODULE_INSTALLED] = []
   return info
 
 
 def robolectric_class(info):
-  info['class'] = ['ROBOLECTRIC']
+  info[constants.MODULE_CLASS] = ['ROBOLECTRIC']
   return info
 
 
 def robolectric_tests_suite(info):
   info = test(info)
-  info.setdefault('compatibility_suites', []).append('robolectric-tests')
+  info.setdefault(constants.MODULE_COMPATIBILITY_SUITES, []).append(
+      'robolectric-tests'
+  )
   return info
 
 
