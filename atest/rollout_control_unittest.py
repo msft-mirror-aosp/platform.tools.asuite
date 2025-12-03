@@ -37,7 +37,6 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
     mock_sha256 = self.enterContext(
         mock.patch('atest.rollout_control.hashlib.sha256', autospec=True)
     )
-    # Set the hash to a known value.
     mock_sha256.return_value.hexdigest.return_value = self._MOCK_HASH_HEX
 
   def _create_feature(
