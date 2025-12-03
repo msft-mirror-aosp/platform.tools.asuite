@@ -16,7 +16,6 @@
 
 # pylint: disable=too-many-lines
 
-from __future__ import print_function
 
 from dataclasses import dataclass
 import fnmatch
@@ -56,6 +55,16 @@ MAINLINE_LOCAL_DOC = 'go/mainline-local-build'
 # Pattern used to identify comments start with '//' or '#' in TEST_MAPPING.
 _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
 _COMMENTS = frozenset(['//', '#'])
+
+# Finders that do not require module indexing.
+_FINDERS_NOT_REQUIRING_INDEX = frozenset({
+    'EXAMPLE',
+    CACHE_FINDER,
+    'MODULE',
+    'INTEGRATION',
+    'CONFIG',
+    'SUITE_PLAN',
+})
 
 
 @dataclass
@@ -162,17 +171,10 @@ class CLITranslator:
     for finder in find_methods:
       # Ideally whether a find method requires indexing should be defined within the
       # finder class itself. However the current finder class design prevent
-      # us from defining property without a bigger change. Here we use a tuple
+      # us from defining property without a bigger change. Here we use a set
       # to specify the finders that doesn't require indexing and leave the
       # class redesign work for future work.
-      if finder.finder_info not in (
-          'EXAMPLE',
-          'CACHE',
-          'MODULE',
-          'INTEGRATION',
-          'CONFIG',
-          'SUITE_PLAN',
-      ):
+      if finder.finder_info not in _FINDERS_NOT_REQUIRING_INDEX:
         self._wait_for_index_if_needed()
 
       # For tests in TEST_MAPPING, find method is only related to
@@ -217,23 +219,19 @@ class CLITranslator:
 
           # Only add dependencies to build_targets when they are in
           # module info
-          test_deps_in_mod_info = [
-              test_dep
-              for test_dep in test_deps
-              if self.mod_info.is_module(test_dep)
-          ]
-          for dep in test_deps_in_mod_info:
-            t_info.add_build_target(dep)
+          for dep in test_deps:
+            if self.mod_info.is_module(dep):
+              t_info.add_build_target(dep)
           test_infos.append(t_info)
         test_found = True
-        print("Found '%s' as %s" % (atest_utils.mark_green(test), finder_info))
+        print(f"Found '{atest_utils.mark_green(test)}' as {finder_info}")
         if finder_info == CACHE_FINDER and test_infos:
           test_finders.append(list(test_infos)[0].test_finder)
         test_finders.append(finder_info)
         test_info_str = ','.join([str(x) for x in found_test_infos])
         break
     if not test_found:
-      print('No test found for: {}'.format(atest_utils.mark_red(test)))
+      print(f'No test found for: {atest_utils.mark_red(test)}')
       if self.fuzzy_search:
         f_results = self._fuzzy_search_and_msg(test, find_test_err_msg)
         if f_results:
@@ -287,9 +285,8 @@ class CLITranslator:
     """Determine the test_name and mainline modules are modules."""
     if not self.mod_info.is_module(identifier.test_name):
       print(
-          'Error: "{}" is not a testable module.'.format(
-              atest_utils.mark_red(identifier.test_name)
-          )
+          f'Error: "{atest_utils.mark_red(identifier.test_name)}" is not a '
+          'testable module.'
       )
       return False
 
@@ -302,9 +299,8 @@ class CLITranslator:
     ]
     if unknown_modules:
       print(
-          'Error: Cannot find {} in module info!'.format(
-              atest_utils.mark_red(', '.join(unknown_modules))
-          )
+          'Error: Cannot find'
+          f" {atest_utils.mark_red(', '.join(unknown_modules))} in module info!"
       )
       return False
 
@@ -313,17 +309,15 @@ class CLITranslator:
     for name in identifier.module_names:
       info = self.mod_info.get_module_info(name)
       if info.get('installed'):
-        for bin in info.get('installed'):
-          if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, bin):
-            unsupported_binaries.append(bin)
+        for binary in info.get('installed'):
+          if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, binary):
+            unsupported_binaries.append(binary)
     if unsupported_binaries:
       print(
-          'The output format {} are not in a supported format; '
-          'did you run mainline local setup script? '
-          'Please refer to {}.'.format(
-              atest_utils.mark_red(', '.join(unsupported_binaries)),
-              atest_utils.mark_yellow(MAINLINE_LOCAL_DOC),
-          )
+          'The output format'
+          f' {atest_utils.mark_red(", ".join(unsupported_binaries))} are not in'
+          ' a supported format; did you run mainline local setup script?'
+          f' Please refer to {atest_utils.mark_yellow(MAINLINE_LOCAL_DOC)}.'
       )
       return False
 
@@ -369,7 +363,7 @@ class CLITranslator:
     elif len(results) > 1:
       self._print_fuzzy_searching_results(results)
     else:
-      print('No matching result for {0}.'.format(test))
+      print(f'No matching result for {test}.')
     if find_test_err_msg:
       print(f'{atest_utils.mark_magenta(find_test_err_msg)}\n')
     return None
@@ -445,7 +439,7 @@ class CLITranslator:
           "" if it matches _COMMENTS, otherwise original string.
       """
       line = match.group(0).strip()
-      return '' if any(map(line.startswith, _COMMENTS)) else line
+      return '' if line.startswith(tuple(_COMMENTS)) else line
 
     with open(test_mapping_file, encoding='utf-8') as json_file:
       return ''.join(re.sub(_COMMENTS_RE, _replace, line) for line in json_file)
@@ -469,7 +463,7 @@ class CLITranslator:
     try:
       test_mapping_dict = json.loads(self.filter_comments(test_mapping_file))
     except json.JSONDecodeError as e:
-      msg = 'Test Mapping file has invalid format: %s.' % e
+      msg = f'Test Mapping file has invalid format: {e}.'
       logging.debug(msg)
       atest_utils.colorful_print(msg, constants.RED)
       sys.exit(ExitCode.INVALID_TM_FORMAT)
@@ -492,27 +486,23 @@ class CLITranslator:
           test_mod_info = self.mod_info.name_to_module_info.get(test_name)
           if not test_mod_info:
             print(
-                'WARNING: %s is not a valid build target and '
-                'may not be discoverable by TreeHugger. If you '
-                'want to specify a class or test-package, '
-                "please set 'name' to the test module and use "
-                "'options' to specify the right tests via "
-                "'include-filter'.\nNote: this can also occur "
-                'if the test module is not built for your '
-                'current lunch target.\n'
-                % atest_utils.mark_red(test['name'])
+                f'WARNING: {atest_utils.mark_red(test["name"])} is not a valid'
+                ' build target and may not be discoverable by TreeHugger. If'
+                ' you want to specify a class or test-package, please set'
+                " 'name' to the test module and use 'options' to specify"
+                " the right tests via 'include-filter'.\nNote: this can also"
+                ' occur if the test module is not built for your current lunch'
+                ' target.\n'
             )
           elif not any(
               x in test_mod_info.get('compatibility_suites', [])
               for x in constants.TEST_MAPPING_SUITES
           ):
             print(
-                'WARNING: Please add %s to either suite: %s for '
-                'this TEST_MAPPING file to work with TreeHugger.'
-                % (
-                    atest_utils.mark_red(test['name']),
-                    atest_utils.mark_green(constants.TEST_MAPPING_SUITES),
-                )
+                f'WARNING: Please add {atest_utils.mark_red(test["name"])} to'
+                ' either suite:'
+                f' {atest_utils.mark_green(constants.TEST_MAPPING_SUITES)} for'
+                ' this TEST_MAPPING file to work with TreeHugger.'
             )
           tests.append(test_mapping.TestDetail(test))
         grouped_tests.update(tests)
@@ -547,8 +537,7 @@ class CLITranslator:
         grouped_tests.update(test_list)
     tests = set()
     for test_group in test_groups:
-      temp_tests = set(merged_all_tests.get(test_group, []))
-      tests.update(temp_tests)
+      tests.update(merged_all_tests.get(test_group, []))
       if test_group == constants.TEST_GROUP_ALL:
         for grouped_tests in merged_all_tests.values():
           tests.update(grouped_tests)
@@ -677,13 +666,14 @@ class CLITranslator:
           ', '.join(all_test_details.keys()),
       )
       if all_test_details:
-        tests = ''
+        tests = []
         for test_group, test_list in all_test_details.items():
-          tests += '%s:\n' % test_group
+          tests.append(f'{test_group}:')
           for test_detail in sorted(test_list, key=str):
-            tests += '\t%s\n' % test_detail
+            tests.append(f'\t{test_detail}')
         atest_utils.print_and_log_warning(
-            'All available tests in TEST_MAPPING files are:\n%s', tests
+            'All available tests in TEST_MAPPING files are:\n%s',
+            '\n'.join(tests),
         )
       metrics_utils.send_exit_event(ExitCode.TEST_NOT_FOUND)
       sys.exit(ExitCode.TEST_NOT_FOUND)
