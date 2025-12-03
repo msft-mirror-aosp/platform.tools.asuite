@@ -32,7 +32,6 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   _MOCK_HASH_VALUE = int(_MOCK_HASH_HEX, 16) % 100
 
   def setUp(self) -> None:
-    super().setUp()
     self.mock_sha256 = self.enterContext(
         mock.patch('atest.rollout_control.hashlib.sha256', autospec=True)
     )
