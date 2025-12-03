@@ -15,6 +15,7 @@
 
 """Unittests for rollout_control."""
 
+import os
 import unittest
 from unittest import mock
 
@@ -78,7 +79,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
       self, flag_value: str, rollout_percentage: float, expected_enabled: bool
   ) -> None:
     feature = self._create_feature(rollout_percentage=rollout_percentage)
-    with mock.patch.dict('os.environ', {self._ENV_CONTROL_FLAG: flag_value}):
+    with mock.patch.dict(os.environ, {self._ENV_CONTROL_FLAG: flag_value}):
       self.assertEqual(feature.is_enabled(), expected_enabled)
 
   def test_is_enabled_flag_set_to_true_returns_true(self):
