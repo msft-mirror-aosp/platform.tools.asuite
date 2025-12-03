@@ -27,6 +27,13 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   _MOCK_HASH_HEX = '32'
   _MOCK_HASH_VALUE = int(_MOCK_HASH_HEX, 16) % 100
 
+  def setUp(self):
+    super().setUp()
+    patcher = mock.patch('atest.rollout_control.hashlib.sha256', autospec=True)
+    self.mock_sha256 = patcher.start()
+    self.addCleanup(patcher.stop)
+    self._configure_mock_hash(self.mock_sha256)
+
   def _create_feature(
       self, rollout_percentage: float, owners: list[str] | None = None
   ) -> rollout_control.RolloutControlledFeature:
@@ -42,32 +49,23 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
     # 0x32 is 50. 50 % 100 is 50.
     mock_sha256.return_value.hexdigest.return_value = self._MOCK_HASH_HEX
 
-  @mock.patch('atest.rollout_control.hashlib.sha256', autospec=True)
   def test_is_enabled_username_hash_is_greater_than_rollout_percentage_returns_false(
-      self, mock_sha256
+      self,
   ):
-    self._configure_mock_hash(mock_sha256)
-
     # 50 > 49. Returns False.
     feature = self._create_feature(rollout_percentage=self._MOCK_HASH_VALUE - 1)
     self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
 
-  @mock.patch('atest.rollout_control.hashlib.sha256', autospec=True)
   def test_is_enabled_username_hash_is_equal_to_rollout_percentage_returns_false(
-      self, mock_sha256
+      self,
   ):
-    self._configure_mock_hash(mock_sha256)
-
     # 50 == 50. Returns False.
     feature = self._create_feature(rollout_percentage=self._MOCK_HASH_VALUE)
     self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
 
-  @mock.patch('atest.rollout_control.hashlib.sha256', autospec=True)
   def test_is_enabled_username_hash_is_less_than_rollout_percentage_returns_true(
-      self, mock_sha256
+      self,
   ):
-    self._configure_mock_hash(mock_sha256)
-
     # 50 < 51. Returns True.
     feature = self._create_feature(rollout_percentage=self._MOCK_HASH_VALUE + 1)
     self.assertTrue(feature.is_enabled(self._TEST_USERNAME))
