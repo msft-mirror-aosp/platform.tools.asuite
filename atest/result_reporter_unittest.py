@@ -104,9 +104,15 @@ class ResultReporterUnittests(unittest.TestCase):
   def setUp(self):
     self.rr = result_reporter.ResultReporter()
 
-  @mock.patch.object(result_reporter.ResultReporter, '_print_group_title')
-  @mock.patch.object(result_reporter.ResultReporter, '_update_stats')
-  @mock.patch.object(result_reporter.ResultReporter, '_print_result')
+  @mock.patch.object(
+      result_reporter.ResultReporter, '_print_group_title', autospec=True
+  )
+  @mock.patch.object(
+      result_reporter.ResultReporter, '_update_stats', autospec=True
+  )
+  @mock.patch.object(
+      result_reporter.ResultReporter, '_print_result', autospec=True
+  )
   def test_process_test_result(self, mock_print, mock_update, mock_title):
     """Test process_test_result method."""
     # Passed Test
@@ -115,25 +121,27 @@ class ResultReporterUnittests(unittest.TestCase):
     self.assertIn('someTestRunner', self.rr.runners)
     self.assertIn('someTestModule', self.rr.runners['someTestRunner'])
     group = self.rr.runners['someTestRunner']['someTestModule']
-    mock_title.assert_called_with(RESULT_PASSED_TEST)
-    mock_update.assert_called_with(RESULT_PASSED_TEST, group)
-    mock_print.assert_called_with(RESULT_PASSED_TEST)
+    mock_title.assert_called_with(self.rr, RESULT_PASSED_TEST)
+    mock_update.assert_called_with(self.rr, RESULT_PASSED_TEST, group)
+    mock_print.assert_called_with(self.rr, RESULT_PASSED_TEST)
     # Failed Test
     mock_title.reset_mock()
     self.rr.process_test_result(RESULT_FAILED_TEST)
     mock_title.assert_not_called()
-    mock_update.assert_called_with(RESULT_FAILED_TEST, group)
-    mock_print.assert_called_with(RESULT_FAILED_TEST)
+    mock_update.assert_called_with(self.rr, RESULT_FAILED_TEST, group)
+    mock_print.assert_called_with(self.rr, RESULT_FAILED_TEST)
     # Test with new Group
     mock_title.reset_mock()
     self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
     self.assertIn('someTestModule2', self.rr.runners['someTestRunner'])
-    mock_title.assert_called_with(RESULT_PASSED_TEST_MODULE_2)
+    mock_title.assert_called_with(self.rr, RESULT_PASSED_TEST_MODULE_2)
     # Test with new Runner
     mock_title.reset_mock()
     self.rr.process_test_result(RESULT_PASSED_TEST_RUNNER_2_NO_MODULE)
     self.assertIn('someTestRunner2', self.rr.runners)
-    mock_title.assert_called_with(RESULT_PASSED_TEST_RUNNER_2_NO_MODULE)
+    mock_title.assert_called_with(
+        self.rr, RESULT_PASSED_TEST_RUNNER_2_NO_MODULE
+    )
 
   @mock.patch.object(result_reporter.ResultReporter, '_print_group_title')
   @mock.patch.object(result_reporter.ResultReporter, '_update_stats')
@@ -182,8 +190,9 @@ class ResultReporterUnittests(unittest.TestCase):
   def test_register_unsupported_runner(self):
     """Test register_unsupported_runner method."""
     self.rr.register_unsupported_runner('NotSupported')
-    self.assertEqual(self.rr.runners['NotSupported'],
-                     result_reporter.UNSUPPORTED_FLAG)
+    self.assertEqual(
+        self.rr.runners['NotSupported'], result_reporter.UNSUPPORTED_FLAG
+    )
 
   def test_update_stats_passed(self):
     """Test _update_stats method."""
