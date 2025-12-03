@@ -50,6 +50,13 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
         owners=owners or [],
     )
 
+  def _assert_enabled_with_env_flag(
+      self, flag_value: str, rollout_percentage: float, expected_enabled: bool
+  ) -> None:
+    feature = self._create_feature(rollout_percentage=rollout_percentage)
+    with mock.patch.dict(os.environ, {self._ENV_CONTROL_FLAG: flag_value}):
+      self.assertEqual(feature.is_enabled(), expected_enabled)
+
   def test_is_enabled_username_hash_is_greater_than_rollout_percentage_returns_false(
       self,
   ):
@@ -74,13 +81,6 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   def test_is_enabled_username_undetermined_returns_false(self):
     feature = self._create_feature(rollout_percentage=99)
     self.assertFalse(feature.is_enabled(''))
-
-  def _assert_enabled_with_env_flag(
-      self, flag_value: str, rollout_percentage: float, expected_enabled: bool
-  ) -> None:
-    feature = self._create_feature(rollout_percentage=rollout_percentage)
-    with mock.patch.dict(os.environ, {self._ENV_CONTROL_FLAG: flag_value}):
-      self.assertEqual(feature.is_enabled(), expected_enabled)
 
   def test_is_enabled_with_env_control_flag(self):
     """Tests that the environment control flag overrides the rollout percentage."""
