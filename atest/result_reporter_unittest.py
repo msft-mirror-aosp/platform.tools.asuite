@@ -309,7 +309,7 @@ class ResultReporterUnittests(unittest.TestCase):
     self.rr._update_stats(RESULT_ASSUMPTION_FAILED_TEST, group)
     self.assertEqual(group.assumption_failed, 2)
 
-  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent', autospec=True)
   @mock.patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
   def test_print_summary_ret_val(self, mock_detect_event):
     """Test print_summary method's return value."""
@@ -324,7 +324,7 @@ class ResultReporterUnittests(unittest.TestCase):
     self.assertNotEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     mock_detect_event.assert_not_called()
 
-  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent', autospec=True)
   @mock.patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
   def test_print_summary_ret_val_err_stat(self, _):
     """Test print_summary method's return value."""
@@ -338,7 +338,7 @@ class ResultReporterUnittests(unittest.TestCase):
     self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
     self.assertNotEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
 
-  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent', autospec=True)
   @mock.patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
   def test_print_summary_ret_val_err_stat2(self, mock_detect_event):
     """Test print_summary method's return value."""
