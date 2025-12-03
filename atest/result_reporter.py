@@ -106,7 +106,6 @@ WmTests:com.android.tradefed.targetprep.UnitTests: Passed: 0, Failed: 0
 
 from __future__ import print_function
 
-from collections import OrderedDict
 import os
 import zipfile
 
@@ -181,7 +180,7 @@ class ResultReporter:
                     This include pass/fail counts across ALL test runners.
 
   - self.runners:  Is of the form: {RunnerName: {GroupName: RunStat Instance}}
-                   Where {} is an ordered dict.
+                   Where {} is a dict.
 
                    The stats instance contains stats for each test group.
                    If the runner doesn't support groups, then the group
@@ -220,7 +219,7 @@ class ResultReporter:
           warnings or not.
     """
     self.run_stats = RunStat()
-    self.runners = OrderedDict()
+    self.runners = {}
     self.failed_tests = []
     self.all_test_results = []
     self.pre_test = None
@@ -246,7 +245,7 @@ class ResultReporter:
         test: A TestResult namedtuple.
     """
     if test.runner_name not in self.runners:
-      self.runners[test.runner_name] = OrderedDict()
+      self.runners[test.runner_name] = {}
     assert self.runners[test.runner_name] != FAILURE_FLAG
     self.all_test_results.append(test)
     group_name = self._get_group_name(test)
