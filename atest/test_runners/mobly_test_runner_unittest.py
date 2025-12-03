@@ -57,14 +57,24 @@ class MoblyResultUploaderUnittests(unittest.TestCase):
         mock.patch(
             'atest.logstorage.logstorage_utils.is_upload_enabled',
             return_value=True,
+            autospec=True,
         ),
         mock.patch(
             'atest.logstorage.logstorage_utils.do_upload_flow',
             return_value=('creds', {'invocationId': 'I00001'}),
+            autospec=True,
         ),
-        mock.patch('atest.logstorage.logstorage_utils.BuildClient'),
     ]
-    for patcher in self.patchers:
+    self.mock_build_client = mock.patch(
+        'atest.logstorage.logstorage_utils.BuildClient', autospec=True
+    ).start()
+    self.mock_build_client.return_value.client = mock.Mock()
+    self.mock_build_client.return_value.insert_work_unit.return_value = {
+        'id': 'WU00001',
+        'runCount': 0,
+    }
+    self.patchers.append(self.mock_build_client)
+    for patcher in self.patchers[:-1]:
       patcher.start()
     self.uploader = mobly_test_runner.MoblyResultUploader({})
     self.uploader._root_workunit = {'id': 'WU00001', 'runCount': 0}
@@ -158,28 +168,47 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     self.reporter = result_reporter.ResultReporter()
     self.mobly_args = argparse.Namespace(config='', testbed='', testparam=[])
 
-  @mock.patch('atest.test_runners.mobly_test_runner.MoblyResultUploader')
+  @mock.patch(
+      'atest.test_runners.mobly_test_runner.MoblyResultUploader', autospec=True
+  )
   @mock.patch.object(
       mobly_test_runner.MoblyTestRunner,
       '_get_test_files',
       return_value=MOCK_TEST_FILES,
-  )
-  @mock.patch.object(mobly_test_runner.MoblyTestRunner, '_setup_python_env')
-  @mock.patch.object(
-      mobly_test_runner.MoblyTestRunner, '_get_cvd_serials', return_value=[]
-  )
-  @mock.patch.object(mobly_test_runner.MoblyTestRunner, '_install_apks')
-  @mock.patch.object(
-      mobly_test_runner.MoblyTestRunner, '_generate_mobly_config'
-  )
-  @mock.patch.object(mobly_test_runner.MoblyTestRunner, '_get_mobly_command')
-  @mock.patch.object(
-      mobly_test_runner.MoblyTestRunner, '_run_mobly_command', return_value=0
+      autospec=True,
   )
   @mock.patch.object(
-      mobly_test_runner.MoblyTestRunner, '_process_test_results_from_summary'
+      mobly_test_runner.MoblyTestRunner, '_setup_python_env', autospec=True
   )
-  @mock.patch.object(mobly_test_runner.MoblyTestRunner, '_cleanup')
+  @mock.patch.object(
+      mobly_test_runner.MoblyTestRunner,
+      '_get_cvd_serials',
+      return_value=[],
+      autospec=True,
+  )
+  @mock.patch.object(
+      mobly_test_runner.MoblyTestRunner, '_install_apks', autospec=True
+  )
+  @mock.patch.object(
+      mobly_test_runner.MoblyTestRunner, '_generate_mobly_config', autospec=True
+  )
+  @mock.patch.object(
+      mobly_test_runner.MoblyTestRunner, '_get_mobly_command', autospec=True
+  )
+  @mock.patch.object(
+      mobly_test_runner.MoblyTestRunner,
+      '_run_mobly_command',
+      return_value=0,
+      autospec=True,
+  )
+  @mock.patch.object(
+      mobly_test_runner.MoblyTestRunner,
+      '_process_test_results_from_summary',
+      autospec=True,
+  )
+  @mock.patch.object(
+      mobly_test_runner.MoblyTestRunner, '_cleanup', autospec=True
+  )
   def test_run_tests_with_multiple_modules(
       self, mock_cleanup, mock_process_results, *unused_mocks
   ) -> None:
@@ -210,7 +239,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     mock_uploader.finalize_invocation.assert_called_once()
     mock_uploader.add_result_link.assert_called_once_with(reporter)
 
-  @mock.patch.object(pathlib.Path, 'is_file')
+  @mock.patch.object(pathlib.Path, 'is_file', autospec=True)
   def test_get_test_files_all_files_present(self, is_file) -> None:
     """Tests _get_test_files with all files present."""
     is_file.return_value = True
@@ -226,7 +255,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     self.assertTrue(test_files.test_apks[1].endswith(APK_2))
     self.assertTrue(test_files.misc_data[0].endswith(MISC_FILE))
 
-  @mock.patch.object(pathlib.Path, 'is_file')
+  @mock.patch.object(pathlib.Path, 'is_file', autospec=True)
   def test_get_test_files_no_mobly_pkg(self, is_file) -> None:
     """Tests _get_test_files with missing mobly_pkg."""
     is_file.return_value = True
@@ -240,7 +269,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     ):
       self.runner._get_test_files(self.tinfo)
 
-  @mock.patch.object(pathlib.Path, 'is_file')
+  @mock.patch.object(pathlib.Path, 'is_file', autospec=True)
   def test_get_test_files_file_not_found(self, is_file) -> None:
     """Tests _get_test_files with file not found in file system."""
     is_file.return_value = False
@@ -254,9 +283,9 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     ):
       self.runner._get_test_files(self.tinfo)
 
-  @mock.patch('builtins.open')
-  @mock.patch('os.makedirs')
-  @mock.patch('yaml.safe_dump')
+  @mock.patch('builtins.open', autospec=True)
+  @mock.patch('os.makedirs', autospec=True)
+  @mock.patch('yaml.safe_dump', autospec=True)
   def test_generate_mobly_config_no_serials(self, yaml_dump, *_) -> None:
     """Tests _generate_mobly_config with no serials provided."""
     self.runner._generate_mobly_config(self.mobly_args, None, MOCK_TEST_FILES)
@@ -275,9 +304,9 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     }
     self.assertEqual(yaml_dump.call_args.args[0], expected_config)
 
-  @mock.patch('builtins.open')
-  @mock.patch('os.makedirs')
-  @mock.patch('yaml.safe_dump')
+  @mock.patch('builtins.open', autospec=True)
+  @mock.patch('os.makedirs', autospec=True)
+  @mock.patch('yaml.safe_dump', autospec=True)
   def test_generate_mobly_config_with_serials(self, yaml_dump, *_) -> None:
     """Tests _generate_mobly_config with serials provided."""
     self.runner._generate_mobly_config(
@@ -298,9 +327,9 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     }
     self.assertEqual(yaml_dump.call_args.args[0], expected_config)
 
-  @mock.patch('builtins.open')
-  @mock.patch('os.makedirs')
-  @mock.patch('yaml.safe_dump')
+  @mock.patch('builtins.open', autospec=True)
+  @mock.patch('os.makedirs', autospec=True)
+  @mock.patch('yaml.safe_dump', autospec=True)
   def test_generate_mobly_config_with_testparams(self, yaml_dump, *_) -> None:
     """Tests _generate_mobly_config with custom testparams."""
     self.mobly_args.testparam = ['foo=bar']
@@ -330,9 +359,9 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     ):
       self.runner._generate_mobly_config(self.mobly_args, None, [])
 
-  @mock.patch('builtins.open')
-  @mock.patch('os.makedirs')
-  @mock.patch('yaml.safe_dump')
+  @mock.patch('builtins.open', autospec=True)
+  @mock.patch('os.makedirs', autospec=True)
+  @mock.patch('yaml.safe_dump', autospec=True)
   def test_generate_mobly_config_with_test_files(self, yaml_dump, *_) -> None:
     """Tests _generate_mobly_config with test files."""
     test_apks = ['files/my_app1.apk', 'files/my_app2.apk']
@@ -360,7 +389,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     }
     self.assertEqual(yaml_dump.call_args.args[0], expected_config)
 
-  @mock.patch('atest.atest_utils.get_adb_devices')
+  @mock.patch('atest.atest_utils.get_adb_devices', autospec=True)
   def test_get_cvd_serials(self, get_adb_devices) -> None:
     """Tests _get_cvd_serials returns correct serials."""
     global_args = arg_parser.create_atest_arg_parser().parse_args([])
@@ -371,8 +400,8 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
 
       self.assertEqual(self.runner._get_cvd_serials(), devices[:2])
 
-  @mock.patch('atest.atest_utils.get_adb_devices', return_value=[ADB_DEVICE])
-  @mock.patch('subprocess.check_call')
+  @mock.patch('atest.atest_utils.get_adb_devices', return_value=[ADB_DEVICE], autospec=True)
+  @mock.patch('subprocess.check_call', autospec=True)
   def test_install_apks_no_serials(self, check_call, _) -> None:
     """Tests _install_apks with no serials provided."""
     self.runner._install_apks([APK_1], None)
@@ -382,8 +411,8 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         [call.args[0] for call in check_call.call_args_list], expected_cmds
     )
 
-  @mock.patch('atest.atest_utils.get_adb_devices', return_value=[ADB_DEVICE])
-  @mock.patch('subprocess.check_call')
+  @mock.patch('atest.atest_utils.get_adb_devices', return_value=[ADB_DEVICE], autospec=True)
+  @mock.patch('subprocess.check_call', autospec=True)
   def test_install_apks_with_serials(self, check_call, _) -> None:
     """Tests _install_apks with serials provided."""
     self.runner._install_apks([APK_1], [SERIAL_1, SERIAL_2])
@@ -441,14 +470,18 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
       mobly_test_runner.MoblyTestRunner,
       '_process_test_results_from_summary',
       return_value=(),
+      autospec=True,
   )
-  @mock.patch('atest.test_runners.mobly_test_runner.MoblyResultUploader')
+  @mock.patch(
+      'atest.test_runners.mobly_test_runner.MoblyResultUploader', autospec=True
+  )
   def test_run_and_handle_results_with_iterations(self, uploader, _) -> None:
     """Tests _run_and_handle_results with multiple iterations."""
     with mock.patch.object(
         mobly_test_runner.MoblyTestRunner,
         '_run_mobly_command',
         side_effect=(1, 1, 0, 0, 1),
+        autospec=True,
     ) as run_mobly_command:
       runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR, extra_args={})
       runner._run_and_handle_results(
@@ -465,8 +498,11 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
       mobly_test_runner.MoblyTestRunner,
       '_process_test_results_from_summary',
       return_value=(),
+      autospec=True,
   )
-  @mock.patch('atest.test_runners.mobly_test_runner.MoblyResultUploader')
+  @mock.patch(
+      'atest.test_runners.mobly_test_runner.MoblyResultUploader', autospec=True
+  )
   def test_run_and_handle_results_with_rerun_until_failure(
       self, uploader, _
   ) -> None:
@@ -475,6 +511,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         mobly_test_runner.MoblyTestRunner,
         '_run_mobly_command',
         side_effect=(0, 0, 1, 0, 1),
+        autospec=True,
     ) as run_mobly_command:
       runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR, extra_args={})
       runner._run_and_handle_results(
@@ -491,8 +528,11 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
       mobly_test_runner.MoblyTestRunner,
       '_process_test_results_from_summary',
       return_value=(),
+      autospec=True,
   )
-  @mock.patch('atest.test_runners.mobly_test_runner.MoblyResultUploader')
+  @mock.patch(
+      'atest.test_runners.mobly_test_runner.MoblyResultUploader', autospec=True
+  )
   def test_run_and_handle_results_with_retry_any_failure(
       self, uploader, _
   ) -> None:
@@ -501,6 +541,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         mobly_test_runner.MoblyTestRunner,
         '_run_mobly_command',
         side_effect=(1, 1, 1, 0, 0),
+        autospec=True,
     ) as run_mobly_command:
       runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR, extra_args={})
       runner._run_and_handle_results(
@@ -513,7 +554,9 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
       )
       self.assertEqual(run_mobly_command.call_count, 4)
 
-  @mock.patch('atest.test_runners.mobly_test_runner.MoblyResultUploader')
+  @mock.patch(
+      'atest.test_runners.mobly_test_runner.MoblyResultUploader', autospec=True
+  )
   def test_process_test_results_from_summary_show_correct_names(
       self, uploader
   ) -> None:
@@ -536,7 +579,9 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     self.assertEqual(result.test_run_name, 'SampleTest (#3)')
     self.assertEqual(result.test_name, 'SampleTest.test_should_pass (#3)')
 
-  @mock.patch('atest.test_runners.mobly_test_runner.MoblyResultUploader')
+  @mock.patch(
+      'atest.test_runners.mobly_test_runner.MoblyResultUploader', autospec=True
+  )
   def test_process_test_results_from_summary_show_correct_status_and_details(
       self, uploader
   ) -> None:
@@ -561,7 +606,9 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     self.assertEqual(test_results[3].status, test_runner_base.IGNORED_STATUS)
     self.assertEqual(test_results[3].details, 'mobly.signals.TestSkip')
 
-  @mock.patch('atest.test_runners.mobly_test_runner.MoblyResultUploader')
+  @mock.patch(
+      'atest.test_runners.mobly_test_runner.MoblyResultUploader', autospec=True
+  )
   def test_process_test_results_from_summary_show_correct_stats(
       self, uploader
   ) -> None:
@@ -577,7 +624,9 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     self.assertEqual(test_results[1].group_total, 4)
     self.assertEqual(test_results[1].test_time, '0:00:00')
 
-  @mock.patch('atest.test_runners.mobly_test_runner.MoblyResultUploader')
+  @mock.patch(
+      'atest.test_runners.mobly_test_runner.MoblyResultUploader', autospec=True
+  )
   def test_process_test_results_from_summary_create_correct_uploader_result(
       self, uploader
   ) -> None:
