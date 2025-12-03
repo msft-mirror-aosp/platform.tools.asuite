@@ -41,7 +41,9 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
   def tearDown(self):
     mock.patch.stopall()
 
-  @mock.patch.object(robolectric_test_runner.RobolectricTestRunner, 'run')
+  @mock.patch.object(
+      robolectric_test_runner.RobolectricTestRunner, 'run', autospec=True
+  )
   def test_run_tests_raw(self, mock_run):
     """Test run_tests_raw method."""
     test_infos = [
