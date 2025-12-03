@@ -309,13 +309,14 @@ class ResultReporterUnittests(unittest.TestCase):
     self.assertNotEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     mock_detect_event.assert_not_called()
 
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
   @mock.patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
-  def test_print_summary_ret_val_err_stat(self):
+  def test_print_summary_ret_val_err_stat(self, _):
     """Test print_summary method's return value."""
     # PASS Case
     self.rr.process_test_result(RESULT_PASSED_TEST)
     self.assertEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
-    # PASS Case + Fail Case
+    # PASS Case + Run Error Case
     self.rr.process_test_result(RESULT_RUN_FAILURE)
     self.assertNotEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     # PASS Case + Fail Case + PASS Case
