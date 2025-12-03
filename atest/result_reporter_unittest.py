@@ -46,7 +46,8 @@ def _test_result(**kwargs):
       'additional_info': {},
       'test_run_name': 'com.android.UnitTests',
   }
-  return test_runner_base.TestResult(**{**defaults, **kwargs})
+  defaults.update(kwargs)
+  return test_runner_base.TestResult(**defaults)
 
 
 RESULT_PASSED_TEST = _test_result()
