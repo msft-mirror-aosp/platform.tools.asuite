@@ -638,7 +638,7 @@ class ResultReporter:
     if not self.class_level_report:
       return test.group_name
     module_name = test.group_name if test.group_name else ''
-    test_class, _ = test.test_name.split('#') if test.test_name else ['', '']
+    test_class = test.test_name.split('#')[0] if test.test_name else ''
     if not test_class:
       return module_name
     return f'{module_name}:{test_class}'
