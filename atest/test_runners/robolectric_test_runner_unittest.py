@@ -64,9 +64,9 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
         0, self.suite_tr.run_tests_raw(test_infos, extra_args, mock_reporter)
     )
 
-  @mock.patch.object(event_handler.EventHandler, 'process_event')
-  def test_exec_with_robo_polling_complete_information(self, mock_pe):
+  def test_exec_with_robo_polling_complete_information(self):
     """Test _exec_with_robo_polling method."""
+    mock_pe = mock.create_autospec(event_handler.EventHandler)
     event_name = 'TEST_STARTED'
     event_data = {'className': 'SomeClass', 'testName': 'SomeTestName'}
     json_event_data = json.dumps(event_data)
@@ -84,9 +84,9 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
 
       mock_pe.assert_has_calls(calls)
 
-  @mock.patch.object(event_handler.EventHandler, 'process_event')
-  def test_exec_with_robo_polling_with_partial_info(self, mock_pe):
+  def test_exec_with_robo_polling_with_partial_info(self):
     """Test _exec_with_robo_polling method."""
+    mock_pe = mock.create_autospec(event_handler.EventHandler)
     event_name = 'TEST_STARTED'
     event1 = '{"className":"SomeClass","test'
     event2 = 'Name":"SomeTestName"}\n\n'
@@ -107,9 +107,9 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
 
       mock_pe.assert_has_calls(calls)
 
-  @mock.patch.object(event_handler.EventHandler, 'process_event')
-  def test_exec_with_robo_polling_with_fail_stacktrace(self, mock_pe):
+  def test_exec_with_robo_polling_with_fail_stacktrace(self):
     """Test _exec_with_robo_polling method."""
+    mock_pe = mock.create_autospec(event_handler.EventHandler)
     event_name = 'TEST_FAILED'
     event_data = {
         'className': 'SomeClass',
@@ -130,9 +130,9 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
     calls = [mock.call.process_event(event_name, event_data)]
     mock_pe.assert_has_calls(calls)
 
-  @mock.patch.object(event_handler.EventHandler, 'process_event')
-  def test_exec_with_robo_polling_with_multi_event(self, mock_pe):
+  def test_exec_with_robo_polling_with_multi_event(self):
     """Test _exec_with_robo_polling method."""
+    mock_pe = mock.create_autospec(event_handler.EventHandler)
     event_file = tempfile.NamedTemporaryFile(delete=True)
     events = [
         (
