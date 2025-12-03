@@ -27,7 +27,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   _MOCK_HASH_HEX = '32'
   _MOCK_HASH_VALUE = int(_MOCK_HASH_HEX, 16) % 100
 
-  def setUp(self):
+  def setUp(self) -> None:
     super().setUp()
     patcher = mock.patch('atest.rollout_control.hashlib.sha256', autospec=True)
     self.mock_sha256 = patcher.start()
@@ -44,7 +44,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
         owners=owners or [],
     )
 
-  def _configure_mock_hash(self):
+  def _configure_mock_hash(self) -> None:
     # Set the hash to a known value.
     # 0x32 is 50. 50 % 100 is 50.
     self.mock_sha256.return_value.hexdigest.return_value = self._MOCK_HASH_HEX
@@ -76,7 +76,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
 
   def _assert_enabled_with_env_flag(
       self, flag_value: str, rollout_percentage: float, expected_enabled: bool
-  ):
+  ) -> None:
     feature = self._create_feature(rollout_percentage=rollout_percentage)
     with mock.patch.dict('os.environ', {self._ENV_CONTROL_FLAG: flag_value}):
       self.assertEqual(feature.is_enabled(), expected_enabled)
