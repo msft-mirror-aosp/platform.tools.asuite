@@ -505,8 +505,7 @@ class ResultReporter:
             host_log_content = host_log_content + au.extract_zip_text(tf_log)
           else:
             with open(tf_log, 'r', encoding='utf-8') as f:
-              for line in f:
-                host_log_content = host_log_content + line
+              host_log_content += f.read()
 
       # Print the content for the standard error file for a single module.
       if name and self.log_path and len(str(name).split()) > 1:
