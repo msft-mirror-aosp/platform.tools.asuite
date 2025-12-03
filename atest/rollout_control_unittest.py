@@ -24,6 +24,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   _FEATURE_NAME = 'test_feature'
   _ENV_CONTROL_FLAG = 'TEST_FEATURE'
   _TEST_USERNAME = 'username'
+  _OWNER_USERNAME = 'owner_name'
   _MOCK_HASH_HEX = '32'
   _MOCK_HASH_VALUE = int(_MOCK_HASH_HEX, 16) % 100
 
@@ -91,10 +92,12 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
     self._assert_enabled_with_env_flag('false', 100, False)
 
   def test_is_enabled_is_owner_returns_true(self):
-    feature = self._create_feature(rollout_percentage=0, owners=['owner_name'])
+    feature = self._create_feature(
+        rollout_percentage=0, owners=[self._OWNER_USERNAME]
+    )
 
-    self.assertFalse(feature.is_enabled('name'))
-    self.assertTrue(feature.is_enabled('owner_name'))
+    self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
+    self.assertTrue(feature.is_enabled(self._OWNER_USERNAME))
 
 
 if __name__ == '__main__':
