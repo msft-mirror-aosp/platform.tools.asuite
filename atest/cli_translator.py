@@ -28,12 +28,11 @@ import re
 import sys
 import threading
 import time
-from typing import List, Set
+from typing import List
 
 from atest import atest_error
 from atest import atest_utils
 from atest import constants
-from atest import rollout_control
 from atest import test_finder_handler
 from atest import test_mapping
 from atest.acme import run_affected_triggers_mode
@@ -54,7 +53,7 @@ MAINLINE_LOCAL_DOC = 'go/mainline-local-build'
 
 # Pattern used to identify comments start with '//' or '#' in TEST_MAPPING.
 _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
-_COMMENTS = frozenset(['//', '#'])
+_COMMENTS = ('//', '#')
 
 # Finders that do not require module indexing.
 _FINDERS_NOT_REQUIRING_INDEX = frozenset({
@@ -226,9 +225,9 @@ class CLITranslator:
         test_found = True
         print(f"Found '{atest_utils.mark_green(test)}' as {finder_info}")
         if finder_info == CACHE_FINDER and test_infos:
-          test_finders.append(list(test_infos)[0].test_finder)
+          test_finders.append(test_infos[0].test_finder)
         test_finders.append(finder_info)
-        test_info_str = ','.join([str(x) for x in found_test_infos])
+        test_info_str = ','.join(str(x) for x in found_test_infos)
         break
     if not test_found:
       print(f'No test found for: {atest_utils.mark_red(test)}')
@@ -308,10 +307,11 @@ class CLITranslator:
     unsupported_binaries = []
     for name in identifier.module_names:
       info = self.mod_info.get_module_info(name)
-      if info.get('installed'):
-        for binary in info.get('installed'):
-          if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, binary):
-            unsupported_binaries.append(binary)
+      unsupported_binaries.extend(
+          binary
+          for binary in (info.get('installed') or [])
+          if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, binary)
+      )
     if unsupported_binaries:
       print(
           'The output format'
@@ -329,11 +329,10 @@ class CLITranslator:
     mainline_binaries = identifier.binary_names
     if not self.mod_info.has_mainline_modules(test, mainline_binaries):
       print(
-          'Error: Mainline modules "{}" were not defined for {} in '
-          'neither build file nor test config.'.format(
-              atest_utils.mark_red(', '.join(mainline_binaries)),
-              atest_utils.mark_red(test),
-          )
+          'Error: Mainline modules '
+          f'"{atest_utils.mark_red(", ".join(mainline_binaries))}" '
+          f'were not defined for {atest_utils.mark_red(test)} in '
+          'neither build file nor test config.'
       )
       return False
 
@@ -397,7 +396,7 @@ class CLITranslator:
         True is the answer is affirmative.
     """
     return atest_utils.prompt_with_yn_result(
-        'Did you mean {0}?'.format(atest_utils.mark_green(results[0])), True
+        f'Did you mean {atest_utils.mark_green(results[0])}?', True
     )
 
   def _print_fuzzy_searching_results(self, results):
@@ -438,8 +437,9 @@ class CLITranslator:
       Returns:
           "" if it matches _COMMENTS, otherwise original string.
       """
-      line = match.group(0).strip()
-      return '' if line.startswith(tuple(_COMMENTS)) else line
+      if match.group(2):
+        return match.group(2)
+      return ''
 
     with open(test_mapping_file, encoding='utf-8') as json_file:
       return ''.join(re.sub(_COMMENTS_RE, _replace, line) for line in json_file)
@@ -494,9 +494,8 @@ class CLITranslator:
                 ' occur if the test module is not built for your current lunch'
                 ' target.\n'
             )
-          elif not any(
-              x in test_mod_info.get('compatibility_suites', [])
-              for x in constants.TEST_MAPPING_SUITES
+          elif set(test_mod_info.get('compatibility_suites', [])).isdisjoint(
+              constants.TEST_MAPPING_SUITES
           ):
             print(
                 f'WARNING: Please add {atest_utils.mark_red(test["name"])} to'
