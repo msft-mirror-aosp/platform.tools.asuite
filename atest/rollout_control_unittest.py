@@ -15,6 +15,7 @@
 
 import unittest
 from unittest import mock
+
 from atest import rollout_control
 
 
@@ -45,7 +46,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
     #   int(hash_object.hexdigest(), 16) % 100
     # 0x32 is 50. 50 % 100 is 50.
     mock_sha256.return_value.hexdigest.return_value = '32'
-    
+
     # 50 > 49. Returns False.
     feature = self._create_feature(rollout_percentage=49)
     self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
@@ -54,8 +55,8 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   def test_is_enabled_username_hash_is_equal_to_rollout_percentage_returns_false(
       self, mock_sha256
   ):
-    mock_sha256.return_value.hexdigest.return_value = '32' # 50
-    
+    mock_sha256.return_value.hexdigest.return_value = '32'  # 50
+
     # 50 == 50. Returns False.
     feature = self._create_feature(rollout_percentage=50)
     self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
@@ -64,8 +65,8 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   def test_is_enabled_username_hash_is_less_than_rollout_percentage_returns_true(
       self, mock_sha256
   ):
-    mock_sha256.return_value.hexdigest.return_value = '32' # 50
-    
+    mock_sha256.return_value.hexdigest.return_value = '32'  # 50
+
     # 50 < 51. Returns True.
     feature = self._create_feature(rollout_percentage=51)
     self.assertTrue(feature.is_enabled(self._TEST_USERNAME))
