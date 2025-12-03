@@ -334,16 +334,10 @@ class ResultReporter:
     """Print the combined summary of all the iterations."""
     total_summary = ''
     for key, value in ITER_COUNTS.items():
-      total_summary += '%s: %s: %s, %s: %s, %s: %s, %s: %s\n' % (
-          key,
-          'Passed',
-          value.get('passed', 0),
-          'Failed',
-          value.get('failed', 0),
-          'Ignored',
-          value.get('ignored', 0),
-          'Assumption_failed',
-          value.get('assumption_failed', 0),
+      total_summary += (
+          f'{key}: Passed: {value.get("passed", 0)}, Failed:'
+          f' {value.get("failed", 0)}, Ignored: {value.get("ignored", 0)},'
+          f' Assumption_failed: {value.get("assumption_failed", 0)}\n'
       )
     return f"{au.delimiter('-', 7)}\nITERATIONS RESULT\n{total_summary}"
 
