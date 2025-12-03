@@ -29,15 +29,16 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   _TEST_USERNAME = 'username'
   _OWNER_USERNAME = 'owner_name'
   _MOCK_HASH_HEX = '32'
+  # 0x32 is 50. 50 % 100 is 50.
   _MOCK_HASH_VALUE = int(_MOCK_HASH_HEX, 16) % 100
 
   def setUp(self) -> None:
-    self.mock_sha256 = self.enterContext(
+    super().setUp()
+    mock_sha256 = self.enterContext(
         mock.patch('atest.rollout_control.hashlib.sha256', autospec=True)
     )
     # Set the hash to a known value.
-    # 0x32 is 50. 50 % 100 is 50.
-    self.mock_sha256.return_value.hexdigest.return_value = self._MOCK_HASH_HEX
+    mock_sha256.return_value.hexdigest.return_value = self._MOCK_HASH_HEX
 
   def _create_feature(
       self, rollout_percentage: float, owners: list[str] | None = None
