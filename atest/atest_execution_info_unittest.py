@@ -149,7 +149,7 @@ Installing apk android.CtsApp
       self.fs.remove_object(str(self._log_path))
     super().tearDown()
 
-  @patch('atest.metrics.metrics.LocalDetectEvent')
+  @patch('atest.metrics.metrics.LocalDetectEvent', autospec=True)
   def test_parse_test_log_and_send_app_installation_stats_metrics_get_stats_successful(
       self,
       mock_detect_event,
@@ -181,7 +181,7 @@ Installing apk android.CtsApp
 
     mock_detect_event.assert_has_calls(expected_calls, any_order=True)
 
-  @patch('atest.metrics.metrics.LocalDetectEvent')
+  @patch('atest.metrics.metrics.LocalDetectEvent', autospec=True)
   def test_parse_test_log_and_send_app_installation_stats_metrics_no_host_log(
       self,
       mock_detect_event,
@@ -190,7 +190,7 @@ Installing apk android.CtsApp
 
     mock_detect_event.assert_not_called()
 
-  @patch('atest.metrics.metrics.LocalDetectEvent')
+  @patch('atest.metrics.metrics.LocalDetectEvent', autospec=True)
   def test_parse_test_log_and_send_app_installation_stats_metrics_no_info_in_host_log(
       self,
       mock_detect_event,
@@ -219,20 +219,32 @@ Installing apk android.CtsApp
 class AtestExecutionInfoUnittests(unittest.TestCase):
   """Unit tests for atest_execution_info.py"""
 
-  @patch('atest.metrics.metrics.is_internal_user', return_value=False)
+  @patch(
+      'atest.metrics.metrics.is_internal_user',
+      return_value=False,
+      autospec=True,
+  )
   def test_create_bug_report_url_is_external_user_return_empty(self, _):
     url = aei.AtestExecutionInfo._create_bug_report_url()
 
     self.assertFalse(url)
 
-  @patch('atest.metrics.metrics.is_internal_user', return_value=True)
+  @patch(
+      'atest.metrics.metrics.is_internal_user', return_value=True, autospec=True
+  )
   def test_create_bug_report_url_is_internal_user_return_url(self, _):
     url = aei.AtestExecutionInfo._create_bug_report_url()
 
     self.assertTrue(url)
 
-  @patch('atest.metrics.metrics.is_internal_user', return_value=True)
-  @patch('atest.logstorage.log_uploader.is_uploading_logs', return_value=True)
+  @patch(
+      'atest.metrics.metrics.is_internal_user', return_value=True, autospec=True
+  )
+  @patch(
+      'atest.logstorage.log_uploader.is_uploading_logs',
+      return_value=True,
+      autospec=True,
+  )
   def test_create_bug_report_url_is_uploading_logs_use_contains_run_id(
       self, _, __
   ):
@@ -240,8 +252,14 @@ class AtestExecutionInfoUnittests(unittest.TestCase):
 
     self.assertIn(metrics.get_run_id(), url)
 
-  @patch('atest.metrics.metrics.is_internal_user', return_value=True)
-  @patch('atest.logstorage.log_uploader.is_uploading_logs', return_value=False)
+  @patch(
+      'atest.metrics.metrics.is_internal_user', return_value=True, autospec=True
+  )
+  @patch(
+      'atest.logstorage.log_uploader.is_uploading_logs',
+      return_value=False,
+      autospec=True,
+  )
   def test_create_bug_report_url_is_not_uploading_logs_use_contains_run_id(
       self, _, __
   ):
