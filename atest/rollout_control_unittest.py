@@ -25,7 +25,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   _ENV_CONTROL_FLAG = 'TEST_FEATURE'
   _TEST_USERNAME = 'username'
   _MOCK_HASH_HEX = '32'
-  _MOCK_HASH_VALUE = 50
+  _MOCK_HASH_VALUE = int(_MOCK_HASH_HEX, 16) % 100
 
   def _create_feature(
       self, rollout_percentage: float, owners: list[str] | None = None
