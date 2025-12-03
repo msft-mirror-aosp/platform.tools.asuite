@@ -182,8 +182,8 @@ class ResultReporterUnittests(unittest.TestCase):
   def test_register_unsupported_runner(self):
     """Test register_unsupported_runner method."""
     self.rr.register_unsupported_runner('NotSupported')
-    runner = self.rr.runners['NotSupported']
-    self.assertEqual(runner, result_reporter.UNSUPPORTED_FLAG)
+    self.assertEqual(self.rr.runners['NotSupported'],
+                     result_reporter.UNSUPPORTED_FLAG)
 
   def test_update_stats_passed(self):
     """Test _update_stats method."""
