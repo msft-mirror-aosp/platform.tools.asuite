@@ -35,10 +35,14 @@ class VtsTradefedTestRunnerUnittests(unittest.TestCase):
   def tearDown(self):
     mock.patch.stopall()
 
-  @mock.patch('subprocess.Popen')
-  @mock.patch.object(vts_tf_test_runner.VtsTradefedTestRunner, 'run')
+  @mock.patch('subprocess.Popen', autospec=True)
   @mock.patch.object(
-      vts_tf_test_runner.VtsTradefedTestRunner, 'generate_run_commands'
+      vts_tf_test_runner.VtsTradefedTestRunner, 'run', autospec=True
+  )
+  @mock.patch.object(
+      vts_tf_test_runner.VtsTradefedTestRunner,
+      'generate_run_commands',
+      autospec=True,
   )
   def test_run_tests(self, _mock_gen_cmd, _mock_run, _mock_popen):
     """Test run_tests method."""
@@ -48,6 +52,7 @@ class VtsTradefedTestRunnerUnittests(unittest.TestCase):
     _mock_gen_cmd.return_value = ['cmd1', 'cmd2']
     # Test Build Pass
     _mock_popen.return_value.returncode = 0
+    _mock_popen.return_value.pid = 123
     self.assertEqual(
         0, self.vts_tr.run_tests(test_infos, extra_args, mock_reporter)
     )
