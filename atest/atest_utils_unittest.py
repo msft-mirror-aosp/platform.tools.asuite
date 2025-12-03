@@ -437,7 +437,7 @@ class AtestUtilsUnittests(unittest.TestCase):
     stream.isatty.return_value = True
     self.assertTrue(atest_utils._has_colors(stream))
 
-  @mock.patch('atest.atest_utils._has_colors')
+  @mock.patch('atest.atest_utils._has_colors', autospec=True)
   def test_colorize(self, mock_has_colors):
     """Test method colorize."""
     original_str = 'test string'
