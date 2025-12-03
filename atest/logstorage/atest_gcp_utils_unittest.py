@@ -29,8 +29,8 @@ from atest.logstorage import atest_gcp_utils
 class AtestGcpUtilsUnittests(unittest.TestCase):
   """Unit tests for atest_gcp_utils.py"""
 
-  @mock.patch.object(atest_gcp_utils, '_prepare_data')
-  @mock.patch.object(atest_gcp_utils, 'fetch_credential')
+  @mock.patch.object(atest_gcp_utils, '_prepare_data', autospec=True)
+  @mock.patch.object(atest_gcp_utils, 'fetch_credential', autospec=True)
   def test_do_upload_flow(self, mock_request, mock_prepare):
     """test do_upload_flow method."""
     fake_extra_args = {}
