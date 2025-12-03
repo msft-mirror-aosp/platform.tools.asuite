@@ -32,7 +32,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
     patcher = mock.patch('atest.rollout_control.hashlib.sha256', autospec=True)
     self.mock_sha256 = patcher.start()
     self.addCleanup(patcher.stop)
-    self._configure_mock_hash(self.mock_sha256)
+    self._configure_mock_hash()
 
   def _create_feature(
       self, rollout_percentage: float, owners: list[str] | None = None
@@ -44,10 +44,10 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
         owners=owners or [],
     )
 
-  def _configure_mock_hash(self, mock_sha256):
+  def _configure_mock_hash(self):
     # Set the hash to a known value.
     # 0x32 is 50. 50 % 100 is 50.
-    mock_sha256.return_value.hexdigest.return_value = self._MOCK_HASH_HEX
+    self.mock_sha256.return_value.hexdigest.return_value = self._MOCK_HASH_HEX
 
   def test_is_enabled_username_hash_is_greater_than_rollout_percentage_returns_false(
       self,
