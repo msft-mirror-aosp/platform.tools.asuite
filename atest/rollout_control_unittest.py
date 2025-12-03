@@ -35,7 +35,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
         owners=owners or [],
     )
 
-  @mock.patch('atest.rollout_control.hashlib.sha256')
+  @mock.patch('atest.rollout_control.hashlib.sha256', autospec=True)
   def test_is_enabled_username_hash_is_greater_than_rollout_percentage_returns_false(
       self, mock_sha256
   ):
@@ -51,7 +51,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
     feature = self._create_feature(rollout_percentage=49)
     self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
 
-  @mock.patch('atest.rollout_control.hashlib.sha256')
+  @mock.patch('atest.rollout_control.hashlib.sha256', autospec=True)
   def test_is_enabled_username_hash_is_equal_to_rollout_percentage_returns_false(
       self, mock_sha256
   ):
@@ -61,7 +61,7 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
     feature = self._create_feature(rollout_percentage=50)
     self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
 
-  @mock.patch('atest.rollout_control.hashlib.sha256')
+  @mock.patch('atest.rollout_control.hashlib.sha256', autospec=True)
   def test_is_enabled_username_hash_is_less_than_rollout_percentage_returns_true(
       self, mock_sha256
   ):
