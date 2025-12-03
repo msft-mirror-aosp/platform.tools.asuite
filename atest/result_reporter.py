@@ -271,8 +271,8 @@ class ResultReporter:
     print('\n', runner_name, '\n', '-' * len(runner_name), sep='')
     print(
         au.mark_red(
-            'Runner encountered a critical failure. Skipping.\nFAILURE: %s'
-            % failure_msg
+            'Runner encountered a critical failure. Skipping.\nFAILURE:'
+            f' {failure_msg}'
         )
     )
 
@@ -417,10 +417,7 @@ class ResultReporter:
         else:
           print(au.mark_green('All tests passed!'))
       else:
-        message = '%d %s failed' % (
-            failed_sum,
-            'tests' if failed_sum > 1 else 'test',
-        )
+        message = f'{failed_sum} {"tests" if failed_sum > 1 else "test"} failed'
         print(au.mark_red(message))
         print('-' * len(message))
         self.print_failed_tests()
@@ -432,7 +429,7 @@ class ResultReporter:
     # unexpected exceptions.
     # TODO: b/174627499 - Saving this information in atest history.
     if self.test_result_link:
-      print('Test Result uploaded to %s' % au.mark_green(self.test_result_link))
+      print(f'Test Result uploaded to {au.mark_green(self.test_result_link)}')
     return tests_ret
 
   def print_collect_tests(self):
@@ -600,15 +597,11 @@ class ResultReporter:
       return
     if not self.pre_test or (test.test_run_name != self.pre_test.test_run_name):
       print(
-          '%s (%s %s)'
-          % (
-              au.mark_blue(test.test_run_name),
-              test.group_total,
-              'Test' if test.group_total == 1 else 'Tests',
-          )
+          f'{au.mark_blue(test.test_run_name)} ({test.group_total} '
+          f'{"Test" if test.group_total == 1 else "Tests"})'
       )
     if test.status == test_runner_base.ERROR_STATUS:
-      print('RUNNER ERROR: %s\n' % test.details)
+      print(f'RUNNER ERROR: {test.details}\n')
       self.pre_test = test
       return
     if test.test_name:
@@ -634,7 +627,7 @@ class ResultReporter:
       if self.collect_only:
         print()
       else:
-        print(': {} {}'.format(au.colorize(test.status, color), test.test_time))
+        print(f': {au.colorize(test.status, color)} {test.test_time}')
       if test.status == test_runner_base.PASSED_STATUS:
         metric_printer.PerfInfo.print_banchmark_result(test)
       if test.status == test_runner_base.FAILED_STATUS:
