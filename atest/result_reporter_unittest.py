@@ -143,9 +143,15 @@ class ResultReporterUnittests(unittest.TestCase):
         self.rr, RESULT_PASSED_TEST_RUNNER_2_NO_MODULE
     )
 
-  @mock.patch.object(result_reporter.ResultReporter, '_print_group_title')
-  @mock.patch.object(result_reporter.ResultReporter, '_update_stats')
-  @mock.patch.object(result_reporter.ResultReporter, '_print_result')
+  @mock.patch.object(
+      result_reporter.ResultReporter, '_print_group_title', autospec=True
+  )
+  @mock.patch.object(
+      result_reporter.ResultReporter, '_update_stats', autospec=True
+  )
+  @mock.patch.object(
+      result_reporter.ResultReporter, '_print_result', autospec=True
+  )
   def test_process_test_result_class_level_report(
       self, mock_print, mock_update, mock_title
   ):
@@ -159,9 +165,9 @@ class ResultReporterUnittests(unittest.TestCase):
         'someTestModule:someClassName', reporter.runners['someTestRunner']
     )
     group = reporter.runners['someTestRunner']['someTestModule:someClassName']
-    mock_title.assert_called_with(RESULT_PASSED_TEST)
-    mock_update.assert_called_with(RESULT_PASSED_TEST, group)
-    mock_print.assert_called_with(RESULT_PASSED_TEST)
+    mock_title.assert_called_with(reporter, RESULT_PASSED_TEST)
+    mock_update.assert_called_with(reporter, RESULT_PASSED_TEST, group)
+    mock_print.assert_called_with(reporter, RESULT_PASSED_TEST)
 
   def test_print_result_run_name(self):
     """Test print run name function in print_result method."""
