@@ -359,7 +359,7 @@ class ResultReporter:
       device_detail = '(Test executed with 1 device.)'
     else:
       device_detail = f'(Test executed with {self.device_count} devices.)'
-    print('\n{}'.format(au.mark_cyan(f'Summary {device_detail}')))
+    print(f'{au.mark_cyan(f"Summary {device_detail}")}\n')
     print(au.delimiter('-', 7))
 
     multi_iterations = len(ITER_SUMMARY) > 1
