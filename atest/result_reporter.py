@@ -628,9 +628,7 @@ class ResultReporter:
         # Example: [26/92] test_name: FAILED (32ms)
         color = constants.RED
       print(
-          '[{}/{}] {}'.format(
-              test.test_count, test.group_total, test.test_name
-          ),
+          f'[{test.test_count}/{test.group_total}] {test.test_name}',
           end='',
       )
       if self.collect_only:
