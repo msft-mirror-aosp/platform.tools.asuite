@@ -82,14 +82,12 @@ def trim_comments(content):
     else:
       code_lines = []
       suffix, comment_ended = _handle_block_comment_line(
-          line[index + len(CCCommentType.BLOCK_COMMENT) :]
+          line[index + len(comment_type) :]
       )
 
       # Replace each character in the comment by a single space including
       # '/*' and '*/'.
-      code_line = (
-          f'{line[:index]}{" " * len(CCCommentType.BLOCK_COMMENT)}{suffix}'
-      )
+      code_line = f'{line[:index]}{" " * len(comment_type)}{suffix}'
       code_lines.append(code_line)
       while not comment_ended and lines:
         code_line, comment_ended = _handle_block_comment_line(lines.popleft())
@@ -103,14 +101,30 @@ def trim_comments(content):
 
 
 def _handle_block_comment_line(line):
-  head, sep, tail = line.partition(BLOCK_COMMENT_END)
-  if sep:
-    return ' ' * (len(head) + len(sep)) + tail, True
+  """Parses a line inside a block comment.
 
-  return ' ' * len(line), False
+  Args:
+      line: The content of the line starting from the comment block.
+
+  Returns:
+      A tuple of (processed_line, is_comment_ended).
+      The processed_line has the comment part replaced with spaces.
+      is_comment_ended is True if the block comment ends in this line.
+  """
+  _, sep, tail = line.partition(BLOCK_COMMENT_END)
+  return tail.rjust(len(line)), bool(sep)
 
 
 def _get_comment_type(line):
+  """Returns the first comment type found in the line.
+
+  Args:
+      line: The line content.
+
+  Returns:
+      A tuple of (CCCommentType, index).
+      Returns (None, -1) if no comment is found.
+  """
   line_comment_idx = line.find(CCCommentType.LINE_COMMENT.value)
   block_comment_idx = line.find(CCCommentType.BLOCK_COMMENT.value)
 
@@ -125,6 +139,15 @@ def _get_comment_type(line):
 
 
 def _parse_class_method_reference(class_method_reference):
+  """Parses the class method reference argument.
+
+  Args:
+      class_method_reference: string in format 'Class#Method1,Method2' or
+        'Class'.
+
+  Returns:
+      A tuple of (class_name, list_of_methods).
+  """
   class_name, separator, methods_str = class_method_reference.partition('#')
 
   if not separator:
@@ -171,7 +194,9 @@ def _get_test_filters(class_method_references, class_files):
 
 def main():
   parser = argparse.ArgumentParser()
-  parser.add_argument('--out', required=True, help='Write output to <file>')
+  parser.add_argument(
+      '--out', required=True, type=Path, help='Write output to <file>'
+  )
   parser.add_argument(
       '--class-file',
       action='append',
@@ -192,8 +217,7 @@ def main():
         args.class_method_reference, args.class_file
     )
 
-  with open(args.out, 'w', encoding='utf-8') as f:
-    f.write(':'.join(test_filters))
+  args.out.write_text(':'.join(test_filters), encoding='utf-8')
 
 
 if __name__ == '__main__':
