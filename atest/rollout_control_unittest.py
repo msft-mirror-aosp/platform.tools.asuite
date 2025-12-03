@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import hashlib
 import unittest
 from unittest import mock
 from atest import rollout_control
@@ -25,12 +24,6 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   _ENV_CONTROL_FLAG = 'TEST_FEATURE'
   _TEST_USERNAME = 'username'
 
-  @property
-  def _username_hash_mod_100(self):
-    key = f'{self._TEST_USERNAME} {self._FEATURE_NAME}'
-    digest = hashlib.sha256(key.encode('utf-8')).hexdigest()
-    return int(digest, 16) % 100
-
   def _create_feature(
       self, rollout_percentage: float, owners: list[str] | None = None
   ) -> rollout_control.RolloutControlledFeature:
@@ -41,28 +34,40 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
         owners=owners or [],
     )
 
+  @mock.patch('atest.rollout_control.hashlib.sha256')
   def test_is_enabled_username_hash_is_greater_than_rollout_percentage_returns_false(
-      self,
+      self, mock_sha256
   ):
-    feature = self._create_feature(
-        rollout_percentage=self._username_hash_mod_100 - 1
-    )
+    # Set the hash to a known value.
+    # The implementation calls:
+    #   hash_object = hashlib.sha256()
+    #   hash_object.update(...)
+    #   int(hash_object.hexdigest(), 16) % 100
+    # 0x32 is 50. 50 % 100 is 50.
+    mock_sha256.return_value.hexdigest.return_value = '32'
+    
+    # 50 > 49. Returns False.
+    feature = self._create_feature(rollout_percentage=49)
     self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
 
+  @mock.patch('atest.rollout_control.hashlib.sha256')
   def test_is_enabled_username_hash_is_equal_to_rollout_percentage_returns_false(
-      self,
+      self, mock_sha256
   ):
-    feature = self._create_feature(
-        rollout_percentage=self._username_hash_mod_100
-    )
+    mock_sha256.return_value.hexdigest.return_value = '32' # 50
+    
+    # 50 == 50. Returns False.
+    feature = self._create_feature(rollout_percentage=50)
     self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
 
+  @mock.patch('atest.rollout_control.hashlib.sha256')
   def test_is_enabled_username_hash_is_less_than_rollout_percentage_returns_true(
-      self,
+      self, mock_sha256
   ):
-    feature = self._create_feature(
-        rollout_percentage=self._username_hash_mod_100 + 1
-    )
+    mock_sha256.return_value.hexdigest.return_value = '32' # 50
+    
+    # 50 < 51. Returns True.
+    feature = self._create_feature(rollout_percentage=51)
     self.assertTrue(feature.is_enabled(self._TEST_USERNAME))
 
   def test_is_enabled_username_undetermined_returns_false(self):
