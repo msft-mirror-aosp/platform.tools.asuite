@@ -207,7 +207,7 @@ class ResultReporterUnittests(unittest.TestCase):
     self.assertEqual(self.rr.failed_tests, [])
     self.assertEqual(group2.passed, 1)
     self.assertEqual(group2.failed, 0)
-    self.assertEqual(group.ignored, 0)
+    self.assertEqual(group2.ignored, 0)
     self.assertFalse(group2.run_errors)
 
   def test_update_stats_failed(self):
