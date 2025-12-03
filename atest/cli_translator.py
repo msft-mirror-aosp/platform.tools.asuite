@@ -17,18 +17,16 @@
 # pylint: disable=too-many-lines
 
 
-from dataclasses import dataclass
+import dataclasses
 import fnmatch
-import functools
 import json
 import logging
 import os
-from pathlib import Path
+import pathlib
 import re
 import sys
 import threading
 import time
-from typing import List
 
 from atest import atest_error
 from atest import atest_utils
@@ -36,7 +34,8 @@ from atest import constants
 from atest import test_finder_handler
 from atest import test_mapping
 from atest.acme import run_affected_triggers_mode
-from atest.atest_enum import DetectType, ExitCode
+from atest.atest_enum import DetectType
+from atest.atest_enum import ExitCode
 from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.test_finders import module_finder
@@ -53,7 +52,6 @@ MAINLINE_LOCAL_DOC = 'go/mainline-local-build'
 
 # Pattern used to identify comments start with '//' or '#' in TEST_MAPPING.
 _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
-_COMMENTS = ('//', '#')
 
 # Finders that do not require module indexing.
 _FINDERS_NOT_REQUIRING_INDEX = frozenset({
@@ -66,19 +64,19 @@ _FINDERS_NOT_REQUIRING_INDEX = frozenset({
 })
 
 
-@dataclass
+@dataclasses.dataclass
 class TestIdentifier:
   """Class that stores test and the corresponding mainline modules (if any)."""
 
   test_name: str
-  module_names: List[str]
-  binary_names: List[str]
+  module_names: list[str]
+  binary_names: list[str]
 
 
 class CLITranslator:
-  """CLITranslator class contains public method translate() and some private
+  """CLITranslator class contains translate() and private helper methods.
 
-  helper methods. The atest tool can call the translate() method with a list
+  The atest tool can call the translate() method with a list
   of strings, each string referencing a test to run. Translate() will
   "translate" this list of test strings into a list of build targets and a
   list of TradeFederation run commands.
@@ -98,7 +96,7 @@ class CLITranslator:
       host=False,
       indexing_thread: threading.Thread = None,
   ):
-    """CLITranslator constructor
+    """CLITranslator constructor.
 
     Args:
         mod_info: ModuleInfo class that has cached module-info.json.
@@ -121,7 +119,6 @@ class CLITranslator:
     self.fuzzy_search = True
     self._indexing_thread = indexing_thread
 
-  @functools.cache
   def _wait_for_index_if_needed(self) -> None:
     """Checks indexing status and wait for it to complete if necessary."""
     if (
@@ -135,7 +132,7 @@ class CLITranslator:
     self._indexing_thread.join()
     metrics.LocalDetectEvent(
         detect_type=DetectType.WAIT_FOR_INDEXING_MS,
-        result=int(round((time.time() - start_wait_for_indexing) * 1000)),
+        result=round((time.time() - start_wait_for_indexing) * 1000),
     )
 
   # pylint: disable=too-many-locals
@@ -143,7 +140,7 @@ class CLITranslator:
   # pylint: disable=too-many-statements
   def _find_test_infos(
       self, test: str, tm_test_detail: test_mapping.TestDetail
-  ) -> List[test_info.TestInfo]:
+  ) -> list[test_info.TestInfo]:
     """Return set of TestInfos based on a given test.
 
     Args:
@@ -157,7 +154,6 @@ class CLITranslator:
     test_find_starts = time.time()
     test_found = False
     test_finders = []
-    test_info_str = ''
     find_test_err_msg = None
     test_identifier = parse_test_identifier(test)
     test_name = test_identifier.test_name
@@ -168,11 +164,11 @@ class CLITranslator:
     )
 
     for finder in find_methods:
-      # Ideally whether a find method requires indexing should be defined within the
-      # finder class itself. However the current finder class design prevent
-      # us from defining property without a bigger change. Here we use a set
-      # to specify the finders that doesn't require indexing and leave the
-      # class redesign work for future work.
+      # Ideally whether a find method requires indexing should be defined within
+      # the finder class itself. However the current finder class design prevent
+      # us from defining property without a bigger change. Here we use a set to
+      # specify the finders that doesn't require indexing and leave the class
+      # redesign work for future work.
       if finder.finder_info not in _FINDERS_NOT_REQUIRING_INDEX:
         self._wait_for_index_if_needed()
 
@@ -205,12 +201,12 @@ class CLITranslator:
           mainline_modules = test_identifier.module_names
           if mainline_modules:
             t_info.test_name = test
-            # TODO(b/261607500): Replace usages of raw_test_name
+            # TODO: b/261607500 - Replace usages of raw_test_name
             # with test_name once we can ensure that it doesn't
             # break any code that expects Mainline modules in the
             # string.
             t_info.raw_test_name = test_name
-            # TODO: remove below statement when soong can also
+            # TODO: b/261607500 - Remove below statement when soong can also
             # parse TestConfig and inject mainline modules information
             # to module-info.
             for mod in mainline_modules:
@@ -227,7 +223,6 @@ class CLITranslator:
         if finder_info == CACHE_FINDER and test_infos:
           test_finders.append(test_infos[0].test_finder)
         test_finders.append(finder_info)
-        test_info_str = ','.join(str(x) for x in found_test_infos)
         break
     if not test_found:
       print(f'No test found for: {atest_utils.mark_red(test)}')
@@ -237,6 +232,7 @@ class CLITranslator:
           test_infos.extend(f_results)
           test_found = True
           test_finders.append(FUZZY_FINDER)
+    test_info_str = ','.join(str(x) for x in test_infos)
     metrics.FindTestFinishEvent(
         duration=metrics_utils.convert_duration(time.time() - test_find_starts),
         success=test_found,
@@ -425,24 +421,11 @@ class CLITranslator:
     Returns:
         Valid json string without comments.
     """
-
-    def _replace(match):
-      """Replace comments if found matching the defined regular
-
-      expression.
-
-      Args:
-          match: The matched regex pattern
-
-      Returns:
-          "" if it matches _COMMENTS, otherwise original string.
-      """
-      if match.group(2):
-        return match.group(2)
-      return ''
-
-    with open(test_mapping_file, encoding='utf-8') as json_file:
-      return ''.join(re.sub(_COMMENTS_RE, _replace, line) for line in json_file)
+    return re.sub(
+        _COMMENTS_RE,
+        lambda m: m.group(2) or '',
+        pathlib.Path(test_mapping_file).read_text(encoding='utf-8'),
+    )
 
   def _read_tests_in_test_mapping(self, test_mapping_file):
     """Read tests from a TEST_MAPPING file.
@@ -459,7 +442,6 @@ class CLITranslator:
     """
     all_tests = {}
     imports = []
-    test_mapping_dict = {}
     try:
       test_mapping_dict = json.loads(self.filter_comments(test_mapping_file))
     except json.JSONDecodeError as e:
@@ -473,7 +455,6 @@ class CLITranslator:
           imports.append(test_mapping.Import(test_mapping_file, import_detail))
       else:
         grouped_tests = all_tests.setdefault(test_group_name, set())
-        tests = []
         for test in test_list:
           if (
               self.enable_file_patterns
@@ -503,8 +484,7 @@ class CLITranslator:
                 f' {atest_utils.mark_green(constants.TEST_MAPPING_SUITES)} for'
                 ' this TEST_MAPPING file to work with TreeHugger.'
             )
-          tests.append(test_mapping.TestDetail(test))
-        grouped_tests.update(tests)
+          grouped_tests.add(test_mapping.TestDetail(test))
     return all_tests, imports
 
   def _get_tests_from_test_mapping_files(self, test_groups, test_mapping_files):
@@ -535,11 +515,12 @@ class CLITranslator:
         grouped_tests = merged_all_tests.setdefault(test_group_name, set())
         grouped_tests.update(test_list)
     tests = set()
-    for test_group in test_groups:
-      tests.update(merged_all_tests.get(test_group, []))
-      if test_group == constants.TEST_GROUP_ALL:
-        for grouped_tests in merged_all_tests.values():
-          tests.update(grouped_tests)
+    if constants.TEST_GROUP_ALL in test_groups:
+      for grouped_tests in merged_all_tests.values():
+        tests.update(grouped_tests)
+    else:
+      for test_group in test_groups:
+        tests.update(merged_all_tests.get(test_group, []))
     return tests, merged_all_tests, all_imports
 
   # pylint: disable=too-many-arguments
@@ -628,8 +609,9 @@ class CLITranslator:
     """Find the tests in TEST_MAPPING files.
 
     Args:
-        args: arg parsed object. exit_if_no_test(s)_found: A flag to exit atest
-          if no test mapping tests found.
+        args: arg parsed object.
+        exit_if_no_test_found: A flag to exit atest if no test mapping tests
+          found.
 
     Returns:
         A tuple of (test_names, test_details_list), where
@@ -685,9 +667,7 @@ class CLITranslator:
     return test_names, test_details_list
 
   def _extract_testable_modules_by_wildcard(self, user_input):
-    """Extract the given string with wildcard symbols to testable
-
-    module names.
+    """Extract the given string with wildcard symbols to testable module names.
 
     Assume the available testable modules is:
         ['Google', 'google', 'G00gle', 'g00gle']
@@ -745,7 +725,7 @@ class CLITranslator:
     )):
       logging.debug('Finding Host Unit Tests...')
       host_unit_tests = test_finder_utils.find_host_unit_tests(
-          self.mod_info, str(Path(os.getcwd()).relative_to(self.root_dir))
+          self.mod_info, str(pathlib.Path.cwd().relative_to(self.root_dir))
       )
       logging.debug('Found host_unit_tests: %s', host_unit_tests)
     # Test details from TEST_MAPPING files
@@ -807,7 +787,7 @@ class CLITranslator:
     return test_infos
 
 
-# TODO: (b/265359291) Raise Exception when the brackets are not in pair.
+# TODO: b/265359291 - Raise Exception when the brackets are not in pair.
 def parse_test_identifier(test: str) -> TestIdentifier:
   """Get mainline module names and binaries information."""
   result = atest_utils.get_test_and_mainline_modules(test)
@@ -815,6 +795,6 @@ def parse_test_identifier(test: str) -> TestIdentifier:
     return TestIdentifier(test, [], [])
   test_name = result.group('test')
   mainline_binaries = result.group('mainline_modules').split('+')
-  mainline_modules = [Path(m).stem for m in mainline_binaries]
+  mainline_modules = [pathlib.Path(m).stem for m in mainline_binaries]
   logging.debug('mainline_modules: %s', mainline_modules)
   return TestIdentifier(test_name, mainline_modules, mainline_binaries)
