@@ -97,7 +97,9 @@ class SuitePlanFinderUnittests(unittest.TestCase):
         self, want_info, self.suite_plan_finder._get_test_info_from_path(path)
     )
 
-  @mock.patch.object(test_finder_utils, 'search_integration_dirs')
+  @mock.patch.object(
+      test_finder_utils, 'search_integration_dirs', autospec=True
+  )
   def test_find_test_by_suite_name(self, _search):
     """Test find_test_by_suite_name.
 
@@ -146,10 +148,12 @@ class SuitePlanFinderUnittests(unittest.TestCase):
   @mock.patch(
       'os.path.realpath', side_effect=unittest_utils.realpath_side_effect
   )
-  @mock.patch('os.path.isdir', return_value=True)
-  @mock.patch('os.path.isfile', return_value=True)
-  @mock.patch.object(test_finder_utils, 'get_int_dir_from_path')
-  @mock.patch('os.path.exists', return_value=True)
+  @mock.patch('os.path.isdir', return_value=True, autospec=True)
+  @mock.patch('os.path.isfile', return_value=True, autospec=True)
+  @mock.patch.object(
+      test_finder_utils, 'get_int_dir_from_path', autospec=True
+  )
+  @mock.patch('os.path.exists', return_value=True, autospec=True)
   def test_find_suite_plan_test_by_suite_path(
       self, _exists, _find, _isfile, _isdir, _real
   ):
