@@ -134,8 +134,8 @@ class RunStat:
         passed: Count of passing tests.
         failed: Count of failed tests.
         ignored: Count of ignored tests.
-        assumption_failed: Count of assumption failure tests.
         run_errors: A boolean if there were run errors
+        assumption_failed: Count of assumption failure tests.
     """
     # TODO: b/109822985 - Track group and run estimated totals for updating
     # summary line
