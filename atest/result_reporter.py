@@ -499,7 +499,7 @@ class ResultReporter:
           host_log_content = au.mark_red('\n\nTradefederation host log:\n')
         for tf_log in find_logs:
           if zipfile.is_zipfile(tf_log):
-            host_log_content = host_log_content + au.extract_zip_text(tf_log)
+            host_log_content += au.extract_zip_text(tf_log)
           else:
             with open(tf_log, 'r', encoding='utf-8') as f:
               host_log_content += f.read()
@@ -515,7 +515,7 @@ class ResultReporter:
           )
           with open(log_file, 'r', encoding='utf-8') as f:
             for line in f:
-              print(' ' * 2 + str(line), end='')
+              print(' ' * 2 + line, end='')
     elif stats.failed == 0:
       passed_label = au.mark_green(passed_label)
     temp = ITER_COUNTS.get(name, {})
