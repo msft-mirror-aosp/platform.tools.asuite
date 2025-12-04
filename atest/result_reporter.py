@@ -242,14 +242,14 @@ class ResultReporter:
     Args:
         test: A TestResult namedtuple.
     """
-    self.runners.setdefault(test.runner_name, {})
-    assert self.runners[test.runner_name] != FAILURE_FLAG
+    runner_groups = self.runners.setdefault(test.runner_name, {})
+    assert runner_groups != FAILURE_FLAG
     self.all_test_results.append(test)
     group_name = self._get_group_name(test)
-    if group_name not in self.runners[test.runner_name]:
-      self.runners[test.runner_name][group_name] = RunStat()
+    if group_name not in runner_groups:
+      runner_groups[group_name] = RunStat()
       self._print_group_title(test)
-    self._update_stats(test, self.runners[test.runner_name][group_name])
+    self._update_stats(test, runner_groups[group_name])
     self._print_result(test)
 
   def runner_failure(self, runner_name, failure_msg):
