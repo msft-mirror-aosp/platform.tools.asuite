@@ -351,10 +351,11 @@ class ResultReporter:
       return tests_ret
     if not self.device_count:
       device_detail = ''
-    elif self.device_count == 1:
-      device_detail = '(Test executed with 1 device.)'
     else:
-      device_detail = f'(Test executed with {self.device_count} devices.)'
+      device_detail = (
+          f'(Test executed with {self.device_count} '
+          f'device{"s" if self.device_count > 1 else ""}.)'
+      )
     print(f'{au.mark_cyan(f"Summary {device_detail}")}\n')
     print(au.delimiter('-', 7))
 
