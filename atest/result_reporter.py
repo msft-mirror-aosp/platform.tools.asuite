@@ -104,8 +104,6 @@ WmTests:com.android.tradefed.targetprep.UnitTests: Passed: 0, Failed: 0
 (Completed With ERRORS)
 """
 
-from __future__ import print_function
-
 import os
 import zipfile
 
