@@ -327,16 +327,17 @@ class ResultReporter:
     summary_list.extend(run_summary)
     ITER_SUMMARY[iteration_num] = summary_list
 
-  def get_iterations_summary(self) -> None:
+  def get_iterations_summary(self) -> str:
     """Print the combined summary of all the iterations."""
-    total_summary = ''
+    summary_lines = []
     for key, value in ITER_COUNTS.items():
-      total_summary += (
+      summary_lines.append(
           f'{key}: Passed: {value.get("passed", 0)}, Failed:'
           f' {value.get("failed", 0)}, Ignored: {value.get("ignored", 0)},'
-          f' Assumption_failed: {value.get("assumption_failed", 0)}\n'
+          f' Assumption_failed: {value.get("assumption_failed", 0)}'
       )
-    return f"{au.delimiter('-', 7)}\nITERATIONS RESULT\n{total_summary}"
+    total_summary = '\n'.join(summary_lines)
+    return f"{au.delimiter('-', 7)}\nITERATIONS RESULT\n{total_summary}\n"
 
   # pylint: disable=too-many-branches
   def print_summary(self):
