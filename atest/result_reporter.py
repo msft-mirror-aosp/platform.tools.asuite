@@ -264,7 +264,7 @@ class ResultReporter:
     """
     self.runners[runner_name] = FAILURE_FLAG
 
-    print('\n', runner_name, '\n', '-' * len(runner_name), sep='')
+    print(f'\n{runner_name}\n{"-" * len(runner_name)}')
     print(
         au.mark_red(
             'Runner encountered a critical failure. Skipping.\nFAILURE:'
@@ -290,7 +290,7 @@ class ResultReporter:
     """
     assert runner_name not in self.runners
     self.runners[runner_name] = UNSUPPORTED_FLAG
-    print('\n', runner_name, '\n', '-' * len(runner_name), sep='')
+    print(f'\n{runner_name}\n{"-" * len(runner_name)}')
     print(
         'This runner does not support normal results formatting. Below '
         'is the raw output of the test runner.\n\nRAW OUTPUT:'
