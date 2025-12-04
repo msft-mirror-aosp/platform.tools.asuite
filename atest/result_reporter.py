@@ -242,8 +242,7 @@ class ResultReporter:
     Args:
         test: A TestResult namedtuple.
     """
-    if test.runner_name not in self.runners:
-      self.runners[test.runner_name] = {}
+    self.runners.setdefault(test.runner_name, {})
     assert self.runners[test.runner_name] != FAILURE_FLAG
     self.all_test_results.append(test)
     group_name = self._get_group_name(test)
