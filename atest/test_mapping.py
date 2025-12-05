@@ -22,8 +22,6 @@ import re
 from atest import atest_utils
 from atest import constants
 
-TEST_MAPPING = 'TEST_MAPPING'
-
 
 class TestDetail:
   """Stores the test details set in a TEST_MAPPING file."""
