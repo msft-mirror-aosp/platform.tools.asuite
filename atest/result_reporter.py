@@ -515,12 +515,8 @@ class ResultReporter:
     elif stats.failed == 0:
       passed_label = au.mark_green(passed_label)
     temp = ITER_COUNTS.setdefault(name, {})
-    temp['passed'] = temp.get('passed', 0) + stats.passed
-    temp['failed'] = temp.get('failed', 0) + stats.failed
-    temp['ignored'] = temp.get('ignored', 0) + stats.ignored
-    temp['assumption_failed'] = (
-        temp.get('assumption_failed', 0) + stats.assumption_failed
-    )
+    for key in ['passed', 'failed', 'ignored', 'assumption_failed']:
+      temp[key] = temp.get(key, 0) + getattr(stats, key)
 
     summary_name = f'{name}:{test_run_name}' if test_run_name else name
     summary = (
