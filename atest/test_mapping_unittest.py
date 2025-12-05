@@ -60,13 +60,13 @@ class TestMappingUnittests(unittest.TestCase):
   def test_is_match_file_patterns(self, mock_modified_files):
     """Test mathod is_match_file_patterns."""
     test_mapping_file = ''
-    test_detail = {
+    test_detail = test_mapping.TestDetail({
         'name': 'Test',
         'file_patterns': [
             '(/|^)test_fp1[^/]*\\.java',
             '(/|^)test_fp2[^/]*\\.java',
         ],
-    }
+    })
     mock_modified_files.return_value = {
         '/a/b/test_fp122.java',
         '/a/b/c/d/test_fp222.java',

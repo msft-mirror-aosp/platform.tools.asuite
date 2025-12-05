@@ -136,7 +136,7 @@ def is_match_file_patterns(test_mapping_file, test_detail):
   # Only check if the altered files are located in the same or sub directory
   # of the TEST_MAPPING file. Extract the relative path of the modified files
   # which match file patterns.
-  file_patterns = test_detail.get('file_patterns', [])
+  file_patterns = test_detail.file_patterns
   if not file_patterns:
     return True
   test_mapping_dir = os.path.dirname(test_mapping_file)
