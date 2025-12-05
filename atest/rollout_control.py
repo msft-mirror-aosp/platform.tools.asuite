@@ -26,6 +26,9 @@ from atest import atest_utils
 from atest.metrics import metrics
 
 
+_ENABLED_VALUES = {'true', '1'}
+
+
 @functools.cache
 def _get_project_owners() -> list[str]:
   """Returns the owners of the feature."""
@@ -55,7 +58,7 @@ class RolloutControlledFeature:
       name: str,
       rollout_percentage: float,
       env_control_flag: str,
-      feature_id: int = None,
+      feature_id: int | None = None,
       owners: list[str] | None = None,
       print_message: str | None = None,
   ):
@@ -77,12 +80,11 @@ class RolloutControlledFeature:
     """
     if rollout_percentage < 0 or rollout_percentage > 100:
       raise ValueError(
-          'Rollout percentage must be in [0, 100]. Got %s instead.'
-          % rollout_percentage
+          f'Rollout percentage must be in [0, 100]. Got {rollout_percentage} instead.'
       )
     if feature_id is not None and feature_id <= 0:
       raise ValueError(
-          'Feature ID must be a positive integer. Got %s instead.' % feature_id
+          f'Feature ID must be a positive integer. Got {feature_id} instead.'
       )
     if owners is None:
       owners = _get_project_owners()
@@ -99,9 +101,10 @@ class RolloutControlledFeature:
     Returns:
         True if the feature is enabled, False if disabled, None if not set.
     """
-    if self._env_control_flag not in os.environ:
+    flag_value = os.getenv(self._env_control_flag)
+    if flag_value is None:
       return None
-    return os.environ[self._env_control_flag] in ('TRUE', 'True', 'true', '1')
+    return flag_value.lower() in _ENABLED_VALUES
 
   def _is_enabled_for_user(self, username: str | None) -> bool:
     """Checks whether the feature is enabled for the user.
@@ -121,8 +124,7 @@ class RolloutControlledFeature:
 
     if not username:
       logging.debug(
-          'Unable to determine the username. Disabling the feature %s.',
-          self._name,
+          f'Unable to determine the username. Disabling the feature {self._name}.'
       )
       return False
 
@@ -130,7 +132,7 @@ class RolloutControlledFeature:
       return True
 
     hash_object = hashlib.sha256()
-    hash_object.update((username + ' ' + self._name).encode('utf-8'))
+    hash_object.update(f'{username} {self._name}'.encode('utf-8'))
     return int(hash_object.hexdigest(), 16) % 100 < self._rollout_percentage
 
   @functools.cache
@@ -153,11 +155,12 @@ class RolloutControlledFeature:
           self._env_control_flag,
       )
       if self._feature_id:
+        feature_result = (
+            self._feature_id if override_flag_value else -self._feature_id
+        )
         metrics.LocalDetectEvent(
             detect_type=atest_enum.DetectType.ROLLOUT_CONTROLLED_FEATURE_ID_OVERRIDE,
-            result=self._feature_id
-            if override_flag_value
-            else -self._feature_id,
+            result=feature_result,
         )
       return override_flag_value
 
@@ -187,11 +190,7 @@ rolling_tf_subprocess_output = RolloutControlledFeature(
     rollout_percentage=100,
     env_control_flag='ROLLING_TF_SUBPROCESS_OUTPUT',
     feature_id=2,
-    print_message=(
-        atest_utils.mark_magenta(
-            'Rolling subprocess output feature is enabled.'
-        )
-    ),
+    print_message='Rolling subprocess output feature is enabled.',
 )
 
 tf_preparer_incremental_setup = RolloutControlledFeature(
@@ -199,9 +198,5 @@ tf_preparer_incremental_setup = RolloutControlledFeature(
     rollout_percentage=100,
     env_control_flag='TF_PREPARER_INCREMENTAL_SETUP',
     feature_id=3,
-    print_message=(
-        atest_utils.mark_magenta(
-            'Incremental APK installation is enabled (b/381900378).'
-        )
-    ),
+    print_message='Incremental APK installation is enabled (b/381900378).',
 )
