@@ -70,7 +70,16 @@ _COMMON_MODULE_CLASS_REF_TYPES = [
     REF_TYPE.CONFIG,
     REF_TYPE.SUITE_PLAN,
     REF_TYPE.CLASS,
+
     REF_TYPE.CC_CLASS,
+]
+
+
+_COMMON_PACKAGE_REF_TYPES = [
+    REF_TYPE.CACHE,
+    REF_TYPE.MODULE,
+    REF_TYPE.QUALIFIED_CLASS,
+    REF_TYPE.PACKAGE,
 ]
 
 
@@ -139,21 +148,11 @@ class TestFinderHandlerUnittests(unittest.TestCase):
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('some.package'),
-        [
-            REF_TYPE.CACHE,
-            REF_TYPE.MODULE,
-            REF_TYPE.QUALIFIED_CLASS,
-            REF_TYPE.PACKAGE,
-        ],
+        _COMMON_PACKAGE_REF_TYPES,
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('fully.q.Class'),
-        [
-            REF_TYPE.CACHE,
-            REF_TYPE.MODULE,
-            REF_TYPE.QUALIFIED_CLASS,
-            REF_TYPE.PACKAGE,
-        ],
+        _COMMON_PACKAGE_REF_TYPES
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('Integration.xml'),
