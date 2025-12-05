@@ -59,6 +59,15 @@ _FINDER_INSTANCES = {
 }
 
 
+_MOCK_DEFAULT_FIND_METHODS = [
+    test_finder_base.Finder(
+        _FINDER_INSTANCES[ExampleFinderA.NAME],
+        ExampleFinderA.unregistered_find_method_from_example_finder,
+        ExampleFinderA.NAME,
+    )
+]
+
+
 _COMMON_MODULE_CLASS_REF_TYPES = [
     REF_TYPE.CACHE,
     REF_TYPE.MODULE,
@@ -111,13 +120,7 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         mock.patch(
             'atest.test_finder_handler._get_default_find_methods',
             autospec=True,
-            side_effect=lambda x, y: [
-                test_finder_base.Finder(
-                    _FINDER_INSTANCES[ExampleFinderA.NAME],
-                    ExampleFinderA.unregistered_find_method_from_example_finder,
-                    ExampleFinderA.NAME,
-                )
-            ],
+            return_value=_MOCK_DEFAULT_FIND_METHODS,
         )
     )
 
