@@ -67,7 +67,7 @@ class TestDetail:
     if not self.options:
       return f'{self.name}{host_info}'
     options_str = ', '.join(
-        [f'{k}:' if not v else f'{k}: {v}' for k, v in self.options]
+        [f'{k}: {v}' if v else f'{k}:' for k, v in self.options]
     )
 
     return f'{self.name} ({options_str}){host_info}'
