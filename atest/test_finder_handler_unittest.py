@@ -124,9 +124,6 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         )
     )
 
-  def tearDown(self):
-    """Tear down."""
-
   def test_get_test_reference_types(self):
     """Test _get_test_reference_types parses reference types correctly."""
     self.assertEqual(
