@@ -603,14 +603,16 @@ class ResultReporter:
       return
     if test.test_name:
       color = self.STATUS_COLORS.get(test.status, constants.RED)
-      print(
-          f'[{test.test_count}/{test.group_total}] {test.test_name}',
-          end='',
+      test_name_part = (
+          f'[{test.test_count}/{test.group_total}] {test.test_name}'
       )
       if self.collect_only:
-        print()
+        print(test_name_part)
       else:
-        print(f': {au.colorize(test.status, color)} {test.test_time}')
+        print(
+            f'{test_name_part}:'
+            f' {au.colorize(test.status, color)} {test.test_time}'
+        )
       if test.status == test_runner_base.PASSED_STATUS:
         metric_printer.PerfInfo.print_banchmark_result(test)
       if test.status == test_runner_base.FAILED_STATUS:
