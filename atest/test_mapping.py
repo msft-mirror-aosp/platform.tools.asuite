@@ -15,7 +15,6 @@
 """Classes for test mapping related objects."""
 
 
-import copy
 import fnmatch
 import os
 import re
