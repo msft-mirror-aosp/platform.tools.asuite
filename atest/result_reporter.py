@@ -445,9 +445,8 @@ class ResultReporter:
     Returns:
         0 if all tests collection done.
     """
-    tests_ret = ExitCode.SUCCESS
     if not self.runners:
-      return tests_ret
+      return ExitCode.SUCCESS
     print(f'\n{au.mark_cyan("Summary: "+ constants.COLLECT_TESTS_ONLY)}')
     print(au.delimiter('-', 26))
     for runner_name, groups in self.runners.items():
