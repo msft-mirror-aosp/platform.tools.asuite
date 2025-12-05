@@ -29,7 +29,7 @@ class TestDetail:
   """Stores the test details set in a TEST_MAPPING file."""
 
   def __init__(self, details):
-    """TestDetail constructor.
+    r"""TestDetail constructor.
 
     Parse test detail from a dictionary, e.g.,
     {
