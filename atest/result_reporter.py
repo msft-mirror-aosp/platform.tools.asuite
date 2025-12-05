@@ -275,8 +275,7 @@ class ResultReporter:
     """
     self.runners[runner_name] = FAILURE_FLAG
 
-    print(f'\n{runner_name}')
-    print(au.delimiter('-', len(runner_name)))
+    self._print_header(runner_name)
     print(
         au.mark_red(
             'Runner encountered a critical failure. Skipping.\nFAILURE:'
@@ -302,8 +301,7 @@ class ResultReporter:
     """
     assert runner_name not in self.runners
     self.runners[runner_name] = UNSUPPORTED_FLAG
-    print(f'\n{runner_name}')
-    print(au.delimiter('-', len(runner_name)))
+    self._print_header(runner_name)
     print(
         'This runner does not support normal results formatting. Below '
         'is the raw output of the test runner.\n\nRAW OUTPUT:'
@@ -565,6 +563,15 @@ class ResultReporter:
       group.run_errors = True
     self.run_stats.perf_info.update_perf_info(test)
 
+  def _print_header(self, heading):
+    """Print a header with a delimiter line.
+
+    Args:
+        heading: A string to print as the header.
+    """
+    print(f'\n{heading}')
+    print(au.delimiter('-', len(heading)))
+
   def _print_group_title(self, test):
     """Print the title line for a test group.
 
@@ -577,8 +584,7 @@ class ResultReporter:
     if self.silent:
       return
     title = self._get_group_name(test) or test.runner_name
-    print(f'\n{title}')
-    print(au.delimiter('-', len(title)))
+    self._print_header(title)
 
   # pylint: disable=too-many-branches
   def _print_result(self, test):
