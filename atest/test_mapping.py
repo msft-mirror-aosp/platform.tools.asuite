@@ -57,7 +57,7 @@ class TestDetail:
     options = details.get('options', [])
     for option in options:
       assert len(option) == 1, 'Each option can only have one key.'
-      self.options.append(copy.deepcopy(option).popitem())
+      self.options.append(list(option.items())[0])
     self.options.sort(key=lambda o: o[0])
     self.file_patterns = details.get('file_patterns', [])
 
