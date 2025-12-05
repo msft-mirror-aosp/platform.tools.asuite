@@ -36,7 +36,7 @@ class TestDetail:
         {
           "instrumentation-arg":
               "annotation=android.platform.test.annotations.Presubmit"
-        },
+        }
       ],
       "file_patterns": ["(/|^)Window[^/]*\\.java",
                        "(/|^)Activity[^/]*\\.java"]
