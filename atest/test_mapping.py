@@ -50,7 +50,7 @@ class TestDetail:
     self.options = []
     # True if the test should run on host and require no device.
     self.host = details.get('host', False)
-    assert isinstance(self.host, bool), 'host can only have boolean value.'
+    assert isinstance(self.host, bool), f'host can only have boolean value, got {type(self.host).__name__}: {self.host}'
     options = details.get('options', [])
     for option in options:
       assert len(option) == 1, 'Each option can only have one key.'

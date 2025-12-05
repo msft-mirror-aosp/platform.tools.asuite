@@ -53,7 +53,7 @@ class TestMappingUnittests(unittest.TestCase):
     with self.assertRaises(Exception) as context:
       test_mapping.TestDetail(uc.TEST_MAPPING_TEST_WITH_BAD_HOST_VALUE)
     self.assertEqual(
-        'host can only have boolean value.', str(context.exception)
+        'host can only have boolean value, got str: true', str(context.exception)
     )
 
   @mock.patch('atest.atest_utils.get_modified_files')
