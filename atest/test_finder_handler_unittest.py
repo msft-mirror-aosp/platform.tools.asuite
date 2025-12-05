@@ -84,28 +84,34 @@ class TestFinderHandlerUnittests(unittest.TestCase):
     self.maxDiff = None
     self.empty_mod_info = None
     # We want to control the finders we return.
-    mock.patch(
-        'atest.test_finder_handler._get_test_finders',
-        lambda: _TEST_FINDERS_PATCH,
-    ).start()
+    self.enterContext(
+        mock.patch(
+            'atest.test_finder_handler._get_test_finders',
+            lambda: _TEST_FINDERS_PATCH,
+        )
+    )
     # Since we're going to be comparing instance objects, we'll need to keep
     # track of the objects so they align.
-    mock.patch(
-        'atest.test_finder_handler._get_finder_instance_dict',
-        lambda x: _FINDER_INSTANCES,
-    ).start()
+    self.enterContext(
+        mock.patch(
+            'atest.test_finder_handler._get_finder_instance_dict',
+            lambda x: _FINDER_INSTANCES,
+        )
+    )
     # We want to mock out the default find methods to make sure we got all
     # the methods we expect.
-    mock.patch(
-        'atest.test_finder_handler._get_default_find_methods',
-        lambda x, y: [
-            test_finder_base.Finder(
-                _FINDER_INSTANCES[_EXAMPLE_FINDER_A],
-                ExampleFinderA.unregistered_find_method_from_example_finder,
-                _EXAMPLE_FINDER_A,
-            )
-        ],
-    ).start()
+    self.enterContext(
+        mock.patch(
+            'atest.test_finder_handler._get_default_find_methods',
+            lambda x, y: [
+                test_finder_base.Finder(
+                    _FINDER_INSTANCES[_EXAMPLE_FINDER_A],
+                    ExampleFinderA.unregistered_find_method_from_example_finder,
+                    _EXAMPLE_FINDER_A,
+                )
+            ],
+        )
+    )
 
   def tearDown(self):
     """Tear down."""
