@@ -65,7 +65,7 @@ class TestDetail:
     """String value of the TestDetail object."""
     host_info = ', runs on host without device required.' if self.host else ''
     if not self.options:
-      return self.name + host_info
+      return f'{self.name}{host_info}'
     options_str = ', '.join(
         [f'{k}:' if not v else f'{k}: {v}' for k, v in self.options]
     )
