@@ -111,15 +111,12 @@ class Import:
 
   def get_path(self):
     """Get the path to TEST_MAPPING import directory."""
-    path = os.path.realpath(
-        os.path.join(os.path.dirname(self.test_mapping_file), self.path)
-    )
-    if os.path.exists(path):
-      return path
     root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, os.sep)
-    path = os.path.realpath(os.path.join(root_dir, self.path))
-    if os.path.exists(path):
-      return path
+    search_paths = [os.path.dirname(self.test_mapping_file), root_dir]
+    for search_path in search_paths:
+      path = os.path.realpath(os.path.join(search_path, self.path))
+      if os.path.exists(path):
+        return path
     # The import path can't be located.
     return None
 
