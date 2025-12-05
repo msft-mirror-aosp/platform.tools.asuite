@@ -484,6 +484,17 @@ class ResultReporter:
         host_log_content += Path(tf_log).read_text(encoding='utf-8')
     return host_log_content
 
+  def _update_iter_counts(self, name, stats):
+    """Update the iteration counts with the stats of the current test run.
+
+    Args:
+        name: A string of the test name.
+        stats: A RunStat instance.
+    """
+    temp = ITER_COUNTS.setdefault(name, {})
+    for key in ['passed', 'failed', 'ignored', 'assumption_failed']:
+      temp[key] = temp.get(key, 0) + getattr(stats, key)
+
   def process_summary(self, name, stats, test_run_name=None):
     """Process the summary line.
 
@@ -535,9 +546,7 @@ class ResultReporter:
                 print(' ' * 2 + line, end='')
     elif stats.failed == 0:
       passed_label = au.mark_green(passed_label)
-    temp = ITER_COUNTS.setdefault(name, {})
-    for key in ['passed', 'failed', 'ignored', 'assumption_failed']:
-      temp[key] = temp.get(key, 0) + getattr(stats, key)
+    self._update_iter_counts(name, stats)
 
     summary_name = f'{name}:{test_run_name}' if test_run_name else name
     summary = (
