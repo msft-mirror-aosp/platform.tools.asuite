@@ -199,6 +199,12 @@ class ResultReporter:
             'VtsTradefedTestRunner': {'Module1': RunStat(passed:4, failed:0)}}
   """
 
+  STATUS_COLORS = {
+      test_runner_base.PASSED_STATUS: constants.GREEN,
+      test_runner_base.IGNORED_STATUS: constants.MAGENTA,
+      test_runner_base.ASSUMPTION_FAILED: constants.MAGENTA,
+  }
+
   def __init__(
       self,
       silent=False,
@@ -599,12 +605,7 @@ class ResultReporter:
       self.pre_test = test
       return
     if test.test_name:
-      status_colors = {
-          test_runner_base.PASSED_STATUS: constants.GREEN,
-          test_runner_base.IGNORED_STATUS: constants.MAGENTA,
-          test_runner_base.ASSUMPTION_FAILED: constants.MAGENTA,
-      }
-      color = status_colors.get(test.status, constants.RED)
+      color = self.STATUS_COLORS.get(test.status, constants.RED)
       print(
           f'[{test.test_count}/{test.group_total}] {test.test_name}',
           end='',
