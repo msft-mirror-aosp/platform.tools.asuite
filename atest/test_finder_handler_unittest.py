@@ -87,7 +87,8 @@ class TestFinderHandlerUnittests(unittest.TestCase):
     self.enterContext(
         mock.patch(
             'atest.test_finder_handler._get_test_finders',
-            lambda: _TEST_FINDERS_PATCH,
+            autospec=True,
+            return_value=_TEST_FINDERS_PATCH,
         )
     )
     # Since we're going to be comparing instance objects, we'll need to keep
