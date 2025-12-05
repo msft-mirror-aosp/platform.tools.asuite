@@ -269,7 +269,8 @@ class ResultReporter:
     """
     self.runners[runner_name] = FAILURE_FLAG
 
-    print(f'\n{runner_name}\n{"-" * len(runner_name)}')
+    print(f'\n{runner_name}')
+    print(au.delimiter('-', len(runner_name)))
     print(
         au.mark_red(
             'Runner encountered a critical failure. Skipping.\nFAILURE:'
@@ -295,7 +296,8 @@ class ResultReporter:
     """
     assert runner_name not in self.runners
     self.runners[runner_name] = UNSUPPORTED_FLAG
-    print(f'\n{runner_name}\n{"-" * len(runner_name)}')
+    print(f'\n{runner_name}')
+    print(au.delimiter('-', len(runner_name)))
     print(
         'This runner does not support normal results formatting. Below '
         'is the raw output of the test runner.\n\nRAW OUTPUT:'
@@ -572,8 +574,8 @@ class ResultReporter:
     if self.silent:
       return
     title = self._get_group_name(test) or test.runner_name
-    underline = '-' * (len(title))
-    print(f'\n{title}\n{underline}')
+    print(f'\n{title}')
+    print(au.delimiter('-', len(title)))
 
   # pylint: disable=too-many-branches
   def _print_result(self, test):
