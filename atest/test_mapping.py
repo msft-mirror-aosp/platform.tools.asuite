@@ -65,10 +65,11 @@ class TestDetail:
     host_info = ', runs on host without device required.' if self.host else ''
     if not self.options:
       return self.name + host_info
-    options_str = ', '.join([f'{k}:' if not v else f'{k}: {v}' for k, v in self.options])
+    options_str = ', '.join(
+        [f'{k}:' if not v else f'{k}: {v}' for k, v in self.options]
+    )
 
     return f'{self.name} ({options_str}){host_info}'
-
 
   def __hash__(self):
     """Get the hash of TestDetail based on the details"""
@@ -102,7 +103,7 @@ class Import:
 
   def __str__(self):
     """String value of the Import object."""
-    return 'Source: %s, path: %s' % (self.test_mapping_file, self.path)
+    return f'Source: {self.test_mapping_file}, path: {self.path}'
 
   def get_path(self):
     """Get the path to TEST_MAPPING import directory."""
