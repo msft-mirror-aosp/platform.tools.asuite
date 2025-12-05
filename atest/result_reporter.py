@@ -126,7 +126,12 @@ class RunStat:
   """Class for storing stats of a test run."""
 
   def __init__(
-      self, passed=0, failed=0, ignored=0, run_errors=False, assumption_failed=0
+      self,
+      passed: int = 0,
+      failed: int = 0,
+      ignored: int = 0,
+      run_errors: bool = False,
+      assumption_failed: int = 0,
   ):
     """Initialize a new instance of RunStat class.
 
@@ -444,7 +449,7 @@ class ResultReporter:
     return ExitCode.SUCCESS
 
   def print_failed_tests(self):
-    """Print the failed tests if existed."""
+    """Print the failed tests if any."""
     for test_name in self.failed_tests:
       print(test_name)
 
