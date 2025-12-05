@@ -151,12 +151,15 @@ def is_match_file_patterns(test_mapping_file, test_detail):
           modified_files, os.path.join(test_mapping_dir, '*')
       )
   ]
-  for modified_file in modified_files_in_source_dir:
-    # Force to run the test if it's in a TEST_MAPPING file included in the
-    # changesets.
-    if modified_file == constants.TEST_MAPPING:
-      return True
-    for pattern in file_patterns:
-      if re.search(pattern, modified_file):
-        return True
+  # Force to run the test if it\'s in a TEST_MAPPING file included in the
+  # changesets.
+  if constants.TEST_MAPPING in modified_files_in_source_dir:
+    return True
+  # Check if any modified file matches any of the file patterns.
+  if any(
+      re.search(pattern, modified_file)
+      for modified_file in modified_files_in_source_dir
+      for pattern in file_patterns
+  ):
+    return True
   return False
