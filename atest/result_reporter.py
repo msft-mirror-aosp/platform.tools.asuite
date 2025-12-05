@@ -322,9 +322,7 @@ class ResultReporter:
           test_run_name = None
         summary = self.process_summary(name, stats, test_run_name=test_run_name)
         run_summary.append(summary)
-    summary_list = ITER_SUMMARY.get(iteration_num, [])
-    summary_list.extend(run_summary)
-    ITER_SUMMARY[iteration_num] = summary_list
+    ITER_SUMMARY.setdefault(iteration_num, []).extend(run_summary)
 
   def get_iterations_summary(self) -> str:
     """Print the combined summary of all the iterations."""
