@@ -50,10 +50,15 @@ class TestDetail:
     self.options = []
     # True if the test should run on host and require no device.
     self.host = details.get('host', False)
-    assert isinstance(self.host, bool), f'host can only have boolean value, got {type(self.host).__name__}: {self.host}'
+    if not isinstance(self.host, bool):
+      raise TypeError(
+          f'host can only have boolean value, got {type(self.host).__name__}:'
+          f' {self.host}'
+      )
     options = details.get('options', [])
     for option in options:
-      assert len(option) == 1, 'Each option can only have one key.'
+      if len(option_dict) != 1:
+        raise ValueError('Each option can only have one key.')
       self.options.append(next(iter(option.items())))
     self.options.sort(key=lambda o: o[0])
     self.file_patterns = details.get('file_patterns', [])
