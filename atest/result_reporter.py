@@ -325,6 +325,8 @@ class ResultReporter:
     """Add the given iteration's current summary to the list of its existing summaries."""
     run_summary = []
     for runner_name, groups in self.runners.items():
+      if groups == UNSUPPORTED_FLAG or groups == FAILURE_FLAG:
+        continue
       for group_name, stats in groups.items():
         name = group_name if group_name else runner_name
         # If `name` contains all information in `test_run_name`, do not
