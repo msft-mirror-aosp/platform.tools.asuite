@@ -73,7 +73,9 @@ class TestDetail:
 
   def __hash__(self):
     """Get the hash of TestDetail based on the details"""
-    return hash(str(self))
+    return hash(
+        (self.name, tuple(self.options), self.host, tuple(self.file_patterns))
+    )
 
   def __eq__(self, other):
     return str(self) == str(other)
