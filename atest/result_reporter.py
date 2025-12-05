@@ -14,7 +14,7 @@
 
 # pylint: disable=import-outside-toplevel
 
-"""Result Reporter
+"""Result Reporter.
 
 The result reporter formats and prints test results.
 
