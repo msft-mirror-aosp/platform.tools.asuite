@@ -460,6 +460,30 @@ class ResultReporter:
     if self.failed_tests:
       print('\n'.join(map(str, self.failed_tests)))
 
+  def _get_tf_host_log_content(self, name):
+    """Get the content of the Tradefed host log if applicable.
+
+    Args:
+        name: A string of test name.
+
+    Returns:
+        A string of the host log content.
+    """
+    if name != atest_tf_test_runner.AtestTradefedTestRunner.NAME:
+      return ''
+
+    find_logs = au.find_files(self.log_path, file_name=constants.TF_HOST_LOG)
+    if not find_logs:
+      return ''
+
+    host_log_content = au.mark_red('\n\nTradefederation host log:\n')
+    for tf_log in find_logs:
+      if zipfile.is_zipfile(tf_log):
+        host_log_content += au.extract_zip_text(tf_log)
+      else:
+        host_log_content += Path(tf_log).read_text(encoding='utf-8')
+    return host_log_content
+
   def process_summary(self, name, stats, test_run_name=None):
     """Process the summary line.
 
@@ -496,18 +520,7 @@ class ResultReporter:
         )
       else:
         error_label = au.mark_red('(Completed With ERRORS)')
-      # Only extract host_log_content if test name is tradefed
-      if name == atest_tf_test_runner.AtestTradefedTestRunner.NAME:
-        find_logs = au.find_files(
-            self.log_path, file_name=constants.TF_HOST_LOG
-        )
-        if find_logs:
-          host_log_content = au.mark_red('\n\nTradefederation host log:\n')
-        for tf_log in find_logs:
-          if zipfile.is_zipfile(tf_log):
-            host_log_content += au.extract_zip_text(tf_log)
-          else:
-            host_log_content += Path(tf_log).read_text(encoding='utf-8')
+      host_log_content = self._get_tf_host_log_content(name)
 
       # Print the content for the standard error file for a single module.
       if name and self.log_path:
