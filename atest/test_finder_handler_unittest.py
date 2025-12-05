@@ -96,7 +96,8 @@ class TestFinderHandlerUnittests(unittest.TestCase):
     self.enterContext(
         mock.patch(
             'atest.test_finder_handler._get_finder_instance_dict',
-            lambda x: _FINDER_INSTANCES,
+            autospec=True,
+            return_value=_FINDER_INSTANCES,
         )
     )
     # We want to mock out the default find methods to make sure we got all
