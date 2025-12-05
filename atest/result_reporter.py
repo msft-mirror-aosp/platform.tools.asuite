@@ -104,7 +104,6 @@ WmTests:com.android.tradefed.targetprep.UnitTests: Passed: 0, Failed: 0
 (Completed With ERRORS)
 """
 
-import os
 from pathlib import Path
 import zipfile
 
@@ -517,10 +516,7 @@ class ResultReporter:
         log_name = str(name).split()[1] + '-stderr_*.txt'
         module_logs = au.find_files(self.log_path, file_name=log_name)
         for log_file in module_logs:
-          print(
-              ' ' * 2
-              + au.mark_magenta(f'Logs in {os.path.basename(log_file)}:')
-          )
+          print(' ' * 2 + au.mark_magenta(f'Logs in {Path(log_file).name}:'))
           with open(log_file, 'r', encoding='utf-8') as f:
             for line in f:
               print(' ' * 2 + line, end='')
