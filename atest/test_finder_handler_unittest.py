@@ -105,7 +105,8 @@ class TestFinderHandlerUnittests(unittest.TestCase):
     self.enterContext(
         mock.patch(
             'atest.test_finder_handler._get_default_find_methods',
-            lambda x, y: [
+            autospec=True,
+            side_effect=lambda x, y: [
                 test_finder_base.Finder(
                     _FINDER_INSTANCES[_EXAMPLE_FINDER_A],
                     ExampleFinderA.unregistered_find_method_from_example_finder,
