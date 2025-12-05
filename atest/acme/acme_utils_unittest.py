@@ -118,6 +118,29 @@ class TestAcmeUtilsModule(unittest.TestCase):
     ]
     self.assertCountEqual(expected_test_details, test_details)
 
+  @unittest.mock.patch.object(atest_utils, 'get_build_out_dir', autospec=True)
+  @unittest.mock.patch('builtins.open')
+  @unittest.mock.patch.object(atest_utils, 'build', autospec=True)
+  def test_get_full_test_configs(
+      self, mock_build, mock_open_builtin, mock_get_build_out_dir
+  ):
+    """Tests successful getting the full test-configs artifact."""
+    # Set up mocks.
+    fake_pb_path = '/fake/path/to/test-configs.pb'
+    mock_get_build_out_dir.return_value = fake_pb_path
+    mock_file = unittest.mock.mock_open(
+        read_data=acme_test_constants.SAMPLE_TEST_CONFIG.SerializeToString()
+    )
+    mock_open_builtin.return_value = mock_file.return_value
+
+    # Function call.
+    test_configs = acme_utils.get_full_test_configs()
+
+    # Assertions.
+    self.assertEqual(acme_test_constants.SAMPLE_TEST_CONFIG, test_configs)
+    mock_build.assert_called_once_with([acme_utils.TEST_CONFIGS_BUILD_TARGET])
+    mock_open_builtin.assert_called_once_with(fake_pb_path, 'rb')
+
   def test_get_filtered_test_execution_plans_mixed_scheduling_plans(self):
     """Tests filtering test execution plans by scheduling plan."""
     expected_test_execution_plans = [
@@ -137,6 +160,18 @@ class TestAcmeUtilsModule(unittest.TestCase):
     ]
     test_execution_plans = acme_utils.get_filtered_test_execution_plans(
         acme_test_constants.SAMPLE_TEST_CONFIG,
+        acme_test_constants.SCHEDULING_PLAN.name,
+    )
+    self.assertCountEqual(expected_test_execution_plans, test_execution_plans)
+
+  def test_get_filtered_test_execution_plans_only_references(self):
+    """Tests getting execution plans when test-triggers contain references."""
+    expected_test_execution_plans = [
+        acme_test_constants.INLINE_WORKFLOW_EXECUTION_PLAN,
+        acme_test_constants.TEST_EXECUTION_PLAN,
+    ]
+    test_execution_plans = acme_utils.get_filtered_test_execution_plans(
+        acme_test_constants.SAMPLE_FULL_TEST_CONFIGS,
         acme_test_constants.SCHEDULING_PLAN.name,
     )
     self.assertCountEqual(expected_test_execution_plans, test_execution_plans)
