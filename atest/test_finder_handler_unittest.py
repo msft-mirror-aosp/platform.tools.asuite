@@ -63,6 +63,17 @@ _FINDER_INSTANCES = {
 }
 
 
+_COMMON_MODULE_CLASS_REF_TYPES = [
+    REF_TYPE.CACHE,
+    REF_TYPE.MODULE,
+    REF_TYPE.INTEGRATION,
+    REF_TYPE.CONFIG,
+    REF_TYPE.SUITE_PLAN,
+    REF_TYPE.CLASS,
+    REF_TYPE.CC_CLASS,
+]
+
+
 class TestFinderHandlerUnittests(unittest.TestCase):
   """Unit tests for test_finder_handler.py"""
 
@@ -104,51 +115,19 @@ class TestFinderHandlerUnittests(unittest.TestCase):
     """Test _get_test_reference_types parses reference types correctly."""
     self.assertEqual(
         test_finder_handler._get_test_reference_types('ModuleOrClassName'),
-        [
-            REF_TYPE.CACHE,
-            REF_TYPE.MODULE,
-            REF_TYPE.INTEGRATION,
-            REF_TYPE.CONFIG,
-            REF_TYPE.SUITE_PLAN,
-            REF_TYPE.CLASS,
-            REF_TYPE.CC_CLASS,
-        ],
+        _COMMON_MODULE_CLASS_REF_TYPES,
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('Module_or_Class_name'),
-        [
-            REF_TYPE.CACHE,
-            REF_TYPE.MODULE,
-            REF_TYPE.INTEGRATION,
-            REF_TYPE.CONFIG,
-            REF_TYPE.SUITE_PLAN,
-            REF_TYPE.CLASS,
-            REF_TYPE.CC_CLASS,
-        ],
+        _COMMON_MODULE_CLASS_REF_TYPES,
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('SuiteName'),
-        [
-            REF_TYPE.CACHE,
-            REF_TYPE.MODULE,
-            REF_TYPE.INTEGRATION,
-            REF_TYPE.CONFIG,
-            REF_TYPE.SUITE_PLAN,
-            REF_TYPE.CLASS,
-            REF_TYPE.CC_CLASS,
-        ],
+        _COMMON_MODULE_CLASS_REF_TYPES,
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('Suite-Name'),
-        [
-            REF_TYPE.CACHE,
-            REF_TYPE.MODULE,
-            REF_TYPE.INTEGRATION,
-            REF_TYPE.CONFIG,
-            REF_TYPE.SUITE_PLAN,
-            REF_TYPE.CLASS,
-            REF_TYPE.CC_CLASS,
-        ],
+        _COMMON_MODULE_CLASS_REF_TYPES,
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('some.package'),
