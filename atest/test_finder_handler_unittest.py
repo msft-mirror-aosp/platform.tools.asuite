@@ -97,7 +97,6 @@ class TestFinderHandlerUnittests(unittest.TestCase):
     # This is so we can see the full diffs when there are mismatches.
     self.maxDiff = None
     self.empty_mod_info = None
-    # We want to control the finders we return.
     self.enterContext(
         mock.patch(
             'atest.test_finder_handler._get_test_finders',
@@ -105,8 +104,6 @@ class TestFinderHandlerUnittests(unittest.TestCase):
             return_value=_TEST_FINDERS_PATCH,
         )
     )
-    # Since we're going to be comparing instance objects, we'll need to keep
-    # track of the objects so they align.
     self.enterContext(
         mock.patch(
             'atest.test_finder_handler._get_finder_instance_dict',
@@ -114,8 +111,6 @@ class TestFinderHandlerUnittests(unittest.TestCase):
             return_value=_FINDER_INSTANCES,
         )
     )
-    # We want to mock out the default find methods to make sure we got all
-    # the methods we expect.
     self.enterContext(
         mock.patch(
             'atest.test_finder_handler._get_default_find_methods',
