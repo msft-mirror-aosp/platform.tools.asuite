@@ -105,6 +105,7 @@ WmTests:com.android.tradefed.targetprep.UnitTests: Passed: 0, Failed: 0
 """
 
 import os
+from pathlib import Path
 import zipfile
 
 from atest import atest_enum
@@ -499,8 +500,6 @@ class ResultReporter:
       else:
         error_label = au.mark_red('(Completed With ERRORS)')
       # Only extract host_log_content if test name is tradefed
-      # Import here to prevent circular-import error.
-
       if name == atest_tf_test_runner.AtestTradefedTestRunner.NAME:
         find_logs = au.find_files(
             self.log_path, file_name=constants.TF_HOST_LOG
@@ -511,8 +510,7 @@ class ResultReporter:
           if zipfile.is_zipfile(tf_log):
             host_log_content += au.extract_zip_text(tf_log)
           else:
-            with open(tf_log, 'r', encoding='utf-8') as f:
-              host_log_content += f.read()
+            host_log_content += Path(tf_log).read_text(encoding='utf-8')
 
       # Print the content for the standard error file for a single module.
       if name and self.log_path and len(str(name).split()) > 1:
