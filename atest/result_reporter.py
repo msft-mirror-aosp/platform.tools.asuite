@@ -459,8 +459,8 @@ class ResultReporter:
 
   def print_failed_tests(self):
     """Print the failed tests if any."""
-    for test_name in self.failed_tests:
-      print(test_name)
+    if self.failed_tests:
+      print('\n'.join(map(str, self.failed_tests)))
 
   def process_summary(self, name, stats, test_run_name=None):
     """Process the summary line.
