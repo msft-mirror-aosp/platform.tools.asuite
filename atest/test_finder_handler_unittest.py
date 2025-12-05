@@ -28,14 +28,11 @@ from atest.test_finders import test_finder_base
 from atest.test_finders import test_info
 
 
-_EXAMPLE_FINDER_A = 'EXAMPLE_A'
-
-
 @test_finder_base.find_method_register
 class ExampleFinderA(test_finder_base.TestFinderBase):
   """Example finder class A."""
 
-  NAME = _EXAMPLE_FINDER_A
+  NAME = 'EXAMPLE_A'
   _TEST_RUNNER = 'TEST_RUNNER'
 
   @test_finder_base.register()
@@ -58,7 +55,7 @@ _TEST_FINDERS_PATCH = {
 
 
 _FINDER_INSTANCES = {
-    _EXAMPLE_FINDER_A: ExampleFinderA(),
+    ExampleFinderA.NAME: ExampleFinderA(),
 }
 
 
@@ -116,9 +113,9 @@ class TestFinderHandlerUnittests(unittest.TestCase):
             autospec=True,
             side_effect=lambda x, y: [
                 test_finder_base.Finder(
-                    _FINDER_INSTANCES[_EXAMPLE_FINDER_A],
+                    _FINDER_INSTANCES[ExampleFinderA.NAME],
                     ExampleFinderA.unregistered_find_method_from_example_finder,
-                    _EXAMPLE_FINDER_A,
+                    ExampleFinderA.NAME,
                 )
             ],
         )
@@ -329,19 +326,19 @@ class TestFinderHandlerUnittests(unittest.TestCase):
     """Test that we get the registered find methods."""
     example_finder_a_instance = test_finder_handler._get_finder_instance_dict(
         self.empty_mod_info
-    )[_EXAMPLE_FINDER_A]
+    )[ExampleFinderA.NAME]
     should_equal = [
         test_finder_base.Finder(
             example_finder_a_instance,
             ExampleFinderA.registered_find_method_from_example_finder,
-            _EXAMPLE_FINDER_A,
+            ExampleFinderA.NAME,
         )
     ]
     should_not_equal = [
         test_finder_base.Finder(
             example_finder_a_instance,
             ExampleFinderA.unregistered_find_method_from_example_finder,
-            _EXAMPLE_FINDER_A,
+            ExampleFinderA.NAME,
         )
     ]
     # Let's make sure we see the registered method.
@@ -362,16 +359,16 @@ class TestFinderHandlerUnittests(unittest.TestCase):
     test = ''
     registered_find_methods = [
         test_finder_base.Finder(
-            _FINDER_INSTANCES[_EXAMPLE_FINDER_A],
+            _FINDER_INSTANCES[ExampleFinderA.NAME],
             ExampleFinderA.registered_find_method_from_example_finder,
-            _EXAMPLE_FINDER_A,
+            ExampleFinderA.NAME,
         )
     ]
     default_find_methods = [
         test_finder_base.Finder(
-            _FINDER_INSTANCES[_EXAMPLE_FINDER_A],
+            _FINDER_INSTANCES[ExampleFinderA.NAME],
             ExampleFinderA.unregistered_find_method_from_example_finder,
-            _EXAMPLE_FINDER_A,
+            ExampleFinderA.NAME,
         )
     ]
     should_equal = registered_find_methods + default_find_methods
