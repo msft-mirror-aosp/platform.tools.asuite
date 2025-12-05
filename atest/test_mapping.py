@@ -46,7 +46,6 @@ class TestDetail:
         details: A dictionary of test detail.
     """
     self.name = details['name']
-    self.options = []
     # True if the test should run on host and require no device.
     self.host = details.get('host', False)
     if not isinstance(self.host, bool):
@@ -55,11 +54,12 @@ class TestDetail:
           f' {self.host}'
       )
     options = details.get('options', [])
-    for option in options:
+    parsed_options = []
+    for option_dict in options:
       if len(option_dict) != 1:
         raise ValueError('Each option can only have one key.')
-      self.options.append(next(iter(option.items())))
-    self.options.sort(key=lambda o: o[0])
+      parsed_options.append(next(iter(option_dict.items())))
+    self.options = sorted(parsed_options, key=lambda o: o[0])
     self.file_patterns = details.get('file_patterns', [])
 
   def __str__(self):
