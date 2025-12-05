@@ -145,9 +145,8 @@ def is_match_file_patterns(test_mapping_file, test_detail):
     return False
   modified_files_in_source_dir = [
       os.path.relpath(filepath, test_mapping_dir)
-      for filepath in fnmatch.filter(
-          modified_files, os.path.join(test_mapping_dir, '*')
-      )
+      for filepath in modified_files
+      if filepath.startswith(test_mapping_dir)
   ]
   # Force to run the test if it\'s in a TEST_MAPPING file included in the
   # changesets.
