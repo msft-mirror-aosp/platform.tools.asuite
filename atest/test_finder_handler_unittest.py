@@ -17,7 +17,6 @@
 """Unittests for test_finder_handler."""
 
 # pylint: disable=protected-access
-import argparse
 import unittest
 from unittest import mock
 
