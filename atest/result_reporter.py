@@ -512,14 +512,16 @@ class ResultReporter:
             host_log_content += Path(tf_log).read_text(encoding='utf-8')
 
       # Print the content for the standard error file for a single module.
-      if name and self.log_path and len(str(name).split()) > 1:
-        log_name = str(name).split()[1] + '-stderr_*.txt'
-        module_logs = au.find_files(self.log_path, file_name=log_name)
-        for log_file in module_logs:
-          print(' ' * 2 + au.mark_magenta(f'Logs in {Path(log_file).name}:'))
-          with open(log_file, 'r', encoding='utf-8') as f:
-            for line in f:
-              print(' ' * 2 + line, end='')
+      if name and self.log_path:
+        parts = str(name).split()
+        if len(parts) > 1:
+          log_name = parts[1] + '-stderr_*.txt'
+          module_logs = au.find_files(self.log_path, file_name=log_name)
+          for log_file in module_logs:
+            print(' ' * 2 + au.mark_magenta(f'Logs in {Path(log_file).name}:'))
+            with open(log_file, 'r', encoding='utf-8') as f:
+              for line in f:
+                print(' ' * 2 + line, end='')
     elif stats.failed == 0:
       passed_label = au.mark_green(passed_label)
     temp = ITER_COUNTS.setdefault(name, {})
