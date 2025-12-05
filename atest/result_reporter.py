@@ -599,21 +599,12 @@ class ResultReporter:
       self.pre_test = test
       return
     if test.test_name:
-      color = ''
-      if test.status == test_runner_base.PASSED_STATUS:
-        # Example of output:
-        # [78/92] test_name: PASSED (92ms)
-        color = constants.GREEN
-      elif test.status in (
-          test_runner_base.IGNORED_STATUS,
-          test_runner_base.ASSUMPTION_FAILED,
-      ):
-        # Example: [33/92] test_name: IGNORED (12ms)
-        # Example: [33/92] test_name: ASSUMPTION_FAILED (12ms)
-        color = constants.MAGENTA
-      else:
-        # Example: [26/92] test_name: FAILED (32ms)
-        color = constants.RED
+      status_colors = {
+          test_runner_base.PASSED_STATUS: constants.GREEN,
+          test_runner_base.IGNORED_STATUS: constants.MAGENTA,
+          test_runner_base.ASSUMPTION_FAILED: constants.MAGENTA,
+      }
+      color = status_colors.get(test.status, constants.RED)
       print(
           f'[{test.test_count}/{test.group_total}] {test.test_name}',
           end='',
