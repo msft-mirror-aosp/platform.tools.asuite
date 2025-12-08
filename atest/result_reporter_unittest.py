@@ -18,143 +18,81 @@
 
 
 from io import StringIO
-import sys
 import unittest
 from unittest import mock
-from unittest.mock import patch
 
 from atest import arg_parser
 from atest import atest_configs
 from atest import atest_enum
 from atest import result_reporter
-from atest.test_finders import test_info
 from atest.test_runners import test_runner_base
 
 
-RESULT_PASSED_TEST = test_runner_base.TestResult(
-    runner_name='someTestRunner',
-    group_name='someTestModule',
-    test_name='someClassName#sostName',
-    status=test_runner_base.PASSED_STATUS,
-    details=None,
-    test_count=1,
-    test_time='(10ms)',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
-)
+DEFAULT_ARGS = arg_parser.create_atest_arg_parser().parse_args([])
 
-RESULT_PASSED_TEST_MODULE_2 = test_runner_base.TestResult(
-    runner_name='someTestRunner',
-    group_name='someTestModule2',
-    test_name='someClassName#sostName',
-    status=test_runner_base.PASSED_STATUS,
-    details=None,
-    test_count=1,
-    test_time='(10ms)',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
-)
 
-RESULT_PASSED_TEST_RUNNER_2_NO_MODULE = test_runner_base.TestResult(
+def _test_result(**kwargs):
+  """Helper to create a TestResult with default values."""
+  defaults = {
+      'runner_name': 'someTestRunner',
+      'group_name': 'someTestModule',
+      'test_name': 'someClassName#sostName',
+      'status': test_runner_base.PASSED_STATUS,
+      'details': None,
+      'test_count': 1,
+      'test_time': '(10ms)',
+      'runner_total': None,
+      'group_total': 2,
+      'additional_info': {},
+      'test_run_name': 'com.android.UnitTests',
+  }
+  defaults.update(kwargs)
+  return test_runner_base.TestResult(**defaults)
+
+
+RESULT_PASSED_TEST = _test_result()
+
+RESULT_PASSED_TEST_MODULE_2 = _test_result(group_name='someTestModule2')
+
+RESULT_PASSED_TEST_RUNNER_2_NO_MODULE = _test_result(
     runner_name='someTestRunner2',
     group_name=None,
-    test_name='someClassName#sostName',
-    status=test_runner_base.PASSED_STATUS,
-    details=None,
-    test_count=1,
-    test_time='(10ms)',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
 )
 
-RESULT_FAILED_TEST = test_runner_base.TestResult(
-    runner_name='someTestRunner',
-    group_name='someTestModule',
+RESULT_FAILED_TEST = _test_result(
     test_name='someClassName2#sestName2',
     status=test_runner_base.FAILED_STATUS,
     details='someTrace',
-    test_count=1,
     test_time='',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
 )
 
-RESULT_RUN_FAILURE = test_runner_base.TestResult(
-    runner_name='someTestRunner',
-    group_name='someTestModule',
-    test_name='someClassName#sostName',
+RESULT_RUN_FAILURE = _test_result(
     status=test_runner_base.ERROR_STATUS,
     details='someRunFailureReason',
-    test_count=1,
     test_time='',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
 )
 
-RESULT_RUN_FAILURE_2 = test_runner_base.TestResult(
-    runner_name='someTestRunner',
+RESULT_RUN_FAILURE_2 = _test_result(
     group_name='someTestModule2',
     test_name='someClassName2#sostName2',
     status=test_runner_base.ERROR_STATUS,
     details='someRunFailureReason',
-    test_count=1,
     test_time='',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
 )
 
-RESULT_INVOCATION_FAILURE = test_runner_base.TestResult(
-    runner_name='someTestRunner',
+RESULT_INVOCATION_FAILURE = _test_result(
     group_name=None,
     test_name=None,
     status=test_runner_base.ERROR_STATUS,
     details='someInvocationFailureReason',
-    test_count=1,
     test_time='',
-    runner_total=None,
     group_total=None,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
 )
 
-RESULT_IGNORED_TEST = test_runner_base.TestResult(
-    runner_name='someTestRunner',
-    group_name='someTestModule',
-    test_name='someClassName#sostName',
-    status=test_runner_base.IGNORED_STATUS,
-    details=None,
-    test_count=1,
-    test_time='(10ms)',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
-)
+RESULT_IGNORED_TEST = _test_result(status=test_runner_base.IGNORED_STATUS)
 
-RESULT_ASSUMPTION_FAILED_TEST = test_runner_base.TestResult(
-    runner_name='someTestRunner',
-    group_name='someTestModule',
-    test_name='someClassName#sostName',
-    status=test_runner_base.ASSUMPTION_FAILED,
-    details=None,
-    test_count=1,
-    test_time='(10ms)',
-    runner_total=None,
-    group_total=2,
-    additional_info={},
-    test_run_name='com.android.UnitTests',
+RESULT_ASSUMPTION_FAILED_TEST = _test_result(
+    status=test_runner_base.ASSUMPTION_FAILED
 )
 
 
@@ -166,43 +104,54 @@ class ResultReporterUnittests(unittest.TestCase):
   def setUp(self):
     self.rr = result_reporter.ResultReporter()
 
-  def tearDown(self):
-    mock.patch.stopall()
-
-  @mock.patch.object(result_reporter.ResultReporter, '_print_group_title')
-  @mock.patch.object(result_reporter.ResultReporter, '_update_stats')
-  @mock.patch.object(result_reporter.ResultReporter, '_print_result')
+  @mock.patch.object(
+      result_reporter.ResultReporter, '_print_group_title', autospec=True
+  )
+  @mock.patch.object(
+      result_reporter.ResultReporter, '_update_stats', autospec=True
+  )
+  @mock.patch.object(
+      result_reporter.ResultReporter, '_print_result', autospec=True
+  )
   def test_process_test_result(self, mock_print, mock_update, mock_title):
     """Test process_test_result method."""
     # Passed Test
-    self.assertTrue('someTestRunner' not in self.rr.runners)
+    self.assertNotIn('someTestRunner', self.rr.runners)
     self.rr.process_test_result(RESULT_PASSED_TEST)
-    self.assertTrue('someTestRunner' in self.rr.runners)
-    group = self.rr.runners['someTestRunner'].get('someTestModule')
-    self.assertIsNotNone(group)
-    mock_title.assert_called_with(RESULT_PASSED_TEST)
-    mock_update.assert_called_with(RESULT_PASSED_TEST, group)
-    mock_print.assert_called_with(RESULT_PASSED_TEST)
+    self.assertIn('someTestRunner', self.rr.runners)
+    self.assertIn('someTestModule', self.rr.runners['someTestRunner'])
+    group = self.rr.runners['someTestRunner']['someTestModule']
+    mock_title.assert_called_with(self.rr, RESULT_PASSED_TEST)
+    mock_update.assert_called_with(self.rr, RESULT_PASSED_TEST, group)
+    mock_print.assert_called_with(self.rr, RESULT_PASSED_TEST)
     # Failed Test
     mock_title.reset_mock()
     self.rr.process_test_result(RESULT_FAILED_TEST)
     mock_title.assert_not_called()
-    mock_update.assert_called_with(RESULT_FAILED_TEST, group)
-    mock_print.assert_called_with(RESULT_FAILED_TEST)
+    mock_update.assert_called_with(self.rr, RESULT_FAILED_TEST, group)
+    mock_print.assert_called_with(self.rr, RESULT_FAILED_TEST)
     # Test with new Group
     mock_title.reset_mock()
     self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
-    self.assertTrue('someTestModule2' in self.rr.runners['someTestRunner'])
-    mock_title.assert_called_with(RESULT_PASSED_TEST_MODULE_2)
+    self.assertIn('someTestModule2', self.rr.runners['someTestRunner'])
+    mock_title.assert_called_with(self.rr, RESULT_PASSED_TEST_MODULE_2)
     # Test with new Runner
     mock_title.reset_mock()
     self.rr.process_test_result(RESULT_PASSED_TEST_RUNNER_2_NO_MODULE)
-    self.assertTrue('someTestRunner2' in self.rr.runners)
-    mock_title.assert_called_with(RESULT_PASSED_TEST_RUNNER_2_NO_MODULE)
+    self.assertIn('someTestRunner2', self.rr.runners)
+    mock_title.assert_called_with(
+        self.rr, RESULT_PASSED_TEST_RUNNER_2_NO_MODULE
+    )
 
-  @mock.patch.object(result_reporter.ResultReporter, '_print_group_title')
-  @mock.patch.object(result_reporter.ResultReporter, '_update_stats')
-  @mock.patch.object(result_reporter.ResultReporter, '_print_result')
+  @mock.patch.object(
+      result_reporter.ResultReporter, '_print_group_title', autospec=True
+  )
+  @mock.patch.object(
+      result_reporter.ResultReporter, '_update_stats', autospec=True
+  )
+  @mock.patch.object(
+      result_reporter.ResultReporter, '_print_result', autospec=True
+  )
   def test_process_test_result_class_level_report(
       self, mock_print, mock_update, mock_title
   ):
@@ -211,70 +160,45 @@ class ResultReporterUnittests(unittest.TestCase):
 
     reporter.process_test_result(RESULT_PASSED_TEST)
 
-    self.assertTrue('someTestRunner' in reporter.runners)
-    group = reporter.runners['someTestRunner'].get(
-        'someTestModule:someClassName'
+    self.assertIn('someTestRunner', reporter.runners)
+    self.assertIn(
+        'someTestModule:someClassName', reporter.runners['someTestRunner']
     )
-    self.assertIsNotNone(group)
-    mock_title.assert_called_with(RESULT_PASSED_TEST)
-    mock_update.assert_called_with(RESULT_PASSED_TEST, group)
-    mock_print.assert_called_with(RESULT_PASSED_TEST)
+    group = reporter.runners['someTestRunner']['someTestModule:someClassName']
+    mock_title.assert_called_with(reporter, RESULT_PASSED_TEST)
+    mock_update.assert_called_with(reporter, RESULT_PASSED_TEST, group)
+    mock_print.assert_called_with(reporter, RESULT_PASSED_TEST)
 
   def test_print_result_run_name(self):
     """Test print run name function in print_result method."""
-    try:
-      rr = result_reporter.ResultReporter()
-      capture_output = StringIO()
-      sys.stdout = capture_output
-      run_name = 'com.android.UnitTests'
-      rr._print_result(
-          test_runner_base.TestResult(
-              runner_name='runner_name',
-              group_name='someTestModule',
-              test_name='someClassName#someTestName',
-              status=test_runner_base.FAILED_STATUS,
-              details='someTrace',
-              test_count=2,
-              test_time='(2h44m36.402s)',
-              runner_total=None,
-              group_total=2,
-              additional_info={},
-              test_run_name=run_name,
+    test_cases = [
+        ('com.android.UnitTests', '(2h44m36.402s)'),
+        ('com.android.UnitTests2', '(2h43m36.402s)'),
+    ]
+    for run_name, test_time in test_cases:
+      with self.subTest(run_name=run_name, test_time=test_time):
+        with mock.patch('sys.stdout', new_callable=StringIO) as capture_output:
+          self.rr._print_result(
+              _test_result(
+                  runner_name='runner_name',
+                  test_name='someClassName#someTestName',
+                  status=test_runner_base.FAILED_STATUS,
+                  details='someTrace',
+                  test_count=2,
+                  test_time=test_time,
+                  test_run_name=run_name,
+              )
           )
-      )
-      # Make sure run name in the first line.
-      capture_output_str = capture_output.getvalue().strip()
-      self.assertTrue(run_name in capture_output_str.split('\n')[0])
-      run_name2 = 'com.android.UnitTests2'
-      capture_output = StringIO()
-      sys.stdout = capture_output
-      rr._print_result(
-          test_runner_base.TestResult(
-              runner_name='runner_name',
-              group_name='someTestModule',
-              test_name='someClassName#someTestName',
-              status=test_runner_base.FAILED_STATUS,
-              details='someTrace',
-              test_count=2,
-              test_time='(2h43m36.402s)',
-              runner_total=None,
-              group_total=2,
-              additional_info={},
-              test_run_name=run_name2,
-          )
-      )
-      # Make sure run name in the first line.
-      capture_output_str = capture_output.getvalue().strip()
-      self.assertTrue(run_name2 in capture_output_str.split('\n')[0])
-    finally:
-      sys.stdout = sys.__stdout__
+          # Make sure run name in the first line.
+          capture_output_str = capture_output.getvalue().strip()
+          self.assertIn(run_name, capture_output_str.split('\n')[0])
 
   def test_register_unsupported_runner(self):
     """Test register_unsupported_runner method."""
     self.rr.register_unsupported_runner('NotSupported')
-    runner = self.rr.runners['NotSupported']
-    self.assertIsNotNone(runner)
-    self.assertEqual(runner, result_reporter.UNSUPPORTED_FLAG)
+    self.assertEqual(
+        self.rr.runners['NotSupported'], result_reporter.UNSUPPORTED_FLAG
+    )
 
   def test_update_stats_passed(self):
     """Test _update_stats method."""
@@ -283,23 +207,23 @@ class ResultReporterUnittests(unittest.TestCase):
     self.rr._update_stats(RESULT_PASSED_TEST, group)
     self.assertEqual(self.rr.run_stats.passed, 1)
     self.assertEqual(self.rr.run_stats.failed, 0)
-    self.assertEqual(self.rr.run_stats.run_errors, False)
+    self.assertFalse(self.rr.run_stats.run_errors)
     self.assertEqual(self.rr.failed_tests, [])
     self.assertEqual(group.passed, 1)
     self.assertEqual(group.failed, 0)
     self.assertEqual(group.ignored, 0)
-    self.assertEqual(group.run_errors, False)
+    self.assertFalse(group.run_errors)
     # Passed Test New Group
     group2 = result_reporter.RunStat()
     self.rr._update_stats(RESULT_PASSED_TEST_MODULE_2, group2)
     self.assertEqual(self.rr.run_stats.passed, 2)
     self.assertEqual(self.rr.run_stats.failed, 0)
-    self.assertEqual(self.rr.run_stats.run_errors, False)
+    self.assertFalse(self.rr.run_stats.run_errors)
     self.assertEqual(self.rr.failed_tests, [])
     self.assertEqual(group2.passed, 1)
     self.assertEqual(group2.failed, 0)
-    self.assertEqual(group.ignored, 0)
-    self.assertEqual(group2.run_errors, False)
+    self.assertEqual(group2.ignored, 0)
+    self.assertFalse(group2.run_errors)
 
   def test_update_stats_failed(self):
     """Test _update_stats method."""
@@ -313,35 +237,35 @@ class ResultReporterUnittests(unittest.TestCase):
     self.rr._update_stats(RESULT_FAILED_TEST, group)
     self.assertEqual(self.rr.run_stats.passed, 2)
     self.assertEqual(self.rr.run_stats.failed, 1)
-    self.assertEqual(self.rr.run_stats.run_errors, False)
+    self.assertFalse(self.rr.run_stats.run_errors)
     self.assertEqual(self.rr.failed_tests, [RESULT_FAILED_TEST.test_name])
     self.assertEqual(group.passed, 1)
     self.assertEqual(group.failed, 1)
     self.assertEqual(group.ignored, 0)
     self.assertEqual(group.total, 2)
     self.assertEqual(group2.total, 1)
-    self.assertEqual(group.run_errors, False)
+    self.assertFalse(group.run_errors)
     # Test Run Failure
     self.rr._update_stats(RESULT_RUN_FAILURE, group)
     self.assertEqual(self.rr.run_stats.passed, 2)
     self.assertEqual(self.rr.run_stats.failed, 1)
-    self.assertEqual(self.rr.run_stats.run_errors, True)
+    self.assertTrue(self.rr.run_stats.run_errors)
     self.assertEqual(self.rr.failed_tests, [RESULT_FAILED_TEST.test_name])
     self.assertEqual(group.passed, 1)
     self.assertEqual(group.failed, 1)
     self.assertEqual(group.ignored, 0)
-    self.assertEqual(group.run_errors, True)
-    self.assertEqual(group2.run_errors, False)
+    self.assertTrue(group.run_errors)
+    self.assertFalse(group2.run_errors)
     # Invocation Failure
     self.rr._update_stats(RESULT_INVOCATION_FAILURE, group)
     self.assertEqual(self.rr.run_stats.passed, 2)
     self.assertEqual(self.rr.run_stats.failed, 1)
-    self.assertEqual(self.rr.run_stats.run_errors, True)
+    self.assertTrue(self.rr.run_stats.run_errors)
     self.assertEqual(self.rr.failed_tests, [RESULT_FAILED_TEST.test_name])
     self.assertEqual(group.passed, 1)
     self.assertEqual(group.failed, 1)
     self.assertEqual(group.ignored, 0)
-    self.assertEqual(group.run_errors, True)
+    self.assertTrue(group.run_errors)
 
   def test_update_stats_ignored_and_assumption_failure(self):
     """Test _update_stats method."""
@@ -361,22 +285,22 @@ class ResultReporterUnittests(unittest.TestCase):
     self.rr._update_stats(RESULT_IGNORED_TEST, group)
     self.assertEqual(self.rr.run_stats.passed, 2)
     self.assertEqual(self.rr.run_stats.failed, 1)
-    self.assertEqual(self.rr.run_stats.run_errors, True)
+    self.assertTrue(self.rr.run_stats.run_errors)
     self.assertEqual(self.rr.failed_tests, [RESULT_FAILED_TEST.test_name])
     self.assertEqual(group.passed, 1)
     self.assertEqual(group.failed, 1)
     self.assertEqual(group.ignored, 1)
-    self.assertEqual(group.run_errors, True)
+    self.assertTrue(group.run_errors)
     # 2nd Ignored Test
     self.rr._update_stats(RESULT_IGNORED_TEST, group)
     self.assertEqual(self.rr.run_stats.passed, 2)
     self.assertEqual(self.rr.run_stats.failed, 1)
-    self.assertEqual(self.rr.run_stats.run_errors, True)
+    self.assertTrue(self.rr.run_stats.run_errors)
     self.assertEqual(self.rr.failed_tests, [RESULT_FAILED_TEST.test_name])
     self.assertEqual(group.passed, 1)
     self.assertEqual(group.failed, 1)
     self.assertEqual(group.ignored, 2)
-    self.assertEqual(group.run_errors, True)
+    self.assertTrue(group.run_errors)
 
     # Assumption_Failure test
     self.rr._update_stats(RESULT_ASSUMPTION_FAILED_TEST, group)
@@ -385,48 +309,37 @@ class ResultReporterUnittests(unittest.TestCase):
     self.rr._update_stats(RESULT_ASSUMPTION_FAILED_TEST, group)
     self.assertEqual(group.assumption_failed, 2)
 
-  @patch('atest.metrics.metrics.LocalDetectEvent')
-  @patch.object(
-      atest_configs,
-      'GLOBAL_ARGS',
-      arg_parser.create_atest_arg_parser().parse_args([]),
-  )
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent', autospec=True)
+  @mock.patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
   def test_print_summary_ret_val(self, mock_detect_event):
     """Test print_summary method's return value."""
     # PASS Case
     self.rr.process_test_result(RESULT_PASSED_TEST)
-    self.assertEqual(0, self.rr.print_summary())
+    self.assertEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     # PASS Case + Fail Case
     self.rr.process_test_result(RESULT_FAILED_TEST)
-    self.assertNotEqual(0, self.rr.print_summary())
+    self.assertNotEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     # PASS Case + Fail Case + PASS Case
     self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
-    self.assertNotEqual(0, self.rr.print_summary())
+    self.assertNotEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     mock_detect_event.assert_not_called()
 
-  @patch.object(
-      atest_configs,
-      'GLOBAL_ARGS',
-      arg_parser.create_atest_arg_parser().parse_args([]),
-  )
-  def test_print_summary_ret_val_err_stat(self):
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent', autospec=True)
+  @mock.patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
+  def test_print_summary_ret_val_err_stat(self, _):
     """Test print_summary method's return value."""
     # PASS Case
     self.rr.process_test_result(RESULT_PASSED_TEST)
-    self.assertEqual(0, self.rr.print_summary())
-    # PASS Case + Fail Case
+    self.assertEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
+    # PASS Case + Run Error Case
     self.rr.process_test_result(RESULT_RUN_FAILURE)
-    self.assertNotEqual(0, self.rr.print_summary())
+    self.assertNotEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     # PASS Case + Fail Case + PASS Case
     self.rr.process_test_result(RESULT_PASSED_TEST_MODULE_2)
-    self.assertNotEqual(0, self.rr.print_summary())
+    self.assertNotEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
 
-  @patch('atest.metrics.metrics.LocalDetectEvent')
-  @patch.object(
-      atest_configs,
-      'GLOBAL_ARGS',
-      arg_parser.create_atest_arg_parser().parse_args([]),
-  )
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent', autospec=True)
+  @mock.patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
   def test_print_summary_ret_val_err_stat2(self, mock_detect_event):
     """Test print_summary method's return value."""
     # PASS Case
@@ -438,35 +351,31 @@ class ResultReporterUnittests(unittest.TestCase):
     # PASS Case + Run Error Case + PASS Case + Run Error Case
     self.rr.process_test_result(RESULT_RUN_FAILURE_2)
 
-    self.assertNotEqual(0, self.rr.print_summary())
+    self.assertNotEqual(atest_enum.ExitCode.SUCCESS, self.rr.print_summary())
     mock_detect_event.assert_called_with(
         detect_type=atest_enum.DetectType.RUN_ERROR_COUNT,
         result=2,
     )
 
-  @patch.object(
-      atest_configs,
-      'GLOBAL_ARGS',
-      arg_parser.create_atest_arg_parser().parse_args([]),
-  )
+  @mock.patch.object(atest_configs, 'GLOBAL_ARGS', DEFAULT_ARGS)
   def test_print_summary_ret_val_err_stat_with_run_error_downgraded(self):
     """Test print_summary method's return value."""
     reporter = result_reporter.ResultReporter(runner_errors_as_warnings=True)
     # PASS Case
     reporter.process_test_result(RESULT_PASSED_TEST)
-    self.assertEqual(0, reporter.print_summary())
+    self.assertEqual(atest_enum.ExitCode.SUCCESS, reporter.print_summary())
     # PASS Case + Fail Case
     reporter.process_test_result(RESULT_RUN_FAILURE)
-    self.assertEqual(0, reporter.print_summary())
+    self.assertEqual(atest_enum.ExitCode.SUCCESS, reporter.print_summary())
     # PASS Case + Fail Case + PASS Case
     reporter.process_test_result(RESULT_PASSED_TEST_MODULE_2)
-    self.assertEqual(0, reporter.print_summary())
+    self.assertEqual(atest_enum.ExitCode.SUCCESS, reporter.print_summary())
 
   def test_collect_tests_only_no_throw(self):
     rr = result_reporter.ResultReporter(collect_only=True)
     rr.process_test_result(RESULT_PASSED_TEST)
 
-    self.assertEqual(0, self.rr.print_collect_tests())
+    self.assertEqual(atest_enum.ExitCode.SUCCESS, rr.print_collect_tests())
 
 
 if __name__ == '__main__':

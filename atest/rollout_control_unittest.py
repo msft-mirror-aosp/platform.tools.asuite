@@ -13,92 +13,93 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Unittests for rollout_control."""
+
+import os
 import unittest
 from unittest import mock
+
 from atest import rollout_control
 
 
 class RolloutControlledFeatureUnittests(unittest.TestCase):
 
+  _FEATURE_NAME = 'test_feature'
+  _ENV_CONTROL_FLAG = 'TEST_FEATURE'
+  _TEST_USERNAME = 'username'
+  _OWNER_USERNAME = 'owner_name'
+  _MOCK_HASH_HEX = '32'
+  # 0x32 is 50. 50 % 100 is 50.
+  _MOCK_HASH_VALUE = int(_MOCK_HASH_HEX, 16) % 100
+
+  def setUp(self) -> None:
+    super().setUp()
+    mock_sha256 = self.enterContext(
+        mock.patch.object(rollout_control.hashlib, 'sha256', autospec=True)
+    )
+    mock_sha256.return_value.hexdigest.return_value = self._MOCK_HASH_HEX
+
+  def _create_feature(
+      self, rollout_percentage: float, owners: list[str] | None = None
+  ) -> rollout_control.RolloutControlledFeature:
+    return rollout_control.RolloutControlledFeature(
+        name=self._FEATURE_NAME,
+        rollout_percentage=rollout_percentage,
+        env_control_flag=self._ENV_CONTROL_FLAG,
+        owners=owners or [],
+    )
+
+  def _assert_enabled_with_env_flag(
+      self, flag_value: str, rollout_percentage: float, expected_enabled: bool
+  ) -> None:
+    feature = self._create_feature(rollout_percentage=rollout_percentage)
+    with mock.patch.dict(os.environ, {self._ENV_CONTROL_FLAG: flag_value}):
+      self.assertEqual(feature.is_enabled(), expected_enabled)
+
   def test_is_enabled_username_hash_is_greater_than_rollout_percentage_returns_false(
       self,
   ):
-    sut = rollout_control.RolloutControlledFeature(
-        name='test_feature',
-        rollout_percentage=66,
-        env_control_flag='TEST_FEATURE',
-    )
-
-    self.assertFalse(sut.is_enabled('username'))
+    # 50 > 49. Returns False.
+    feature = self._create_feature(rollout_percentage=self._MOCK_HASH_VALUE - 1)
+    self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
 
   def test_is_enabled_username_hash_is_equal_to_rollout_percentage_returns_false(
       self,
   ):
-    sut = rollout_control.RolloutControlledFeature(
-        name='test_feature',
-        rollout_percentage=67,
-        env_control_flag='TEST_FEATURE',
-    )
+    # 50 == 50. Returns False.
+    feature = self._create_feature(rollout_percentage=self._MOCK_HASH_VALUE)
+    self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
 
-    self.assertFalse(sut.is_enabled('username'))
-
-  def test_is_enabled_username_hash_is_less_or_equal_than_rollout_percentage_returns_true(
+  def test_is_enabled_username_hash_is_less_than_rollout_percentage_returns_true(
       self,
   ):
-    sut = rollout_control.RolloutControlledFeature(
-        name='test_feature',
-        rollout_percentage=68,
-        env_control_flag='TEST_FEATURE',
-    )
-
-    self.assertTrue(sut.is_enabled('username'))
+    # 50 < 51. Returns True.
+    feature = self._create_feature(rollout_percentage=self._MOCK_HASH_VALUE + 1)
+    self.assertTrue(feature.is_enabled(self._TEST_USERNAME))
 
   def test_is_enabled_username_undetermined_returns_false(self):
-    sut = rollout_control.RolloutControlledFeature(
-        name='test_feature',
-        rollout_percentage=99,
-        env_control_flag='TEST_FEATURE',
-    )
+    feature = self._create_feature(rollout_percentage=99)
+    self.assertFalse(feature.is_enabled(''))
 
-    self.assertFalse(sut.is_enabled(''))
-
-  def test_is_enabled_flag_set_to_true_returns_true(self):
-    sut = rollout_control.RolloutControlledFeature(
-        name='test_feature',
-        rollout_percentage=0,
-        env_control_flag='TEST_FEATURE',
-    )
-
-    with mock.patch.dict('os.environ', {'TEST_FEATURE': 'true'}):
-      self.assertTrue(sut.is_enabled())
-
-  def test_is_enabled_flag_set_to_1_returns_true(self):
-    sut = rollout_control.RolloutControlledFeature(
-        name='test_feature',
-        rollout_percentage=0,
-        env_control_flag='TEST_FEATURE',
-    )
-
-    with mock.patch.dict('os.environ', {'TEST_FEATURE': '1'}):
-      self.assertTrue(sut.is_enabled())
-
-  def test_is_enabled_flag_set_to_false_returns_false(self):
-    sut = rollout_control.RolloutControlledFeature(
-        name='test_feature',
-        rollout_percentage=100,
-        env_control_flag='TEST_FEATURE',
-    )
-
-    with mock.patch.dict('os.environ', {'TEST_FEATURE': 'false'}):
-      self.assertFalse(sut.is_enabled())
+  def test_is_enabled_with_env_control_flag(self):
+    """Tests that the environment control flag overrides the rollout percentage."""
+    test_cases = [
+        ('true', 0, True),
+        ('1', 0, True),
+        ('false', 100, False),
+    ]
+    for flag_value, percentage, expected in test_cases:
+      with self.subTest(flag_value=flag_value, percentage=percentage):
+        self._assert_enabled_with_env_flag(flag_value, percentage, expected)
 
   def test_is_enabled_is_owner_returns_true(self):
-    sut = rollout_control.RolloutControlledFeature(
-        name='test_feature',
-        rollout_percentage=0,
-        env_control_flag='TEST_FEATURE',
-        owners=['owner_name'],
+    feature = self._create_feature(
+        rollout_percentage=0, owners=[self._OWNER_USERNAME]
     )
 
-    self.assertFalse(sut.is_enabled('name'))
-    self.assertTrue(sut.is_enabled('owner_name'))
+    self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
+    self.assertTrue(feature.is_enabled(self._OWNER_USERNAME))
+
+
+if __name__ == '__main__':
+  unittest.main()
