@@ -266,13 +266,15 @@ def _get_test_reference_types(ref):
     ]
   if atest_utils.get_test_and_mainline_modules(ref):
     return [FinderMethod.CACHE, FinderMethod.MAINLINE_MODULE]
-  if '.' in ref:
+
+  has_dot = '.' in ref
+  if has_dot:
     ref_end = ref.rsplit('.', 1)[-1]
     ref_end_is_upper = ref_end[0].isupper()
   # parse_test_reference() will return none empty dictionary if input test
   # reference match $module:$package_class.
   if test_finder_utils.parse_test_reference(ref):
-    if '.' in ref:
+    if has_dot:
       if ref_end_is_upper:
         # Possible types:
         # Module:fully.qualified.Class
@@ -296,7 +298,7 @@ def _get_test_reference_types(ref):
         FinderMethod.MODULE_CLASS,
         FinderMethod.INTEGRATION,
     ]
-  if '.' in ref:
+  if has_dot:
     # The string of ref_end possibly includes specific mathods, e.g.
     # foo.java#method, so let ref_end be the first part of splitting '#'.
     ref_end = ref_end.split('#', 1)[0]
