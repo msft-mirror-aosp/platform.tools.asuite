@@ -47,25 +47,25 @@ class FinderMethod(Enum):
   """An enum object for test finders.
 
   Explanation of FinderMethod:
-  0. MODULE: LOCAL_MODULE or LOCAL_PACKAGE_NAME value in Android.mk/Android.bp.
-  1. MAINLINE_MODULE: module[mod1.apk+mod2.apex] pattern in TEST_MAPPING files.
-  2. CLASS: Names which the same with a ClassName.java/kt file.
-  3. QUALIFIED_CLASS: String like "a.b.c.ClassName".
-  4. MODULE_CLASS: Combo of MODULE and CLASS as "module:class".
-  5. PACKAGE: Package in java file. Same as file path to java file.
-  6. MODULE_PACKAGE: Combo of MODULE and PACKAGE as "module:package".
-  7. MODULE_FILE_PATH: File path to dir of tests or test itself.
-  8. INTEGRATION_FILE_PATH: File path to config xml in one of the 4 integration
+  MODULE: LOCAL_MODULE or LOCAL_PACKAGE_NAME value in Android.mk/Android.bp.
+  MAINLINE_MODULE: module[mod1.apk+mod2.apex] pattern in TEST_MAPPING files.
+  CLASS: Names which the same with a ClassName.java/kt file.
+  QUALIFIED_CLASS: String like "a.b.c.ClassName".
+  MODULE_CLASS: Combo of MODULE and CLASS as "module:class".
+  PACKAGE: Package in java file. Same as file path to java file.
+  MODULE_PACKAGE: Combo of MODULE and PACKAGE as "module:package".
+  MODULE_FILE_PATH: File path to dir of tests or test itself.
+  INTEGRATION_FILE_PATH: File path to config xml in one of the 4 integration
                             config directories.
-  9. INTEGRATION: xml file name in one of the 4 integration config directories.
-  10. SUITE: Value of the "run-suite-tag" in xml config file in 4 config dirs.
+  INTEGRATION: xml file name in one of the 4 integration config directories.
+  SUITE: Value of the "run-suite-tag" in xml config file in 4 config dirs.
              Same as value of "test-suite-tag" in AndroidTest.xml files.
-  11. CC_CLASS: Test case in cc file.
-  12. SUITE_PLAN: Suite name such as cts.
-  13. SUITE_PLAN_FILE_PATH: File path to config xml in the suite config
+  CC_CLASS: Test case in cc file.
+  SUITE_PLAN: Suite name such as cts.
+  SUITE_PLAN_FILE_PATH: File path to config xml in the suite config
                             directories.
-  14. CACHE: A pseudo type that runs cache_finder without finding test in real.
-  15: CONFIG: Find tests by the given AndroidTest.xml file path.
+  CACHE: A pseudo type that runs cache_finder without finding test in real.
+  CONFIG: Find tests by the given AndroidTest.xml file path.
   """
 
   MODULE = (
