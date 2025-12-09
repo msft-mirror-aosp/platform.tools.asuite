@@ -176,7 +176,12 @@ class EventHandler:
     )
 
   def _invocation_ended(self, event_data):
-    self.reporter.device_count = event_data.get('device_count', None)
+    device_count = event_data.get('device_count', None)
+    try:
+      self.reporter.device_count = int(device_count) if device_count else 0
+    except:
+      logging.error('Unrecognized device count: %s', device_count)
+      self.reporter.device_count = 0
 
   # pylint: disable=unused-argument
   def _run_ended(self, event_data):
