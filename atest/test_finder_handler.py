@@ -215,13 +215,12 @@ _REF_MATCH_WITH_TRAILING_DOT = re.compile(r'[\w.-]+\.$')
 
 def _validate_ref(ref: str):
   # Filter out trailing dot but keeping `.` and `..` in ref.
-  if '..' not in ref:
-    if _REF_MATCH_WITH_TRAILING_DOT.match(ref):
-      atest_utils.colorful_print(
-          f'Found trailing dot({ref}). Please correct it and try again.',
-          constants.RED,
-      )
-      sys.exit(ExitCode.INPUT_TEST_REFERENCE_ERROR)
+  if '..' not in ref and _REF_MATCH_WITH_TRAILING_DOT.match(ref):
+    atest_utils.colorful_print(
+        f'Found trailing dot({ref}). Please correct it and try again.',
+        constants.RED,
+    )
+    sys.exit(ExitCode.INPUT_TEST_REFERENCE_ERROR)
 
 
 # pylint: disable=too-many-branches
