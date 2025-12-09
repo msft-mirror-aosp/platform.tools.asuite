@@ -194,21 +194,17 @@ def _get_test_reference_types(ref):
       A list of possible REFERENCE_TYPEs (ints) for reference string.
   """
   _validate_ref(ref)
+  file_path_finders = [
+      FinderMethod.CACHE,
+      FinderMethod.MODULE_FILE_PATH,
+      FinderMethod.INTEGRATION_FILE_PATH,
+      FinderMethod.SUITE_PLAN_FILE_PATH,
+  ]
   if ref.startswith('.') or '..' in ref:
-    return [
-        FinderMethod.CACHE,
-        FinderMethod.MODULE_FILE_PATH,
-        FinderMethod.INTEGRATION_FILE_PATH,
-        FinderMethod.SUITE_PLAN_FILE_PATH,
-    ]
+    return file_path_finders
   if '/' in ref:
     if ref.startswith('/'):
-      return [
-          FinderMethod.CACHE,
-          FinderMethod.MODULE_FILE_PATH,
-          FinderMethod.INTEGRATION_FILE_PATH,
-          FinderMethod.SUITE_PLAN_FILE_PATH,
-      ]
+      return file_path_finders
     if ':' in ref:
       return [
           FinderMethod.CACHE,
