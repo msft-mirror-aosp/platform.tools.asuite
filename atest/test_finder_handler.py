@@ -199,6 +199,7 @@ def _get_test_finders():
 
 
 _REF_MATCH_WITH_TRAILING_DOT = re.compile(r'[\w.-]+\.$')
+_SOURCE_CODE_EXTENSIONS = frozenset({'java', 'kt', 'bp', 'mk', 'cc', 'cpp'})
 
 
 def _validate_ref(ref: str):
@@ -285,7 +286,7 @@ def _get_test_reference_types(ref):
     # The string of ref_end possibly includes specific methods, e.g.
     # foo.java#method, so let ref_end be the first part of splitting '#'.
     ref_end = ref_end.split('#', 1)[0]
-    if ref_end in ('java', 'kt', 'bp', 'mk', 'cc', 'cpp'):
+    if ref_end in _SOURCE_CODE_EXTENSIONS:
       return [
           FinderMethod.CACHE,
           FinderMethod.MODULE,
