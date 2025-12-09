@@ -403,6 +403,7 @@ def get_find_methods_for_test(module_info, test):
   """Return a list of ordered find methods.
 
   Args:
+    module_info: ModuleInfo for finder classes to use.
     test: String of test name to get find methods for.
 
   Returns:
