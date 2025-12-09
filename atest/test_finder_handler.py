@@ -138,10 +138,10 @@ def _get_finder_instance_dict(module_info):
   Returns:
       Dict of finder instances keyed by their name.
   """
-  instance_dict = {}
-  for finder in _get_test_finders():
-    instance_dict[finder.NAME] = finder(module_info=module_info)
-  return instance_dict
+  return {
+      finder.NAME: finder(module_info=module_info)
+      for finder in _get_test_finders()
+  }
 
 
 def _get_test_finders():
