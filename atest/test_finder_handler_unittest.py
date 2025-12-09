@@ -319,9 +319,10 @@ class TestFinderHandlerUnittests(unittest.TestCase):
 
   def test_get_registered_find_methods(self):
     """Test that we get the registered find methods."""
-    example_finder_a_instance = test_finder_handler._get_finder_instance_dict(
+    finder_instance_dict = test_finder_handler._get_finder_instance_dict(
         self.empty_mod_info
-    )[ExampleFinderA.NAME]
+    )
+    example_finder_a_instance = finder_instance_dict[ExampleFinderA.NAME]
     should_equal = [
         test_finder_base.Finder(
             example_finder_a_instance,
@@ -339,12 +340,12 @@ class TestFinderHandlerUnittests(unittest.TestCase):
     # Let's make sure we see the registered method.
     self.assertEqual(
         should_equal,
-        test_finder_handler._get_registered_find_methods(self.empty_mod_info),
+        test_finder_handler._get_registered_find_methods(finder_instance_dict),
     )
     # Make sure we don't see the unregistered method here.
     self.assertNotEqual(
         should_not_equal,
-        test_finder_handler._get_registered_find_methods(self.empty_mod_info),
+        test_finder_handler._get_registered_find_methods(finder_instance_dict),
     )
 
   def test_get_find_methods_for_test(self):

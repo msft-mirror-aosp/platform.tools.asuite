@@ -350,7 +350,7 @@ def _get_test_reference_types(ref):
   ]
 
 
-def _get_registered_find_methods(module_info):
+def _get_registered_find_methods(finder_instance_dict):
   """Return list of registered find methods.
 
   This is used to return find methods that were not listed in the
@@ -358,35 +358,32 @@ def _get_registered_find_methods(module_info):
   find methods will run before the default find methods.
 
   Args:
-      module_info: ModuleInfo for finder classes to instantiate with.
+      finder_instance_dict: Dict of finder instances to use.
 
   Returns:
       List of registered find methods.
   """
   find_methods = []
-  finder_instance_dict = _get_finder_instance_dict(module_info)
-  for finder in _get_test_finders():
-    finder_instance = finder_instance_dict[finder.NAME]
+  for finder_instance in finder_instance_dict.values():
     find_methods.extend(
         test_finder_base.Finder(
-            finder_instance, find_method_info.find_method, finder.NAME
+            finder_instance, find_method_info.find_method, finder_instance.NAME
         )
         for find_method_info in finder_instance.get_all_find_methods()
     )
   return find_methods
 
 
-def _get_default_find_methods(module_info, test):
+def _get_default_find_methods(finder_instance_dict, test):
   """Default find methods to be used based on the given test name.
 
   Args:
-      module_info: ModuleInfo for finder instances to use.
+      finder_instance_dict: Dict of finder instances to use.
       test: String of test name to help determine which find methods to utilize.
 
   Returns:
       List of find methods to use.
   """
-  finder_instance_dict = _get_finder_instance_dict(module_info)
   test_ref_types = _get_test_reference_types(test)
   logging.debug(
       'Resolved input to possible references: %s',
@@ -411,6 +408,7 @@ def get_find_methods_for_test(module_info, test):
   Returns:
       List of ordered find methods.
   """
-  registered_find_methods = _get_registered_find_methods(module_info)
-  default_find_methods = _get_default_find_methods(module_info, test)
+  finder_instance_dict = _get_finder_instance_dict(module_info)
+  registered_find_methods = _get_registered_find_methods(finder_instance_dict)
+  default_find_methods = _get_default_find_methods(finder_instance_dict, test)
   return registered_find_methods + default_find_methods
