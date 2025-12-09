@@ -153,15 +153,15 @@ def _get_test_finders():
   Returns:
       Set of test finder classes.
   """
-  test_finders_list = _TEST_FINDERS.copy()
+  test_finders = _TEST_FINDERS.copy()
   # Example import of external test finder:
   try:
     from test_finders import example_finder
 
-    test_finders_list.add(example_finder.ExampleFinder)
+    test_finders.add(example_finder.ExampleFinder)
   except ImportError:
     pass
-  return test_finders_list
+  return test_finders
 
 
 def _validate_ref(ref: str):
