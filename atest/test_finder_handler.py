@@ -284,15 +284,16 @@ def _get_test_reference_types(ref):
     ]
   if has_dot:
     # The string of ref_end possibly includes specific methods, e.g.
-    # foo.java#method, so let ref_end be the first part of splitting '#'.
-    ref_end = ref_end.split('#', 1)[0]
-    if ref_end in _SOURCE_CODE_EXTENSIONS:
+    # foo.java#method, so let ref_end_for_extension_check be the first part
+    # of splitting '#'.
+    ref_end_for_extension_check = ref_end.split('#', 1)[0]
+    if ref_end_for_extension_check in _SOURCE_CODE_EXTENSIONS:
       return [
           FinderMethod.CACHE,
           FinderMethod.MODULE,
           FinderMethod.MODULE_FILE_PATH,
       ]
-    if ref_end == 'xml':
+    if ref_end_for_extension_check == 'xml':
       return [
           FinderMethod.CACHE,
           FinderMethod.INTEGRATION_FILE_PATH,
