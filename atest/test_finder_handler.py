@@ -154,15 +154,18 @@ class FinderMethod(Enum):
     self._method = method
     self._finder_class = finder_class
 
-  def get_name(self):
+  @property
+  def finder_name(self):
     """Return finder's name."""
     return self._name
 
-  def get_method(self):
+  @property
+  def method(self):
     """Return finder's method."""
     return self._method
 
-  def get_finder_class(self):
+  @property
+  def finder_class(self):
     """Return finder's class."""
     return self._finder_class
 
@@ -382,13 +385,13 @@ def _get_default_find_methods(finder_instance_dict, test):
   test_ref_types = _get_test_reference_types(test)
   logging.debug(
       'Resolved input to possible references: %s',
-      ', '.join(t.get_name() for t in test_ref_types),
+      ', '.join(t.finder_name for t in test_ref_types),
   )
   return [
       test_finder_base.Finder(
-          finder_instance_dict[test_ref_type.get_finder_class().NAME],
-          test_ref_type.get_method(),
-          test_ref_type.get_name(),
+          finder_instance_dict[test_ref_type.finder_class.NAME],
+          test_ref_type.method,
+          test_ref_type.finder_name,
       )
       for test_ref_type in test_ref_types
   ]
