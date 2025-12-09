@@ -367,12 +367,12 @@ def _get_registered_find_methods(module_info):
   finder_instance_dict = _get_finder_instance_dict(module_info)
   for finder in _get_test_finders():
     finder_instance = finder_instance_dict[finder.NAME]
-    for find_method_info in finder_instance.get_all_find_methods():
-      find_methods.append(
-          test_finder_base.Finder(
-              finder_instance, find_method_info.find_method, finder.NAME
-          )
-      )
+    find_methods.extend(
+        test_finder_base.Finder(
+            finder_instance, find_method_info.find_method, finder.NAME
+        )
+        for find_method_info in finder_instance.get_all_find_methods()
+    )
   return find_methods
 
 
