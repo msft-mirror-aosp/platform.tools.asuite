@@ -245,25 +245,20 @@ def _get_test_reference_types(ref):
   if ref.startswith('.') or '..' in ref or ref.startswith('/'):
     return list(_FILE_PATH_FINDERS)
   if '/' in ref:
-    if ':' in ref:
-      return [
-          FinderMethod.CACHE,
-          FinderMethod.MODULE_FILE_PATH,
-          FinderMethod.INTEGRATION_FILE_PATH,
-          FinderMethod.INTEGRATION,
-          FinderMethod.SUITE_PLAN_FILE_PATH,
-          FinderMethod.MODULE_CLASS,
-      ]
-    return [
+    finders = [
         FinderMethod.CACHE,
         FinderMethod.MODULE_FILE_PATH,
         FinderMethod.INTEGRATION_FILE_PATH,
         FinderMethod.INTEGRATION,
         FinderMethod.SUITE_PLAN_FILE_PATH,
-        FinderMethod.CC_CLASS,
-        # TODO: Uncomment in SUITE when it's supported
-        # FinderMethod.SUITE
     ]
+    if ':' in ref:
+      finders.append(FinderMethod.MODULE_CLASS)
+    else:
+      finders.append(FinderMethod.CC_CLASS)
+      # TODO: Uncomment in SUITE when it's supported
+      # finders.append(FinderMethod.SUITE)
+    return finders
   if atest_utils.get_test_and_mainline_modules(ref):
     return [FinderMethod.CACHE, FinderMethod.MAINLINE_MODULE]
 
