@@ -59,6 +59,15 @@ _FINDER_INSTANCES = {
 }
 
 
+_MOCK_DEFAULT_FIND_METHODS = [
+    test_finder_base.Finder(
+        _FINDER_INSTANCES[ExampleFinderA.NAME],
+        ExampleFinderA.unregistered_find_method_from_example_finder,
+        ExampleFinderA.NAME,
+    )
+]
+
+
 _COMMON_MODULE_CLASS_REF_TYPES = [
     REF_TYPE.CACHE,
     REF_TYPE.MODULE,
@@ -88,7 +97,6 @@ class TestFinderHandlerUnittests(unittest.TestCase):
     # This is so we can see the full diffs when there are mismatches.
     self.maxDiff = None
     self.empty_mod_info = None
-    # We want to control the finders we return.
     self.enterContext(
         mock.patch(
             'atest.test_finder_handler._get_test_finders',
@@ -96,8 +104,6 @@ class TestFinderHandlerUnittests(unittest.TestCase):
             return_value=_TEST_FINDERS_PATCH,
         )
     )
-    # Since we're going to be comparing instance objects, we'll need to keep
-    # track of the objects so they align.
     self.enterContext(
         mock.patch(
             'atest.test_finder_handler._get_finder_instance_dict',
@@ -105,24 +111,13 @@ class TestFinderHandlerUnittests(unittest.TestCase):
             return_value=_FINDER_INSTANCES,
         )
     )
-    # We want to mock out the default find methods to make sure we got all
-    # the methods we expect.
     self.enterContext(
         mock.patch(
             'atest.test_finder_handler._get_default_find_methods',
             autospec=True,
-            side_effect=lambda x, y: [
-                test_finder_base.Finder(
-                    _FINDER_INSTANCES[ExampleFinderA.NAME],
-                    ExampleFinderA.unregistered_find_method_from_example_finder,
-                    ExampleFinderA.NAME,
-                )
-            ],
+            return_value=_MOCK_DEFAULT_FIND_METHODS,
         )
     )
-
-  def tearDown(self):
-    """Tear down."""
 
   def test_get_test_reference_types(self):
     """Test _get_test_reference_types parses reference types correctly."""
