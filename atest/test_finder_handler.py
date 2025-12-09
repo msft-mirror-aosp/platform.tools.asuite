@@ -347,15 +347,13 @@ def _get_registered_find_methods(finder_instance_dict):
   Returns:
       List of registered find methods.
   """
-  find_methods = []
-  for finder_instance in finder_instance_dict.values():
-    find_methods.extend(
-        test_finder_base.Finder(
-            finder_instance, find_method_info.find_method, finder_instance.NAME
-        )
-        for find_method_info in finder_instance.get_all_find_methods()
-    )
-  return find_methods
+  return [
+      test_finder_base.Finder(
+          finder_instance, find_method_info.find_method, finder_instance.NAME
+      )
+      for finder_instance in finder_instance_dict.values()
+      for find_method_info in finder_instance.get_all_find_methods()
+  ]
 
 
 def _get_default_find_methods(finder_instance_dict, test):
