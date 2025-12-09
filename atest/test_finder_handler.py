@@ -297,8 +297,7 @@ def _get_test_reference_types(ref):
   if '.' in ref:
     # The string of ref_end possibly includes specific mathods, e.g.
     # foo.java#method, so let ref_end be the first part of splitting '#'.
-    if '#' in ref_end:
-      ref_end = ref_end.split('#')[0]
+    ref_end = ref_end.split('#', 1)[0]
     if ref_end in ('java', 'kt', 'bp', 'mk', 'cc', 'cpp'):
       return [
           FinderMethod.CACHE,
