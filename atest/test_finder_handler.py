@@ -167,6 +167,14 @@ class FinderMethod(Enum):
     return self._finder_class
 
 
+_FILE_PATH_FINDERS = (
+    FinderMethod.CACHE,
+    FinderMethod.MODULE_FILE_PATH,
+    FinderMethod.INTEGRATION_FILE_PATH,
+    FinderMethod.SUITE_PLAN_FILE_PATH,
+)
+
+
 def _get_finder_instance_dict(module_info):
   """Return dict of finder instances.
 
@@ -232,17 +240,9 @@ def _get_test_reference_types(ref):
       A list of possible REFERENCE_TYPEs (ints) for reference string.
   """
   _validate_ref(ref)
-  file_path_finders = [
-      FinderMethod.CACHE,
-      FinderMethod.MODULE_FILE_PATH,
-      FinderMethod.INTEGRATION_FILE_PATH,
-      FinderMethod.SUITE_PLAN_FILE_PATH,
-  ]
-  if ref.startswith('.') or '..' in ref:
-    return file_path_finders
+  if ref.startswith('.') or '..' in ref or ref.startswith('/'):
+    return list(_FILE_PATH_FINDERS)
   if '/' in ref:
-    if ref.startswith('/'):
-      return file_path_finders
     if ':' in ref:
       return [
           FinderMethod.CACHE,
