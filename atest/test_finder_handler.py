@@ -210,10 +210,13 @@ def _get_test_finders():
   return test_finders
 
 
+_REF_MATCH_WITH_TRAILING_DOT = re.compile(r'[\w.-]+\.$')
+
+
 def _validate_ref(ref: str):
   # Filter out trailing dot but keeping `.` and `..` in ref.
   if '..' not in ref:
-    if re.match(r'[\w.-]+\.$', ref):
+    if _REF_MATCH_WITH_TRAILING_DOT.match(ref):
       atest_utils.colorful_print(
           f'Found trailing dot({ref}). Please correct it and try again.',
           constants.RED,
