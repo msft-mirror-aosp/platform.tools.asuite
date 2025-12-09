@@ -239,7 +239,7 @@ def _get_test_reference_types(ref):
       ref: A string referencing a test.
 
   Returns:
-      A list of possible REFERENCE_TYPEs (ints) for reference string.
+      A list of possible FinderMethod items for the reference string.
   """
   _validate_ref(ref)
   if ref.startswith('.') or '..' in ref or ref.startswith('/'):
@@ -278,7 +278,7 @@ def _get_test_reference_types(ref):
       if ref_end_is_upper:
         # Possible types:
         # Module:fully.qualified.Class
-        # Module:filly.qualifiled.(P|p)ackage (b/289515000)
+        # Module:fully.qualified.(P|p)ackage (b/289515000)
         # Integration:fully.q.Class
         return [
             FinderMethod.CACHE,
@@ -299,7 +299,7 @@ def _get_test_reference_types(ref):
         FinderMethod.INTEGRATION,
     ]
   if has_dot:
-    # The string of ref_end possibly includes specific mathods, e.g.
+    # The string of ref_end possibly includes specific methods, e.g.
     # foo.java#method, so let ref_end be the first part of splitting '#'.
     ref_end = ref_end.split('#', 1)[0]
     if ref_end in ('java', 'kt', 'bp', 'mk', 'cc', 'cpp'):
