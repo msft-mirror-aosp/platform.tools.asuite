@@ -383,23 +383,20 @@ def _get_default_find_methods(module_info, test):
   Returns:
       List of find methods to use.
   """
-  find_methods = []
   finder_instance_dict = _get_finder_instance_dict(module_info)
   test_ref_types = _get_test_reference_types(test)
   logging.debug(
       'Resolved input to possible references: %s',
-      ', '.join([t.get_name() for t in test_ref_types]),
+      ', '.join(t.get_name() for t in test_ref_types),
   )
-  for test_ref_type in test_ref_types:
-    find_method = test_ref_type.get_method()
-    finder_instance = finder_instance_dict[
-        test_ref_type.get_finder_class().NAME
-    ]
-    finder_info = test_ref_type.get_name()
-    find_methods.append(
-        test_finder_base.Finder(finder_instance, find_method, finder_info)
-    )
-  return find_methods
+  return [
+      test_finder_base.Finder(
+          finder_instance_dict[test_ref_type.get_finder_class().NAME],
+          test_ref_type.get_method(),
+          test_ref_type.get_name(),
+      )
+      for test_ref_type in test_ref_types
+  ]
 
 
 def get_find_methods_for_test(module_info, test):
