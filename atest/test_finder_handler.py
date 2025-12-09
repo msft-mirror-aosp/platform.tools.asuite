@@ -18,7 +18,6 @@
 # pylint: disable=protected-access
 
 from enum import Enum, unique
-import inspect
 import logging
 import re
 import sys
@@ -69,56 +68,91 @@ class FinderMethod(Enum):
   15: CONFIG: Find tests by the given AndroidTest.xml file path.
   """
 
-  MODULE = ('MODULE', module_finder.ModuleFinder.find_test_by_module_name)
+  MODULE = (
+      'MODULE',
+      module_finder.ModuleFinder.find_test_by_module_name,
+      module_finder.ModuleFinder,
+  )
   MAINLINE_MODULE = (
       'MAINLINE_MODULE',
       module_finder.MainlineModuleFinder.find_test_by_module_name,
+      module_finder.ModuleFinder,
   )
-  CLASS = ('CLASS', module_finder.ModuleFinder.find_test_by_class_name)
+  CLASS = (
+      'CLASS',
+      module_finder.ModuleFinder.find_test_by_class_name,
+      module_finder.ModuleFinder,
+  )
   MODULE_CLASS = (
       'MODULE_CLASS',
       module_finder.ModuleFinder.find_test_by_module_and_class,
+      module_finder.ModuleFinder,
   )
   QUALIFIED_CLASS = (
       'QUALIFIED_CLASS',
       module_finder.ModuleFinder.find_test_by_class_name,
+      module_finder.ModuleFinder,
   )
-  PACKAGE = ('PACKAGE', module_finder.ModuleFinder.find_test_by_package_name)
+  PACKAGE = (
+      'PACKAGE',
+      module_finder.ModuleFinder.find_test_by_package_name,
+      module_finder.ModuleFinder,
+  )
   MODULE_PACKAGE = (
       'MODULE_PACKAGE',
       module_finder.ModuleFinder.find_test_by_module_and_package,
+      module_finder.ModuleFinder,
   )
   MODULE_FILE_PATH = (
       'MODULE_FILE_PATH',
       module_finder.ModuleFinder.find_test_by_path,
+      module_finder.ModuleFinder,
   )
   INTEGRATION_FILE_PATH = (
       'INTEGRATION_FILE_PATH',
       tf_integration_finder.TFIntegrationFinder.find_int_test_by_path,
+      tf_integration_finder.TFIntegrationFinder,
   )
   INTEGRATION = (
       'INTEGRATION',
       tf_integration_finder.TFIntegrationFinder.find_test_by_integration_name,
+      tf_integration_finder.TFIntegrationFinder,
   )
-  CC_CLASS = ('CC_CLASS', module_finder.ModuleFinder.find_test_by_cc_class_name)
+  CC_CLASS = (
+      'CC_CLASS',
+      module_finder.ModuleFinder.find_test_by_cc_class_name,
+      module_finder.ModuleFinder,
+  )
   SUITE_PLAN = (
       'SUITE_PLAN',
       suite_plan_finder.SuitePlanFinder.find_test_by_suite_name,
+      suite_plan_finder.SuitePlanFinder,
   )
   SUITE_PLAN_FILE_PATH = (
       'SUITE_PLAN_FILE_PATH',
       suite_plan_finder.SuitePlanFinder.find_test_by_suite_path,
+      suite_plan_finder.SuitePlanFinder,
   )
-  CACHE = ('CACHE', cache_finder.CacheFinder.find_test_by_cache)
-  CONFIG = ('CONFIG', module_finder.ModuleFinder.find_test_by_config_name)
+  CACHE = (
+      'CACHE',
+      cache_finder.CacheFinder.find_test_by_cache,
+      cache_finder.CacheFinder,
+  )
+  CONFIG = (
+      'CONFIG',
+      module_finder.ModuleFinder.find_test_by_config_name,
+      module_finder.ModuleFinder,
+  )
   CONFIG_JUNIT_CLASSES = (
       'CONFIG',
       module_finder.ModuleFinder.find_test_by_config_junit_classes,
+      module_finder.ModuleFinder,
   )
 
-  def __init__(self, name, method):
+  def __init__(self, name, method, finder_class):
     self._name = name
     self._method = method
+    self._finder_class = finder_class
 
   def get_name(self):
     """Return finder's name."""
@@ -127,6 +161,10 @@ class FinderMethod(Enum):
   def get_method(self):
     """Return finder's method."""
     return self._method
+
+  def get_finder_class(self):
+    """Return finder's class."""
+    return self._finder_class
 
 
 def _get_finder_instance_dict(module_info):
@@ -354,7 +392,9 @@ def _get_default_find_methods(module_info, test):
   )
   for test_ref_type in test_ref_types:
     find_method = test_ref_type.get_method()
-    finder_instance = finder_instance_dict[inspect._findclass(find_method).NAME]
+    finder_instance = finder_instance_dict[
+        test_ref_type.get_finder_class().NAME
+    ]
     finder_info = test_ref_type.get_name()
     find_methods.append(
         test_finder_base.Finder(finder_instance, find_method, finder_info)
