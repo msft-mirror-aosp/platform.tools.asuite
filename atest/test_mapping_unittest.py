@@ -53,20 +53,20 @@ class TestMappingUnittests(unittest.TestCase):
     with self.assertRaises(Exception) as context:
       test_mapping.TestDetail(uc.TEST_MAPPING_TEST_WITH_BAD_HOST_VALUE)
     self.assertEqual(
-        'host can only have boolean value.', str(context.exception)
+        'host can only have boolean value, got str: true', str(context.exception)
     )
 
   @mock.patch('atest.atest_utils.get_modified_files')
   def test_is_match_file_patterns(self, mock_modified_files):
     """Test mathod is_match_file_patterns."""
     test_mapping_file = ''
-    test_detail = {
+    test_detail = test_mapping.TestDetail({
         'name': 'Test',
         'file_patterns': [
             '(/|^)test_fp1[^/]*\\.java',
             '(/|^)test_fp2[^/]*\\.java',
         ],
-    }
+    })
     mock_modified_files.return_value = {
         '/a/b/test_fp122.java',
         '/a/b/c/d/test_fp222.java',
