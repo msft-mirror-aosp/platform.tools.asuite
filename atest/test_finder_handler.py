@@ -153,7 +153,7 @@ def _get_test_finders():
   Returns:
       Set of test finder classes.
   """
-  test_finders_list = _TEST_FINDERS
+  test_finders_list = _TEST_FINDERS.copy()
   # Example import of external test finder:
   try:
     from test_finders import example_finder
