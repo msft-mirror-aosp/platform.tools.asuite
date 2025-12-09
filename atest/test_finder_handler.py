@@ -240,13 +240,11 @@ def _get_test_reference_types(ref):
         FinderMethod.INTEGRATION_FILE_PATH,
         FinderMethod.INTEGRATION,
         FinderMethod.SUITE_PLAN_FILE_PATH,
+        FinderMethod.MODULE_CLASS if ':' in ref else FinderMethod.CC_CLASS,
     ]
-    if ':' in ref:
-      finders.append(FinderMethod.MODULE_CLASS)
-    else:
-      finders.append(FinderMethod.CC_CLASS)
-      # TODO: Uncomment in SUITE when it's supported
-      # finders.append(FinderMethod.SUITE)
+    # TODO: Uncomment in SUITE when it's supported
+    # if ':' not in ref:
+    #   finders.append(FinderMethod.SUITE)
     return finders
   if atest_utils.get_test_and_mainline_modules(ref):
     return [FinderMethod.CACHE, FinderMethod.MAINLINE_MODULE]
