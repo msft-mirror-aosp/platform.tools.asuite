@@ -149,25 +149,10 @@ class FinderMethod(Enum):
       module_finder.ModuleFinder,
   )
 
-  def __init__(self, name, method, finder_class):
-    self._name = name
-    self._method = method
-    self._finder_class = finder_class
-
-  @property
-  def finder_name(self):
-    """Return finder's name."""
-    return self._name
-
-  @property
-  def method(self):
-    """Return finder's method."""
-    return self._method
-
-  @property
-  def finder_class(self):
-    """Return finder's class."""
-    return self._finder_class
+  def __init__(self, finder_name, method, finder_class):
+    self.finder_name = finder_name
+    self.method = method
+    self.finder_class = finder_class
 
 
 _FILE_PATH_FINDERS = (
