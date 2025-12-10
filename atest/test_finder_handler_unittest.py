@@ -17,7 +17,6 @@
 """Unittests for test_finder_handler."""
 
 # pylint: disable=protected-access
-import argparse
 import unittest
 from unittest import mock
 
@@ -29,14 +28,11 @@ from atest.test_finders import test_finder_base
 from atest.test_finders import test_info
 
 
-_EXAMPLE_FINDER_A = 'EXAMPLE_A'
-
-
 @test_finder_base.find_method_register
 class ExampleFinderA(test_finder_base.TestFinderBase):
   """Example finder class A."""
 
-  NAME = _EXAMPLE_FINDER_A
+  NAME = 'EXAMPLE_A'
   _TEST_RUNNER = 'TEST_RUNNER'
 
   @test_finder_base.register()
@@ -59,8 +55,37 @@ _TEST_FINDERS_PATCH = {
 
 
 _FINDER_INSTANCES = {
-    _EXAMPLE_FINDER_A: ExampleFinderA(),
+    ExampleFinderA.NAME: ExampleFinderA(),
 }
+
+
+_MOCK_DEFAULT_FIND_METHODS = [
+    test_finder_base.Finder(
+        _FINDER_INSTANCES[ExampleFinderA.NAME],
+        ExampleFinderA.unregistered_find_method_from_example_finder,
+        ExampleFinderA.NAME,
+    )
+]
+
+
+_COMMON_MODULE_CLASS_REF_TYPES = [
+    REF_TYPE.CACHE,
+    REF_TYPE.MODULE,
+    REF_TYPE.INTEGRATION,
+    REF_TYPE.CONFIG,
+    REF_TYPE.SUITE_PLAN,
+    REF_TYPE.CLASS,
+
+    REF_TYPE.CC_CLASS,
+]
+
+
+_COMMON_PACKAGE_REF_TYPES = [
+    REF_TYPE.CACHE,
+    REF_TYPE.MODULE,
+    REF_TYPE.QUALIFIED_CLASS,
+    REF_TYPE.PACKAGE,
+]
 
 
 class TestFinderHandlerUnittests(unittest.TestCase):
@@ -72,101 +97,53 @@ class TestFinderHandlerUnittests(unittest.TestCase):
     # This is so we can see the full diffs when there are mismatches.
     self.maxDiff = None
     self.empty_mod_info = None
-    # We want to control the finders we return.
-    mock.patch(
-        'atest.test_finder_handler._get_test_finders',
-        lambda: _TEST_FINDERS_PATCH,
-    ).start()
-    # Since we're going to be comparing instance objects, we'll need to keep
-    # track of the objects so they align.
-    mock.patch(
-        'atest.test_finder_handler._get_finder_instance_dict',
-        lambda x: _FINDER_INSTANCES,
-    ).start()
-    # We want to mock out the default find methods to make sure we got all
-    # the methods we expect.
-    mock.patch(
-        'atest.test_finder_handler._get_default_find_methods',
-        lambda x, y: [
-            test_finder_base.Finder(
-                _FINDER_INSTANCES[_EXAMPLE_FINDER_A],
-                ExampleFinderA.unregistered_find_method_from_example_finder,
-                _EXAMPLE_FINDER_A,
-            )
-        ],
-    ).start()
-
-  def tearDown(self):
-    """Tear down."""
-    mock.patch.stopall()
+    self.enterContext(
+        mock.patch(
+            'atest.test_finder_handler._get_test_finders',
+            autospec=True,
+            return_value=_TEST_FINDERS_PATCH,
+        )
+    )
+    self.enterContext(
+        mock.patch(
+            'atest.test_finder_handler._get_finder_instance_dict',
+            autospec=True,
+            return_value=_FINDER_INSTANCES,
+        )
+    )
+    self.enterContext(
+        mock.patch(
+            'atest.test_finder_handler._get_default_find_methods',
+            autospec=True,
+            return_value=_MOCK_DEFAULT_FIND_METHODS,
+        )
+    )
 
   def test_get_test_reference_types(self):
     """Test _get_test_reference_types parses reference types correctly."""
     self.assertEqual(
         test_finder_handler._get_test_reference_types('ModuleOrClassName'),
-        [
-            REF_TYPE.CACHE,
-            REF_TYPE.MODULE,
-            REF_TYPE.INTEGRATION,
-            REF_TYPE.CONFIG,
-            REF_TYPE.SUITE_PLAN,
-            REF_TYPE.CLASS,
-            REF_TYPE.CC_CLASS,
-        ],
+        _COMMON_MODULE_CLASS_REF_TYPES,
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('Module_or_Class_name'),
-        [
-            REF_TYPE.CACHE,
-            REF_TYPE.MODULE,
-            REF_TYPE.INTEGRATION,
-            REF_TYPE.CONFIG,
-            REF_TYPE.SUITE_PLAN,
-            REF_TYPE.CLASS,
-            REF_TYPE.CC_CLASS,
-        ],
+        _COMMON_MODULE_CLASS_REF_TYPES,
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('SuiteName'),
-        [
-            REF_TYPE.CACHE,
-            REF_TYPE.MODULE,
-            REF_TYPE.INTEGRATION,
-            REF_TYPE.CONFIG,
-            REF_TYPE.SUITE_PLAN,
-            REF_TYPE.CLASS,
-            REF_TYPE.CC_CLASS,
-        ],
+        _COMMON_MODULE_CLASS_REF_TYPES,
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('Suite-Name'),
-        [
-            REF_TYPE.CACHE,
-            REF_TYPE.MODULE,
-            REF_TYPE.INTEGRATION,
-            REF_TYPE.CONFIG,
-            REF_TYPE.SUITE_PLAN,
-            REF_TYPE.CLASS,
-            REF_TYPE.CC_CLASS,
-        ],
+        _COMMON_MODULE_CLASS_REF_TYPES,
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('some.package'),
-        [
-            REF_TYPE.CACHE,
-            REF_TYPE.MODULE,
-            REF_TYPE.QUALIFIED_CLASS,
-            REF_TYPE.PACKAGE,
-        ],
+        _COMMON_PACKAGE_REF_TYPES,
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('fully.q.Class'),
-        [
-            REF_TYPE.CACHE,
-            REF_TYPE.MODULE,
-            REF_TYPE.QUALIFIED_CLASS,
-            REF_TYPE.PACKAGE,
-        ],
+        _COMMON_PACKAGE_REF_TYPES
     )
     self.assertEqual(
         test_finder_handler._get_test_reference_types('Integration.xml'),
@@ -342,33 +319,32 @@ class TestFinderHandlerUnittests(unittest.TestCase):
 
   def test_get_registered_find_methods(self):
     """Test that we get the registered find methods."""
-    empty_mod_info = None
     example_finder_a_instance = test_finder_handler._get_finder_instance_dict(
-        empty_mod_info
-    )[_EXAMPLE_FINDER_A]
+        self.empty_mod_info
+    )[ExampleFinderA.NAME]
     should_equal = [
         test_finder_base.Finder(
             example_finder_a_instance,
             ExampleFinderA.registered_find_method_from_example_finder,
-            _EXAMPLE_FINDER_A,
+            ExampleFinderA.NAME,
         )
     ]
     should_not_equal = [
         test_finder_base.Finder(
             example_finder_a_instance,
             ExampleFinderA.unregistered_find_method_from_example_finder,
-            _EXAMPLE_FINDER_A,
+            ExampleFinderA.NAME,
         )
     ]
     # Let's make sure we see the registered method.
     self.assertEqual(
         should_equal,
-        test_finder_handler._get_registered_find_methods(empty_mod_info),
+        test_finder_handler._get_registered_find_methods(self.empty_mod_info),
     )
     # Make sure we don't see the unregistered method here.
     self.assertNotEqual(
         should_not_equal,
-        test_finder_handler._get_registered_find_methods(empty_mod_info),
+        test_finder_handler._get_registered_find_methods(self.empty_mod_info),
     )
 
   def test_get_find_methods_for_test(self):
@@ -378,16 +354,16 @@ class TestFinderHandlerUnittests(unittest.TestCase):
     test = ''
     registered_find_methods = [
         test_finder_base.Finder(
-            _FINDER_INSTANCES[_EXAMPLE_FINDER_A],
+            _FINDER_INSTANCES[ExampleFinderA.NAME],
             ExampleFinderA.registered_find_method_from_example_finder,
-            _EXAMPLE_FINDER_A,
+            ExampleFinderA.NAME,
         )
     ]
     default_find_methods = [
         test_finder_base.Finder(
-            _FINDER_INSTANCES[_EXAMPLE_FINDER_A],
+            _FINDER_INSTANCES[ExampleFinderA.NAME],
             ExampleFinderA.unregistered_find_method_from_example_finder,
-            _EXAMPLE_FINDER_A,
+            ExampleFinderA.NAME,
         )
     ]
     should_equal = registered_find_methods + default_find_methods
