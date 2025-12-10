@@ -86,7 +86,6 @@ class BugDetectorUnittest(unittest.TestCase):
   @mock.patch.object(bug_detector.BugDetector, 'update_history')
   def test_detect_bug_caught(self, _):
     """Test detect_bug_caught."""
-    self._reset_history_file()
     dtr = bug_detector.BugDetector(['test1'], 0, self.history_file)
     self.assertEqual(dtr.detect_bug_caught(), 1)
 
