@@ -487,8 +487,9 @@ class CLITranslatorUnittests(unittest.TestCase):
     sys.stdout = capture_output
     self.ctr._print_fuzzy_searching_results(modules)
     sys.stdout = sys.__stdout__
-    output = 'Did you mean the following modules?\n{0}\n{1}\n'.format(
-        uc.MODULE_NAME, uc.MODULE2_NAME
+    output = (
+        'Did you mean the following'
+        f' modules?\n{uc.MODULE_NAME}\n{uc.MODULE2_NAME}\n'
     )
     self.assertEqual(capture_output.getvalue(), output)
 
