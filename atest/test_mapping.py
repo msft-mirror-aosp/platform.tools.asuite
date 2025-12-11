@@ -15,22 +15,18 @@
 """Classes for test mapping related objects."""
 
 
-import copy
-import fnmatch
 import os
 import re
 
 from atest import atest_utils
 from atest import constants
 
-TEST_MAPPING = 'TEST_MAPPING'
-
 
 class TestDetail:
   """Stores the test details set in a TEST_MAPPING file."""
 
   def __init__(self, details):
-    """TestDetail constructor
+    r"""TestDetail constructor.
 
     Parse test detail from a dictionary, e.g.,
     {
@@ -40,7 +36,7 @@ class TestDetail:
         {
           "instrumentation-arg":
               "annotation=android.platform.test.annotations.Presubmit"
-        },
+        }
       ],
       "file_patterns": ["(/|^)Window[^/]*\\.java",
                        "(/|^)Activity[^/]*\\.java"]
@@ -50,31 +46,38 @@ class TestDetail:
         details: A dictionary of test detail.
     """
     self.name = details['name']
-    self.options = []
     # True if the test should run on host and require no device.
     self.host = details.get('host', False)
-    assert isinstance(self.host, bool), 'host can only have boolean value.'
+    if not isinstance(self.host, bool):
+      raise TypeError(
+          f'host can only have boolean value, got {type(self.host).__name__}:'
+          f' {self.host}'
+      )
     options = details.get('options', [])
-    for option in options:
-      assert len(option) == 1, 'Each option can only have one key.'
-      self.options.append(copy.deepcopy(option).popitem())
-    self.options.sort(key=lambda o: o[0])
+    parsed_options = []
+    for option_dict in options:
+      if len(option_dict) != 1:
+        raise ValueError('Each option can only have one key.')
+      parsed_options.append(next(iter(option_dict.items())))
+    self.options = sorted(parsed_options, key=lambda o: o[0])
     self.file_patterns = details.get('file_patterns', [])
 
   def __str__(self):
     """String value of the TestDetail object."""
     host_info = ', runs on host without device required.' if self.host else ''
     if not self.options:
-      return self.name + host_info
+      return f'{self.name}{host_info}'
     options_str = ', '.join(
-        [f'{k}:' if not v else f'{k}: {v}' for k, v in self.options]
+        f'{k}: {v}' if v else f'{k}:' for k, v in self.options
     )
 
     return f'{self.name} ({options_str}){host_info}'
 
   def __hash__(self):
     """Get the hash of TestDetail based on the details"""
-    return hash(str(self))
+    return hash(
+        (self.name, tuple(self.options), self.host, tuple(self.file_patterns))
+    )
 
   def __eq__(self, other):
     return str(self) == str(other)
@@ -108,15 +111,12 @@ class Import:
 
   def get_path(self):
     """Get the path to TEST_MAPPING import directory."""
-    path = os.path.realpath(
-        os.path.join(os.path.dirname(self.test_mapping_file), self.path)
-    )
-    if os.path.exists(path):
-      return path
     root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, os.sep)
-    path = os.path.realpath(os.path.join(root_dir, self.path))
-    if os.path.exists(path):
-      return path
+    search_paths = [os.path.dirname(self.test_mapping_file), root_dir]
+    for search_path in search_paths:
+      path = os.path.realpath(os.path.join(search_path, self.path))
+      if os.path.exists(path):
+        return path
     # The import path can't be located.
     return None
 
@@ -137,7 +137,7 @@ def is_match_file_patterns(test_mapping_file, test_detail):
   # Only check if the altered files are located in the same or sub directory
   # of the TEST_MAPPING file. Extract the relative path of the modified files
   # which match file patterns.
-  file_patterns = test_detail.get('file_patterns', [])
+  file_patterns = test_detail.file_patterns
   if not file_patterns:
     return True
   test_mapping_dir = os.path.dirname(test_mapping_file)
@@ -146,16 +146,19 @@ def is_match_file_patterns(test_mapping_file, test_detail):
     return False
   modified_files_in_source_dir = [
       os.path.relpath(filepath, test_mapping_dir)
-      for filepath in fnmatch.filter(
-          modified_files, os.path.join(test_mapping_dir, '*')
-      )
+      for filepath in modified_files
+      if filepath == test_mapping_dir
+      or filepath.startswith(test_mapping_dir + os.sep)
   ]
-  for modified_file in modified_files_in_source_dir:
-    # Force to run the test if it's in a TEST_MAPPING file included in the
-    # changesets.
-    if modified_file == constants.TEST_MAPPING:
-      return True
-    for pattern in file_patterns:
-      if re.search(pattern, modified_file):
-        return True
+  # Force to run the test if it\'s in a TEST_MAPPING file included in the
+  # changesets.
+  if constants.TEST_MAPPING in modified_files_in_source_dir:
+    return True
+  # Check if any modified file matches any of the file patterns.
+  if any(
+      re.search(pattern, modified_file)
+      for modified_file in modified_files_in_source_dir
+      for pattern in file_patterns
+  ):
+    return True
   return False

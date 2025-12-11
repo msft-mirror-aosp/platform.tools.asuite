@@ -34,7 +34,7 @@ class MetricsUtilsUnittests(unittest.TestCase):
   def setUp(self) -> None:
     self.maxDiff = None
 
-  @mock.patch('atest.metrics.metrics_base.get_user_type')
+  @mock.patch('atest.metrics.metrics_base.get_user_type', autospec=True)
   def test_print_data_collection_notice(self, mock_get_user_type):
     """Test method print_data_collection_notice."""
 
@@ -44,7 +44,7 @@ class MetricsUtilsUnittests(unittest.TestCase):
     sys.stdout = capture_output
     metrics_utils.print_data_collection_notice(colorful=False)
     sys.stdout = sys.__stdout__
-    self.assertEqual(capture_output.getvalue(), "")
+    self.assertEqual(capture_output.getvalue(), '')
 
     # get_user_type return 0(internal).
     red = '31m'

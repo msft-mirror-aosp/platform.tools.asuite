@@ -66,7 +66,10 @@ HOST_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/host/linux-x86')
 
 # pylint: disable=unused-argument
 def gettestinfos_side_effect(
-    test_names, test_mapping_test_details=None, is_rebuild_module_info=False
+    _self,
+    test_names,
+    test_mapping_test_details=None,
+    is_rebuild_module_info=False,
 ):
   """Mock return values for _get_test_info."""
   test_infos = []
@@ -107,12 +110,18 @@ class CLITranslatorUnittests(unittest.TestCase):
     """Run after execution of every test"""
     reload(uc)
 
-  @mock.patch.object(atest_utils, 'update_test_info_cache')
-  @mock.patch('builtins.input', return_value='n')
-  @mock.patch.object(module_finder.ModuleFinder, 'find_test_by_module_name')
-  @mock.patch.object(module_finder.ModuleFinder, 'get_fuzzy_searching_results')
-  @mock.patch.object(metrics, 'FindTestFinishEvent')
-  @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
+  @mock.patch.object(atest_utils, 'update_test_info_cache', autospec=True)
+  @mock.patch('builtins.input', return_value='n', autospec=True)
+  @mock.patch.object(
+      module_finder.ModuleFinder, 'find_test_by_module_name', autospec=True
+  )
+  @mock.patch.object(
+      module_finder.ModuleFinder, 'get_fuzzy_searching_results', autospec=True
+  )
+  @mock.patch.object(metrics, 'FindTestFinishEvent', autospec=True)
+  @mock.patch.object(
+      test_finder_handler, 'get_find_methods_for_test', autospec=True
+  )
   # pylint: disable=too-many-locals
   def test_get_test_infos(
       self,
@@ -199,9 +208,11 @@ class CLITranslatorUnittests(unittest.TestCase):
             test_detail2.options, test_info.data[constants.TI_MODULE_ARG]
         )
 
-  @mock.patch.object(atest_utils, 'update_test_info_cache')
-  @mock.patch.object(metrics, 'FindTestFinishEvent')
-  @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
+  @mock.patch.object(atest_utils, 'update_test_info_cache', autospec=True)
+  @mock.patch.object(metrics, 'FindTestFinishEvent', autospec=True)
+  @mock.patch.object(
+      test_finder_handler, 'get_find_methods_for_test', autospec=True
+  )
   def test_get_test_infos_2(
       self, mock_getfindmethods, _metrics, _mock_update_test_info
   ):
@@ -262,9 +273,13 @@ class CLITranslatorUnittests(unittest.TestCase):
             test_detail2.options, test_info.data[constants.TI_MODULE_ARG]
         )
 
-  @mock.patch.object(module_finder.ModuleFinder, 'get_fuzzy_searching_results')
-  @mock.patch.object(metrics, 'FindTestFinishEvent')
-  @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
+  @mock.patch.object(
+      module_finder.ModuleFinder, 'get_fuzzy_searching_results', autospec=True
+  )
+  @mock.patch.object(metrics, 'FindTestFinishEvent', autospec=True)
+  @mock.patch.object(
+      test_finder_handler, 'get_find_methods_for_test', autospec=True
+  )
   def test_get_test_infos_with_mod_info(
       self,
       mock_getfindmethods,
@@ -284,12 +299,13 @@ class CLITranslatorUnittests(unittest.TestCase):
     )
 
   @mock.patch.object(
-      test_finder_utils, 'find_host_unit_tests', return_value=set()
+      test_finder_utils, 'find_host_unit_tests', return_value=set(), autospec=True
   )
   @mock.patch.object(
       cli_t.CLITranslator,
       '_get_test_infos',
       side_effect=gettestinfos_side_effect,
+      autospec=True,
   )
   def test_translate_class(self, _info, _find):
     """Test translate method for tests by class name."""
@@ -305,12 +321,13 @@ class CLITranslatorUnittests(unittest.TestCase):
     )
 
   @mock.patch.object(
-      test_finder_utils, 'find_host_unit_tests', return_value=set()
+      test_finder_utils, 'find_host_unit_tests', return_value=set(), autospec=True
   )
   @mock.patch.object(
       cli_t.CLITranslator,
       '_get_test_infos',
       side_effect=gettestinfos_side_effect,
+      autospec=True,
   )
   def test_translate_module(self, _info, _find):
     """Test translate method for tests by module or class name."""
@@ -327,13 +344,16 @@ class CLITranslatorUnittests(unittest.TestCase):
         self, test_infos, [uc.MODULE_INFO, uc.CLASS_INFO]
     )
 
-  @mock.patch.object(os, 'getcwd', return_value='/src/build_top/somewhere')
-  @mock.patch.object(test_finder_utils, 'find_host_unit_tests', return_value=[])
-  @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping')
+  @mock.patch.object(os, 'getcwd', return_value='/src/build_top/somewhere', autospec=True)
+  @mock.patch.object(
+      test_finder_utils, 'find_host_unit_tests', return_value=[], autospec=True
+  )
+  @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping', autospec=True)
   @mock.patch.object(
       cli_t.CLITranslator,
       '_get_test_infos',
       side_effect=gettestinfos_side_effect,
+      autospec=True,
   )
   def test_translate_test_mapping(
       self, _info, mock_testmapping, _find_unit_tests, _getcwd
@@ -356,11 +376,12 @@ class CLITranslatorUnittests(unittest.TestCase):
         self, test_infos, [uc.MODULE_INFO, uc.CLASS_INFO]
     )
 
-  @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping')
+  @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping', autospec=True)
   @mock.patch.object(
       cli_t.CLITranslator,
       '_get_test_infos',
       side_effect=gettestinfos_side_effect,
+      autospec=True,
   )
   def test_translate_test_mapping_all(self, _info, mock_testmapping):
     """Test translate method for tests in test mapping."""
@@ -473,7 +494,7 @@ class CLITranslatorUnittests(unittest.TestCase):
     self.assertEqual(expected, tests)
     self.assertEqual(expected_all_tests, all_tests)
 
-  @mock.patch('builtins.input', return_value='')
+  @mock.patch('builtins.input', return_value='', autospec=True)
   def test_confirm_running(self, mock_input):
     """Test _confirm_running method."""
     self.assertTrue(self.ctr._confirm_running([TEST_1]))
@@ -487,8 +508,9 @@ class CLITranslatorUnittests(unittest.TestCase):
     sys.stdout = capture_output
     self.ctr._print_fuzzy_searching_results(modules)
     sys.stdout = sys.__stdout__
-    output = 'Did you mean the following modules?\n{0}\n{1}\n'.format(
-        uc.MODULE_NAME, uc.MODULE2_NAME
+    output = (
+        'Did you mean the following'
+        f' modules?\n{uc.MODULE_NAME}\n{uc.MODULE2_NAME}\n'
     )
     self.assertEqual(capture_output.getvalue(), output)
 
@@ -507,7 +529,7 @@ class CLITranslatorUnittests(unittest.TestCase):
 
     self.assertEqual(test_mapping_dict, test_mapping_dict_gloden)
 
-  @mock.patch.object(module_info.ModuleInfo, 'get_testable_modules')
+  @mock.patch.object(module_info.ModuleInfo, 'get_testable_modules', autospec=True)
   def test_extract_testable_modules_by_wildcard(self, mock_mods):
     """Test _extract_testable_modules_by_wildcard method."""
     mod_info = module_info.load_from_file(
@@ -536,17 +558,19 @@ class CLITranslatorUnittests(unittest.TestCase):
     result3 = ['Test100', 'aTest101']
     self.assertEqual(ctr._extract_testable_modules_by_wildcard(expr3), result3)
 
-  @mock.patch.object(os, 'getcwd', return_value='/src/build_top/somewhere')
+  @mock.patch.object(os, 'getcwd', return_value='/src/build_top/somewhere', autospec=True)
   @mock.patch.object(
       test_finder_utils,
       'find_host_unit_tests',
       return_value=[uc.HOST_UNIT_TEST_NAME_1, uc.HOST_UNIT_TEST_NAME_2],
+      autospec=True,
   )
-  @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping')
+  @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping', autospec=True)
   @mock.patch.object(
       cli_t.CLITranslator,
       '_get_test_infos',
       side_effect=gettestinfos_side_effect,
+      autospec=True,
   )
   def test_translate_test_mapping_host_unit_test(
       self, _info, mock_testmapping, _find_unit_tests, _getcwd
@@ -571,17 +595,19 @@ class CLITranslatorUnittests(unittest.TestCase):
         ],
     )
 
-  @mock.patch.object(metrics, 'LocalDetectEvent')
-  @mock.patch.object(os, 'getcwd', return_value='/src/build_top/somewhere')
+  @mock.patch.object(metrics, 'LocalDetectEvent', autospec=True)
+  @mock.patch.object(os, 'getcwd', return_value='/src/build_top/somewhere', autospec=True)
   @mock.patch.object(
       smart_test_finder,
       'get_smartly_selected_tests',
       return_value=[uc.CLASS_NAME],
+      autospec=True,
   )
   @mock.patch.object(
       cli_t.CLITranslator,
       '_get_test_infos',
       side_effect=gettestinfos_side_effect,
+      autospec=True,
   )
   def test_translate_tests_returned_from_smart_test_selection(
       self,
@@ -612,16 +638,18 @@ class CLITranslatorUnittests(unittest.TestCase):
         _local_detect_event.mock_calls,
     )
 
-  @mock.patch.object(metrics, 'LocalDetectEvent')
+  @mock.patch.object(metrics, 'LocalDetectEvent', autospec=True)
   @mock.patch.object(
       smart_test_finder,
       'get_smartly_selected_tests',
       return_value=[],
+      autospec=True,
   )
   @mock.patch.object(
       cli_t.CLITranslator,
       '_get_test_infos',
       side_effect=gettestinfos_side_effect,
+      autospec=True,
   )
   def test_translate_no_tests_from_smart_test_selection(
       self,
@@ -646,12 +674,14 @@ class CLITranslatorUnittests(unittest.TestCase):
       test_finder_utils,
       'find_host_unit_tests',
       return_value=[uc.HOST_UNIT_TEST_NAME_1, uc.HOST_UNIT_TEST_NAME_2],
+      autospec=True,
   )
-  @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping')
+  @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping', autospec=True)
   @mock.patch.object(
       cli_t.CLITranslator,
       '_get_test_infos',
       side_effect=gettestinfos_side_effect,
+      autospec=True,
   )
   def test_translate_test_mapping_without_host_unit_test(
       self, _info, mock_testmapping, _find_unit_tests
@@ -679,6 +709,7 @@ class CLITranslatorUnittests(unittest.TestCase):
       cli_t.CLITranslator,
       '_get_test_infos',
       side_effect=gettestinfos_side_effect,
+      autospec=True,
   )
   def test_translate_run_affected_default_args(
       self, mock_get_test_infos, mock_get_trigged_test_details
@@ -701,7 +732,9 @@ class CLITranslatorUnittests(unittest.TestCase):
     mock_get_trigged_test_details.assert_called_once_with(
         run_affected_triggers_mode.DEFAULT_SCHEDULING_PLAN
     )
-    mock_get_test_infos.assert_called_once_with([uc.MODULE_NAME], [test_detail])
+    mock_get_test_infos.assert_called_once_with(
+        self.ctr, [uc.MODULE_NAME], [test_detail]
+    )
     unittest_utils.assert_equal_testinfo_lists(
         self, test_infos, [uc.MODULE_INFO]
     )
@@ -715,6 +748,7 @@ class CLITranslatorUnittests(unittest.TestCase):
       cli_t.CLITranslator,
       '_get_test_infos',
       side_effect=gettestinfos_side_effect,
+      autospec=True,
   )
   def test_translate_run_affected_custom_args(
       self, mock_get_test_infos, mock_get_trigged_test_details
@@ -738,7 +772,9 @@ class CLITranslatorUnittests(unittest.TestCase):
 
     # Assertions.
     mock_get_trigged_test_details.assert_called_once_with(mock_plan_name)
-    mock_get_test_infos.assert_called_once_with([uc.MODULE_NAME], [test_detail])
+    mock_get_test_infos.assert_called_once_with(
+        self.ctr, [uc.MODULE_NAME], [test_detail]
+    )
     unittest_utils.assert_equal_testinfo_lists(
         self, test_infos, [uc.MODULE_INFO]
     )

@@ -64,7 +64,7 @@ class BugDetectorUnittest(unittest.TestCase):
     with open(self.history_file2, 'w', encoding='utf-8') as outfile:
       json.dump(temp_history, outfile, indent=0)
 
-  @mock.patch.object(bug_detector.BugDetector, 'update_history')
+  @mock.patch.object(bug_detector.BugDetector, 'update_history', autospec=True)
   def test_get_detect_key(self, _):
     """Test get_detect_key."""
     test_cases = [
@@ -77,16 +77,15 @@ class BugDetectorUnittest(unittest.TestCase):
         dtr = bug_detector.BugDetector(argv, 0)
         self.assertEqual(dtr.get_detect_key(argv), want_key)
 
-  @mock.patch.object(bug_detector.BugDetector, 'update_history')
+  @mock.patch.object(bug_detector.BugDetector, 'update_history', autospec=True)
   def test_get_history(self, _):
     """Test get_history."""
     detector = bug_detector.BugDetector(['test1'], 5, self.history_file)
     self.assertEqual(detector.get_history(), TEST_DICT)
 
-  @mock.patch.object(bug_detector.BugDetector, 'update_history')
+  @mock.patch.object(bug_detector.BugDetector, 'update_history', autospec=True)
   def test_detect_bug_caught(self, _):
     """Test detect_bug_caught."""
-    self._reset_history_file()
     dtr = bug_detector.BugDetector(['test1'], 0, self.history_file)
     self.assertEqual(dtr.detect_bug_caught(), 1)
 

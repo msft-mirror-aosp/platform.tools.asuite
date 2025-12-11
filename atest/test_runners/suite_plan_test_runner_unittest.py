@@ -39,7 +39,7 @@ class SuitePlanTestRunnerUnittests(unittest.TestCase):
   def tearDown(self):
     mock.patch.stopall()
 
-  @mock.patch('atest.atest_utils.get_result_server_args')
+  @mock.patch('atest.atest_utils.get_result_server_args', autospec=True)
   def test_generate_run_commands(self, mock_resultargs):
     """Test _generate_run_command method.
 
@@ -126,14 +126,20 @@ class SuitePlanTestRunnerUnittests(unittest.TestCase):
         run_cmd,
     )
 
-  @mock.patch.object(logstorage_utils, 'BuildClient')
-  @mock.patch.object(logstorage_utils, 'do_upload_flow')
-  @mock.patch('atest.atest_utils.get_manifest_branch')
-  @mock.patch.object(logstorage_utils.BuildClient, 'update_invocation')
-  @mock.patch('subprocess.Popen')
-  @mock.patch.object(suite_plan_test_runner.SuitePlanTestRunner, 'run')
+  @mock.patch.object(logstorage_utils, 'BuildClient', autospec=True)
+  @mock.patch.object(logstorage_utils, 'do_upload_flow', autospec=True)
+  @mock.patch('atest.atest_utils.get_manifest_branch', autospec=True)
   @mock.patch.object(
-      suite_plan_test_runner.SuitePlanTestRunner, 'generate_run_commands'
+      logstorage_utils.BuildClient, 'update_invocation', autospec=True
+  )
+  @mock.patch('subprocess.Popen', autospec=True)
+  @mock.patch.object(
+      suite_plan_test_runner.SuitePlanTestRunner, 'run', autospec=True
+  )
+  @mock.patch.object(
+      suite_plan_test_runner.SuitePlanTestRunner,
+      'generate_run_commands',
+      autospec=True,
   )
   def test_run_tests(
       self,
@@ -157,6 +163,7 @@ class SuitePlanTestRunnerUnittests(unittest.TestCase):
 
     # Test Build Pass
     _mock_popen.return_value.returncode = 0
+    _mock_popen.return_value.pid = 123
     self.assertEqual(
         0, self.suite_tr.run_tests(test_infos, extra_args, mock_reporter)
     )
