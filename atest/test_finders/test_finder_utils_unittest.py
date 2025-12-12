@@ -118,9 +118,9 @@ class TestFinderUtilsUnittests(unittest.TestCase):
   """Unit tests for test_finder_utils.py"""
 
   @mock.patch.object(
-      test_finder_utils, 'has_method_in_file', return_value=False
+      test_finder_utils, 'has_method_in_file', return_value=False, autospec=True
   )
-  @mock.patch('builtins.input', return_value='0')
+  @mock.patch('builtins.input', return_value='0', autospec=True)
   def test_extract_test_path(self, _, has_method):
     """Test extract_test_dir method."""
     paths = [os.path.join(uc.ROOT, CLASS_DIR, uc.CLASS_NAME + '.java')]
@@ -506,9 +506,11 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     )
     unittest_utils.assert_strict_equal(self, test_result, paths)
 
-  @mock.patch('os.path.isfile', return_value=False)
-  @mock.patch('os.environ.get', return_value=uc.TEST_CONFIG_DATA_DIR)
-  @mock.patch('builtins.input', return_value='1')
+  @mock.patch('os.path.isfile', return_value=False, autospec=True)
+  @mock.patch(
+      'os.environ.get', return_value=uc.TEST_CONFIG_DATA_DIR, autospec=True
+  )
+  @mock.patch('builtins.input', return_value='1', autospec=True)
   # pylint: disable=too-many-statements
   def test_find_class_file(self, mock_input, _mock_env, _mock_isfile):
     """Test find_class_file."""
@@ -955,7 +957,9 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     expect_methods.sort()
     self.assertEqual(expect_methods, real_methods)
 
-  @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
+  @mock.patch(
+      'os.path.isfile', side_effect=unittest_utils.isfile_side_effect, autospec=True
+  )
   def test_get_test_config_use_androidtestxml(self, _isfile):
     """Test get_test_config_and_srcs using default AndroidTest.xml"""
     android_root = '/'
@@ -969,7 +973,9 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
     self.assertEqual(expect_config, result)
 
-  @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
+  @mock.patch(
+      'os.path.isfile', side_effect=unittest_utils.isfile_side_effect, autospec=True
+  )
   def test_get_test_config_single_config(self, _isfile):
     """Test get_test_config_and_srcs manually set it's config"""
     android_root = '/'
@@ -983,7 +989,9 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
     self.assertEqual(expect_config, result)
 
-  @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
+  @mock.patch(
+      'os.path.isfile', side_effect=unittest_utils.isfile_side_effect, autospec=True
+  )
   def test_get_test_config_main_multiple_config(self, _isfile):
     """Test get_test_config_and_srcs which is the main module of multiple config"""
     android_root = '/'
@@ -997,7 +1005,9 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
     self.assertEqual(expect_config, result)
 
-  @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
+  @mock.patch(
+      'os.path.isfile', side_effect=unittest_utils.isfile_side_effect, autospec=True
+  )
   def test_get_test_config_subtest_in_multiple_config(self, _isfile):
     """Test get_test_config_and_srcs not the main module of multiple config"""
     android_root = '/'

@@ -37,7 +37,7 @@ class CacheFinderUnittests(unittest.TestCase):
     self.cache_finder = cache_finder.CacheFinder()
     self.cache_finder.module_info = mock.Mock(spec=module_info.ModuleInfo)
 
-  @mock.patch.object(atest_utils, 'get_cache_root')
+  @mock.patch.object(atest_utils, 'get_cache_root', autospec=True)
   def test_find_test_by_cache_cache_not_exist(self, mock_get_cache_root):
     """Test find_test_by_cache input not cached test."""
     not_cached_test = 'mytest1'
@@ -48,9 +48,12 @@ class CacheFinderUnittests(unittest.TestCase):
     self.assertIsNone(self.cache_finder.find_test_by_cache(not_cached_test))
 
   @mock.patch.object(
-      cache_finder.CacheFinder, '_is_test_infos_valid', return_value=True
+      cache_finder.CacheFinder,
+      '_is_test_infos_valid',
+      return_value=True,
+      autospec=True,
   )
-  @mock.patch.object(atest_utils, 'get_cache_root')
+  @mock.patch.object(atest_utils, 'get_cache_root', autospec=True)
   def test_find_test_by_cache_cache_exist_and_valid(
       self, mock_get_cache_root, _mock_is_info_valid
   ):
@@ -63,15 +66,24 @@ class CacheFinderUnittests(unittest.TestCase):
     self.assertIsNotNone(self.cache_finder.find_test_by_cache(cached_test))
 
   @mock.patch.object(
-      cache_finder.CacheFinder, '_is_test_filter_valid', return_value=True
+      cache_finder.CacheFinder,
+      '_is_test_filter_valid',
+      return_value=True,
+      autospec=True,
   )
   @mock.patch.object(
-      cache_finder.CacheFinder, '_is_test_build_target_valid', return_value=True
+      cache_finder.CacheFinder,
+      '_is_test_build_target_valid',
+      return_value=True,
+      autospec=True,
   )
   @mock.patch.object(
-      cache_finder.CacheFinder, '_is_test_path_valid', return_value=True
+      cache_finder.CacheFinder,
+      '_is_test_path_valid',
+      return_value=True,
+      autospec=True,
   )
-  @mock.patch.object(atest_utils, 'load_test_info_cache')
+  @mock.patch.object(atest_utils, 'load_test_info_cache', autospec=True)
   def test_find_test_by_cache_wo_latest_info(
       self,
       mock_load_cache,
@@ -89,9 +101,12 @@ class CacheFinderUnittests(unittest.TestCase):
     self.assertIsNone(self.cache_finder.find_test_by_cache(cached_test))
 
   @mock.patch.object(
-      cache_finder.CacheFinder, '_is_test_build_target_valid', return_value=True
+      cache_finder.CacheFinder,
+      '_is_test_build_target_valid',
+      return_value=True,
+      autospec=True,
   )
-  @mock.patch.object(atest_utils, 'get_cache_root')
+  @mock.patch.object(atest_utils, 'get_cache_root', autospec=True)
   def test_find_test_by_cache_wo_valid_path(
       self, mock_get_cache_root, _mock_build_target_valid
   ):
@@ -108,9 +123,12 @@ class CacheFinderUnittests(unittest.TestCase):
     self.assertIsNone(self.cache_finder.find_test_by_cache(cached_test))
 
   @mock.patch.object(
-      cache_finder.CacheFinder, '_is_test_path_valid', return_value=True
+      cache_finder.CacheFinder,
+      '_is_test_path_valid',
+      return_value=True,
+      autospec=True,
   )
-  @mock.patch.object(atest_utils, 'get_cache_root')
+  @mock.patch.object(atest_utils, 'get_cache_root', autospec=True)
   def test_find_test_by_cache_wo_valid_build_target(
       self, mock_get_cache_root, _mock_path_valid
   ):
@@ -126,15 +144,24 @@ class CacheFinderUnittests(unittest.TestCase):
     self.assertIsNone(self.cache_finder.find_test_by_cache(cached_test))
 
   @mock.patch.object(
-      cache_finder.CacheFinder, '_is_test_filter_valid', return_value=False
+      cache_finder.CacheFinder,
+      '_is_test_filter_valid',
+      return_value=False,
+      autospec=True,
   )
   @mock.patch.object(
-      cache_finder.CacheFinder, '_is_test_build_target_valid', return_value=True
+      cache_finder.CacheFinder,
+      '_is_test_build_target_valid',
+      return_value=True,
+      autospec=True,
   )
   @mock.patch.object(
-      cache_finder.CacheFinder, '_is_test_path_valid', return_value=True
+      cache_finder.CacheFinder,
+      '_is_test_path_valid',
+      return_value=True,
+      autospec=True,
   )
-  @mock.patch.object(atest_utils, 'get_cache_root')
+  @mock.patch.object(atest_utils, 'get_cache_root', autospec=True)
   def test_find_test_by_cache_wo_valid_java_filter(
       self,
       mock_get_cache_root,

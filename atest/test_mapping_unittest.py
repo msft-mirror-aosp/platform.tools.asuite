@@ -56,7 +56,7 @@ class TestMappingUnittests(unittest.TestCase):
         'host can only have boolean value, got str: true', str(context.exception)
     )
 
-  @mock.patch('atest.atest_utils.get_modified_files')
+  @mock.patch('atest.atest_utils.get_modified_files', autospec=True)
   def test_is_match_file_patterns(self, mock_modified_files):
     """Test mathod is_match_file_patterns."""
     test_mapping_file = ''
