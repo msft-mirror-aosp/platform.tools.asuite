@@ -198,7 +198,6 @@ tf_preparer_incremental_setup = RolloutControlledFeature(
     rollout_percentage=100,
     env_control_flag='TF_PREPARER_INCREMENTAL_SETUP',
     feature_id=3,
-    print_message='Incremental APK installation is enabled (b/381900378).',
 )
 
 atest_indexing_parallelization = RolloutControlledFeature(
