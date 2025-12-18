@@ -75,6 +75,22 @@ def add_arguments(parser: argparse.ArgumentParser):
       ),
   )
 
+  simpleperf_group = parser.add_mutually_exclusive_group()
+  simpleperf_group.add_argument(
+      '--simpleperf',
+      dest='simpleperf',
+      action='store_true',
+      default=None,
+      help='(For performance tests) Enable simpleperf profiling.',
+  )
+
+  simpleperf_group.add_argument(
+      '--no-simpleperf',
+      dest='simpleperf',
+      action='store_false',
+      help='(For performance tests) Disable simpleperf profiling.',
+  )
+
 
 def process_parsed_args(args: argparse.Namespace):
   """Processes perf-related arguments.
@@ -198,6 +214,27 @@ def set_custom_arguments_based_on_test_infos(
         f'Converting argument "--metric-filter {args.metric_filter}" to'
         f' "--module-arg {module_arg}"'
     )
+
+  if hasattr(args, 'simpleperf') and args.simpleperf is not None:
+    if args.simpleperf:
+      module_arg_1 = f'{module_name}:{{com.android.tradefed.testtype.AndroidJUnitTest}}instrumentation-arg:simpleperf-collector:log:=false'
+      args.custom_args.append('--module-arg')
+      args.custom_args.append(module_arg_1)
+      module_arg_2 = f'{module_name}:{{com.android.tradefed.testtype.AndroidJUnitTest}}instrumentation-arg:simpleperf-collector:disable:=false'
+      args.custom_args.append('--module-arg')
+      args.custom_args.append(module_arg_2)
+      print(
+          'Converting argument "--simpleperf" to'
+          f' "--module-arg {module_arg_1} --module-arg {module_arg_2}"'
+      )
+    else:
+      module_arg_1 = f'{module_name}:{{com.android.tradefed.testtype.AndroidJUnitTest}}instrumentation-arg:simpleperf-collector:log:=true'
+      args.custom_args.append('--module-arg')
+      args.custom_args.append(module_arg_1)
+      print(
+          'Converting argument "--no-simpleperf" to'
+          f' "--module-arg {module_arg_1}"'
+      )
 
   if str(original_args) != str(args):
     print(  # TODO(jinghuanwen): update or remove this message
