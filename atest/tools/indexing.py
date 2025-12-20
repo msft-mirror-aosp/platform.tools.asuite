@@ -34,6 +34,7 @@ from typing import List
 from atest import atest_utils as au
 from atest import atest_utils
 from atest import constants
+from atest import rollout_control
 from atest.atest_enum import DetectType
 from atest.metrics import metrics, metrics_utils
 
@@ -194,14 +195,23 @@ def get_cc_result(indices: Indices):
   Args:
       indices: an Indices object.
   """
-  find_cc_cmd = (
-      f'{LOCATE} -id{indices.locate_db}'
-      f" --regex '{au.get_build_top()}/.*test.*\\.(cc|cpp)$'"
-      f"| xargs egrep -sH '{constants.CC_GREP_RE}' 2>/dev/null || true"
+  num_processes = _get_num_processes()
+  logging.debug(
+      'CC locate: Using %d threads for indexing CC classes', num_processes
   )
-  logging.debug('Probing CC classes: executing cmd [%s]', find_cc_cmd)
-  result = subprocess.getoutput(find_cc_cmd)
-  logging.debug('completed executing cmd [%s]', find_cc_cmd)
+  with tempfile.TemporaryDirectory(prefix='atest_cc_') as tmpdir:
+    tmpdir_path = Path(tmpdir)
+    top = au.get_build_top()
+    file_pattern = r'.*test.*\.(cc|cpp)$'
+    cmd = f"""
+{LOCATE} -id{indices.locate_db} --regex "{top}/{file_pattern}" | \\
+xargs -P{num_processes} --process-slot-var=IDX sh -c \\
+'egrep -sH "{constants.CC_GREP_RE}" "$@" 2>/dev/null >> {tmpdir_path}/$IDX.txt || true' _ ; \\
+cat {tmpdir_path}/*.txt
+"""
+    logging.debug('CC locate: Probing CC classes: executing cmd [%s]', cmd)
+    result = subprocess.getoutput(cmd)
+    logging.debug('CC locate: completed executing cmd [%s]', cmd)
 
   au.start_threading(
       target=_index_cc_classes, args=[result, indices.cc_classes_idx]
@@ -217,16 +227,24 @@ def get_java_result(indices: Indices):
   Args:
       indices: an Indices object.
   """
-  package_grep_re = r'^\s*package\s+[a-z][[:alnum:]]+[^{]'
-  find_java_cmd = (
-      f'{LOCATE} -id{indices.locate_db}'
-      f" --regex '{au.get_build_top()}/.*test.*\\.(java|kt)$' "
-      # (b/204398677) suppress stderr when indexing target terminated.
-      f"| xargs egrep -sH '{package_grep_re}' 2>/dev/null|| true"
+  num_processes = _get_num_processes()
+  logging.debug(
+      'Java locate: Using %d threads for indexing Java classes', num_processes
   )
-  logging.debug('Probing Java classes: executing cmd [%s]', find_java_cmd)
-  result = subprocess.getoutput(find_java_cmd)
-  logging.debug('completed executing cmd [%s]', find_java_cmd)
+  package_grep_re = r'^\s*package\s+[a-z][[:alnum:]]+[^{]'
+  with tempfile.TemporaryDirectory(prefix='atest_java_') as tmpdir:
+    tmpdir_path = Path(tmpdir)
+    top = au.get_build_top()
+    file_pattern = r'.*test.*\.(java|kt)$'
+    cmd = f"""
+{LOCATE} -id{indices.locate_db} --regex "{top}/{file_pattern}" | \\
+xargs -P{num_processes} --process-slot-var=IDX sh -c \\
+'egrep -sH "{package_grep_re}" "$@" 2>/dev/null >> {tmpdir_path}/$IDX.txt || true' _ ; \\
+cat {tmpdir_path}/*.txt
+"""
+    logging.debug('Java locate: Probing Java classes: executing cmd [%s]', cmd)
+    result = subprocess.getoutput(cmd)
+    logging.debug('Java locate: completed executing cmd [%s]', cmd)
 
   au.start_threading(
       target=_index_java_classes, args=[result, indices.classes_idx]
@@ -415,6 +433,30 @@ def _index_targets(indices: Indices, start_from: float):
   metrics.LocalDetectEvent(
       detect_type=DetectType.INDEX_TARGETS_MS, result=int(elapsed_time * 1000)
   )
+
+
+def _is_cog_workspace():
+  """Returns true if the workspace is a Cog workspace."""
+  return str(au.get_build_top()).startswith('/google/cog')
+
+
+def _get_num_processes():
+  """Returns the number of processes to use for indexing.
+
+  4 and 8 are the ideal numbers of processes for non-Cog and Cog workspaces
+  respectively. Performance testing showed 8 and 16 as the best tradeoff between
+  performance and resource usage, so we give half C++ indexing and half to Java
+  indexing. See go/atest-fast-index for more details.
+  """
+  ideal = 1
+  if _is_cog_workspace():
+    ideal = 8
+  elif rollout_control.atest_indexing_parallelization.is_enabled():
+    # Rollout slowly to local checkouts, so we can measure overall wait time
+    # when build is running in parallel to ensure resource contention doesn't
+    # cause an increase in overall wait time.
+    ideal = 4
+  return min(ideal, os.cpu_count())
 
 
 @dataclass
