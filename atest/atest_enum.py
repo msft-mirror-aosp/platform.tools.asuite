@@ -132,7 +132,10 @@ class DetectType(IntEnum):
   HAS_NO_TEST_RUN_ISSUE = 70
   # Whether no tests are returned with smart test selection
   STS_SELECT_NO_TEST = 71
-  # Next expansion: 72
+  # To indicate if the invocation is using --run-affected-triggers.
+  # Non-zero if the invocation is running via run affected triggers mode.
+  RUN_AFFECTED_TRIGGERS_MODE = 72
+  # Next expansion: 73
 
 
 @unique

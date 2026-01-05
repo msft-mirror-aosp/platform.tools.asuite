@@ -21,6 +21,7 @@ from atest import atest_enum
 from atest import atest_utils
 from atest import test_mapping
 from atest.acme import acme_utils
+from atest.metrics import metrics
 
 RUN_AFFECTED_TRIGGERS_ARG_NAME = '--run-affected-triggers'
 SCHEDULING_PLAN_ARG_NAME = '--scheduling-plan'
@@ -65,6 +66,9 @@ def get_affected_test_details(
     scheduling_plan_name: str,
 ) -> tuple[list[str], list[test_mapping.TestDetail]]:
   """Returns the TestDetails for the relevant TestExecutionPlans."""
+  metrics.LocalDetectEvent(
+      detect_type=atest_enum.DetectType.RUN_AFFECTED_TRIGGERS_MODE, result=1
+  )
   test_configs = acme_utils.get_reduced_test_configs()
   if not test_configs:
     atest_utils.print_and_log_warning(
