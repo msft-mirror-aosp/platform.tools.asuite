@@ -104,6 +104,46 @@ def get_filtered_test_execution_plans(
   return test_execution_plans
 
 
+def get_test_execution_plans(
+    test_configs: test_configs_pb2.TestConfigs,
+    test_execution_plan_names: list[str],
+) -> list[test_configs_pb2.TestExecutionPlan]:
+  """Returns the TestExecutionPlans for the given test_execution_plan_names."""
+  test_execution_plans = []
+  for test_execution_plan in test_configs.execution_plans:
+    if test_execution_plan.name in test_execution_plan_names:
+      test_execution_plans.append(test_execution_plan)
+  return test_execution_plans
+
+
+def get_execution_plans_for_test_workflows(
+    test_configs: test_configs_pb2.TestConfigs, test_workflow_names: list[str]
+) -> list[test_configs_pb2.TestExecutionPlan]:
+  """Returns the TestExecutionPlans referenced in the given test_workflows."""
+  test_execution_plan_names = []
+  for workflow in test_configs.workflows:
+    if workflow.name in test_workflow_names:
+      test_execution_plan_names.append(workflow.execution_plan.name)
+  return get_test_execution_plans(test_configs, test_execution_plan_names)
+
+
+def get_execution_plans_for_test_triggers(
+    test_configs: test_configs_pb2.TestConfigs, test_trigger_names: list[str]
+) -> list[test_configs_pb2.TestExecutionPlan]:
+  """Returns the TestExecutionPlans referenced in the given test_triggers."""
+  test_execution_plans = []
+  for test_trigger in test_configs.triggers:
+    if test_trigger.name in test_trigger_names:
+      # Get all the TestExecutionPlans referenced in the TestTrigger.
+      test_execution_plan_names = []
+      for workflow in test_trigger.list.workflows:
+        test_execution_plan_names.append(workflow.execution_plan.name)
+      test_execution_plans.extend(
+          get_test_execution_plans(test_configs, test_execution_plan_names)
+      )
+  return test_execution_plans
+
+
 def create_test_details_from_test_execution_plans(
     test_execution_plans: list[test_configs_pb2.TestExecutionPlan],
 ) -> list[test_mapping.TestDetail]:

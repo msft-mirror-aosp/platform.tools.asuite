@@ -185,6 +185,78 @@ class TestAcmeUtilsModule(unittest.TestCase):
     )
     self.assertCountEqual(expected_test_execution_plans, test_execution_plans)
 
+  def test_get_test_execution_plans(self):
+    """Tests getting test execution plans by name."""
+    expected_plans = [acme_test_constants.TEST_EXECUTION_PLAN]
+    test_execution_plans = acme_utils.get_test_execution_plans(
+        acme_test_constants.SAMPLE_TEST_CONFIG,
+        [acme_test_constants.TEST_EXECUTION_PLAN.name],
+    )
+    self.assertCountEqual(expected_plans, test_execution_plans)
+
+  def test_get_test_execution_plans_empty_list(self):
+    """Tests getting test execution plans with an empty list of names."""
+    test_execution_plans = acme_utils.get_test_execution_plans(
+        acme_test_constants.SAMPLE_TEST_CONFIG, []
+    )
+    self.assertCountEqual([], test_execution_plans)
+
+  def test_get_test_execution_plans_invalid(self):
+    """Tests getting test execution plans with an invalid name."""
+    test_execution_plans = acme_utils.get_test_execution_plans(
+        acme_test_constants.SAMPLE_TEST_CONFIG, ['invalid-plan']
+    )
+    self.assertCountEqual([], test_execution_plans)
+
+  def test_get_test_execution_plans_for_test_workflows(self):
+    """Tests getting test execution plans for test workflows."""
+    acme_test_constants.SAMPLE_TEST_CONFIG.workflows.extend(
+        [acme_test_constants.TEST_WORKFLOW]
+    )
+    expected_plans = [acme_test_constants.TEST_EXECUTION_PLAN]
+    test_execution_plans = acme_utils.get_execution_plans_for_test_workflows(
+        acme_test_constants.SAMPLE_TEST_CONFIG,
+        [acme_test_constants.TEST_WORKFLOW.name],
+    )
+    self.assertCountEqual(expected_plans, test_execution_plans)
+
+  def test_get_test_execution_plans_for_test_workflows_empty_list(self):
+    """Tests getting test execution plans for test workflows with an empty list."""
+    test_execution_plans = acme_utils.get_execution_plans_for_test_workflows(
+        acme_test_constants.SAMPLE_TEST_CONFIG, []
+    )
+    self.assertCountEqual([], test_execution_plans)
+
+  def test_get_test_execution_plans_for_test_workflows_invalid(self):
+    """Tests getting test execution plans for test workflows with an invalid name."""
+    test_execution_plans = acme_utils.get_execution_plans_for_test_workflows(
+        acme_test_constants.SAMPLE_TEST_CONFIG, ['invalid-workflow']
+    )
+    self.assertCountEqual([], test_execution_plans)
+
+  def test_get_test_execution_plans_for_test_triggers(self):
+    """Tests getting test execution plans for test triggers."""
+    expected_plans = [acme_test_constants.TEST_EXECUTION_PLAN]
+    test_execution_plans = acme_utils.get_execution_plans_for_test_triggers(
+        acme_test_constants.SAMPLE_TEST_CONFIG,
+        [acme_test_constants.TEST_TRIGGER_LIST_WORKFLOW.name],
+    )
+    self.assertCountEqual(expected_plans, test_execution_plans)
+
+  def test_get_test_execution_plans_for_test_triggers_empty_list(self):
+    """Tests getting test execution plans for test triggers with an empty list."""
+    test_execution_plans = acme_utils.get_execution_plans_for_test_triggers(
+        acme_test_constants.SAMPLE_TEST_CONFIG, []
+    )
+    self.assertCountEqual([], test_execution_plans)
+
+  def test_get_test_execution_plans_for_test_triggers_invalid(self):
+    """Tests getting test execution plans for test triggers with an invalid name."""
+    test_execution_plans = acme_utils.get_execution_plans_for_test_triggers(
+        acme_test_constants.SAMPLE_TEST_CONFIG, ['invalid-trigger']
+    )
+    self.assertCountEqual([], test_execution_plans)
+
 
 if __name__ == '__main__':
   unittest.main()
