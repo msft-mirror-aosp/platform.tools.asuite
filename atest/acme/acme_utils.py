@@ -16,6 +16,7 @@
 
 import pathlib
 import subprocess
+import typing
 
 from atest import atest_utils
 from atest import constants
@@ -48,12 +49,18 @@ def get_full_test_configs() -> test_configs_pb2.TestConfigs:
   return _parse_test_configs_proto(output_path)
 
 
-def get_reduced_test_configs() -> test_configs_pb2.TestConfigs:
+def get_reduced_test_configs(
+    projects: list[typing.Optional[str]] | None = None,
+) -> test_configs_pb2.TestConfigs:
   """Runs the reduce-test-configs script and returns the TestConfigs proto."""
+
+  cmd = [REDUCE_TEST_CONFIGS_CMD]
+  if projects:
+    cmd.append('-projects')
+    cmd.extend(projects)
+
   # TODO: b/460119831 - Return a more informative error message.
-  subprocess.run(
-      REDUCE_TEST_CONFIGS_CMD, cwd=atest_utils.get_build_top(), check=True
-  )
+  subprocess.run(cmd, cwd=atest_utils.get_build_top(), check=True)
   output_path = atest_utils.get_build_out_dir(
       REDUCE_TEST_CONFIGS_OUTPUT_SUB_PATH
   )

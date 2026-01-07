@@ -305,7 +305,7 @@ class CLITranslator:
       info = self.mod_info.get_module_info(name)
       unsupported_binaries.extend(
           binary
-          for binary in (info.get('installed') or [])
+          for binary in info.get('installed') or []
           if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, binary)
       )
     if unsupported_binaries:
@@ -739,7 +739,7 @@ class CLITranslator:
     if args.run_affected_triggers:
       tests, test_details_list = (
           run_affected_triggers_mode.get_affected_test_details(
-              args.scheduling_plan
+              args.scheduling_plan, args.projects
           )
       )
 

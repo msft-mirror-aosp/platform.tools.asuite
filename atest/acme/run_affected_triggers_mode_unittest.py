@@ -114,6 +114,40 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
         detect_type=atest_enum.DetectType.RUN_AFFECTED_TRIGGERS_MODE, result=1
     )
 
+  @unittest.mock.patch.object(
+      acme_utils, 'get_reduced_test_configs', autospec=True
+  )
+  def test_get_affected_test_details_specific_projects(
+      self, mock_get_reduced_test_configs
+  ):
+    """Tests get_affected_test_details when called with a list of projects."""
+    # Set up mocks.
+    mock_get_reduced_test_configs.return_value = (
+        acme_test_constants.SAMPLE_TEST_CONFIG
+    )
+
+    # Function call.
+    test_projects = ['some/mock/project-a', 'another/mock/project-b']
+    tests, test_details = run_affected_triggers_mode.get_affected_test_details(
+        acme_test_constants.SCHEDULING_PLAN.name, projects=test_projects
+    )
+    actual_return_val = zip(tests, test_details)
+    expected_return_val = zip(
+        [
+            unittest_constants.MODULE_NAME,
+            unittest_constants.MODULE2_NAME,
+            unittest_constants.MODULE_NAME,
+        ],
+        [
+            acme_test_constants.MODULE_PLAN_TEST_DETAILS,
+            acme_test_constants.MODULE2_PLAN_TEST_DETAILS,
+            acme_test_constants.MODULE_PLAN_SIMPLE_TEST_DETAILS,
+        ],
+    )
+
+    self.assertCountEqual(expected_return_val, actual_return_val)
+    mock_get_reduced_test_configs.assert_called_once_with(test_projects)
+
 
 if __name__ == '__main__':
   unittest.main()
