@@ -14,6 +14,7 @@
 
 """Util functions for running ACME Test Configurations via atest."""
 
+import pathlib
 import subprocess
 
 from atest import atest_utils
@@ -26,6 +27,26 @@ REDUCE_TEST_CONFIGS_OUTPUT_SUB_PATH = (
     'soong/test-configs-reduced/test_configs.pb'
 )
 
+TEST_CONFIGS_BUILD_TARGET = 'test-configs-zip'
+TEST_CONFIGS_OUTPUT_SUB_PATH = 'soong/test-configs/test_configs.pb'
+
+
+def _parse_test_configs_proto(
+    test_configs_proto_path: pathlib.Path,
+) -> test_configs_pb2.TestConfigs:
+  """Parses a TestConfigs proto from a file."""
+  with open(test_configs_proto_path, 'rb') as f:
+    test_configs = test_configs_pb2.TestConfigs()
+    test_configs.ParseFromString(f.read())
+  return test_configs
+
+
+def get_full_test_configs() -> test_configs_pb2.TestConfigs:
+  """Returns the complete set of TestConfigs."""
+  atest_utils.build([TEST_CONFIGS_BUILD_TARGET])
+  output_path = atest_utils.get_build_out_dir(TEST_CONFIGS_OUTPUT_SUB_PATH)
+  return _parse_test_configs_proto(output_path)
+
 
 def get_reduced_test_configs() -> test_configs_pb2.TestConfigs:
   """Runs the reduce-test-configs script and returns the TestConfigs proto."""
@@ -36,10 +57,7 @@ def get_reduced_test_configs() -> test_configs_pb2.TestConfigs:
   output_path = atest_utils.get_build_out_dir(
       REDUCE_TEST_CONFIGS_OUTPUT_SUB_PATH
   )
-  with open(output_path, 'rb') as f:
-    test_configs = test_configs_pb2.TestConfigs()
-    test_configs.ParseFromString(f.read())
-  return test_configs
+  return _parse_test_configs_proto(output_path)
 
 
 def get_filtered_test_execution_plans(
@@ -50,6 +68,11 @@ def get_filtered_test_execution_plans(
   # Create a mapping from execution plan name to the plan object.
   named_test_exec_plans_map = {
       exec_plan.name: exec_plan for exec_plan in test_configs.execution_plans
+  }
+
+  # Create a mapping from execution plan name to the plan object.
+  named_test_workflows_map = {
+      workflow.name: workflow for workflow in test_configs.workflows
   }
 
   # Filter test execution plans based on the scheduling plan.
@@ -65,13 +88,59 @@ def get_filtered_test_execution_plans(
     # Handle a list workflows.
     else:
       for workflow in test_trigger.list.workflows:
+        # Search for the workflow in the named_test_workflows_map if the
+        # workflow proto only contains a reference.
+        if not workflow.HasField('scheduling_plan'):
+          workflow = named_test_workflows_map.get(workflow.name)
+
         if workflow.scheduling_plan.name != scheduling_plan_name:
           continue
+
         test_exec_plan_name = workflow.execution_plan.name
         test_exec_plan = named_test_exec_plans_map.get(test_exec_plan_name)
         if test_exec_plan:
           test_execution_plans.append(test_exec_plan)
 
+  return test_execution_plans
+
+
+def get_test_execution_plans(
+    test_configs: test_configs_pb2.TestConfigs,
+    test_execution_plan_names: list[str],
+) -> list[test_configs_pb2.TestExecutionPlan]:
+  """Returns the TestExecutionPlans for the given test_execution_plan_names."""
+  test_execution_plans = []
+  for test_execution_plan in test_configs.execution_plans:
+    if test_execution_plan.name in test_execution_plan_names:
+      test_execution_plans.append(test_execution_plan)
+  return test_execution_plans
+
+
+def get_execution_plans_for_test_workflows(
+    test_configs: test_configs_pb2.TestConfigs, test_workflow_names: list[str]
+) -> list[test_configs_pb2.TestExecutionPlan]:
+  """Returns the TestExecutionPlans referenced in the given test_workflows."""
+  test_execution_plan_names = []
+  for workflow in test_configs.workflows:
+    if workflow.name in test_workflow_names:
+      test_execution_plan_names.append(workflow.execution_plan.name)
+  return get_test_execution_plans(test_configs, test_execution_plan_names)
+
+
+def get_execution_plans_for_test_triggers(
+    test_configs: test_configs_pb2.TestConfigs, test_trigger_names: list[str]
+) -> list[test_configs_pb2.TestExecutionPlan]:
+  """Returns the TestExecutionPlans referenced in the given test_triggers."""
+  test_execution_plans = []
+  for test_trigger in test_configs.triggers:
+    if test_trigger.name in test_trigger_names:
+      # Get all the TestExecutionPlans referenced in the TestTrigger.
+      test_execution_plan_names = []
+      for workflow in test_trigger.list.workflows:
+        test_execution_plan_names.append(workflow.execution_plan.name)
+      test_execution_plans.extend(
+          get_test_execution_plans(test_configs, test_execution_plan_names)
+      )
   return test_execution_plans
 
 
