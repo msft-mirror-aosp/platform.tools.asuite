@@ -131,17 +131,16 @@ def get_execution_plans_for_test_triggers(
     test_configs: test_configs_pb2.TestConfigs, test_trigger_names: list[str]
 ) -> list[test_configs_pb2.TestExecutionPlan]:
   """Returns the TestExecutionPlans referenced in the given test_triggers."""
-  test_execution_plans = []
+  test_workflow_names = []
   for test_trigger in test_configs.triggers:
     if test_trigger.name in test_trigger_names:
-      # Get all the TestExecutionPlans referenced in the TestTrigger.
-      test_execution_plan_names = []
-      for workflow in test_trigger.list.workflows:
-        test_execution_plan_names.append(workflow.execution_plan.name)
-      test_execution_plans.extend(
-          get_test_execution_plans(test_configs, test_execution_plan_names)
+      # Get all the TestWorkflows referenced in the TestTrigger.
+      test_workflow_names.extend(
+          [workflow.name for workflow in test_trigger.list.workflows]
       )
-  return test_execution_plans
+  return get_execution_plans_for_test_workflows(
+      test_configs, test_workflow_names
+  )
 
 
 def create_test_details_from_test_execution_plans(

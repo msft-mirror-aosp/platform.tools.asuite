@@ -105,7 +105,10 @@ TEST_TRIGGER_INLINE_WORKFLOW_SCHEDULING_PLAN_2 = test_configs_pb2.TestTrigger(
 SAMPLE_TEST_CONFIG = test_configs_pb2.TestConfigs(
     execution_plans=[TEST_EXECUTION_PLAN],
     workflows=[TEST_WORKFLOW],
-    triggers=[TEST_TRIGGER_INLINE_WORKFLOW, TEST_TRIGGER_LIST_WORKFLOW],
+    triggers=[
+        TEST_TRIGGER_INLINE_WORKFLOW,
+        TEST_TRIGGER_LIST_WORKFLOW,
+    ],
 )
 SAMPLE_TEST_CONFIG_MIXED_SCHEDULING_PLANS = test_configs_pb2.TestConfigs(
     execution_plans=[TEST_EXECUTION_PLAN],
@@ -116,6 +119,8 @@ SAMPLE_TEST_CONFIG_MIXED_SCHEDULING_PLANS = test_configs_pb2.TestConfigs(
         TEST_TRIGGER_INLINE_WORKFLOW_SCHEDULING_PLAN_2,
     ],
 )
+# When generating the full test-configs.pb, the triggers field only has the name
+# of the workflow populated.
 SAMPLE_FULL_TEST_CONFIGS = test_configs_pb2.TestConfigs(
     execution_plans=[TEST_EXECUTION_PLAN],
     workflows=[TEST_WORKFLOW],
