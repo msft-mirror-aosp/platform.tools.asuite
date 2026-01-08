@@ -35,6 +35,7 @@ from atest import test_finder_handler
 from atest import test_mapping
 from atest import unittest_constants as uc
 from atest import unittest_utils
+from atest.acme import acme_utils
 from atest.acme import run_affected_triggers_mode
 from atest.acme import run_direct_mode
 from atest.metrics import metrics
@@ -753,9 +754,11 @@ class CLITranslatorUnittests(unittest.TestCase):
 
     # Assertions.
     default_projects = []
+    default_file_paths = []
     mock_get_trigged_test_details.assert_called_once_with(
         run_affected_triggers_mode.DEFAULT_SCHEDULING_PLAN,
         default_projects,
+        default_file_paths,
     )
     mock_get_test_infos.assert_called_once_with(
         self.ctr, [uc.MODULE_NAME], [test_detail]
@@ -764,6 +767,9 @@ class CLITranslatorUnittests(unittest.TestCase):
         self, test_infos, [uc.MODULE_INFO]
     )
 
+  @unittest.mock.patch.object(
+      acme_utils, 'get_file_paths_relative_to_build_top', autospec=True
+  )
   @mock.patch.object(
       run_affected_triggers_mode,
       'get_affected_test_details',
@@ -776,39 +782,71 @@ class CLITranslatorUnittests(unittest.TestCase):
       autospec=True,
   )
   def test_translate_run_affected_non_default_args(
-      self, mock_get_test_infos, mock_get_trigged_test_details
+      self,
+      mock_get_test_infos,
+      mock_get_trigged_test_details,
+      mock_get_rel_paths,
   ):
     """Test translate method for run_affected with non-default args."""
     # Set up mocks.
+    mock_get_rel_paths.return_value = ([], [])
     test_detail = test_mapping.TestDetail({'name': uc.MODULE_NAME})
     mock_get_trigged_test_details.return_value = (
         [uc.MODULE_NAME],
         [test_detail],
     )
 
-    # Function call.
-    mock_plan_name = 'some-custom-plan'
-    args = arg_parser.parse_args([
-        run_affected_triggers_mode.RUN_AFFECTED_TRIGGERS_ARG_NAME,
-        run_affected_triggers_mode.SCHEDULING_PLAN_ARG_NAME,
-        mock_plan_name,
-        run_affected_triggers_mode.PROJECTS_ARG_NAME,
-        'project-a',
-        'project-b',
-    ])
-    test_infos = self.ctr.translate(args)
+    test_cases = [
+        {
+            'name': 'with_projects',
+            'args': [
+                run_affected_triggers_mode.RUN_AFFECTED_TRIGGERS_ARG_NAME,
+                run_affected_triggers_mode.SCHEDULING_PLAN_ARG_NAME,
+                'some-custom-plan',
+                run_affected_triggers_mode.PROJECTS_ARG_NAME,
+                'project-a',
+                'project-b',
+            ],
+            'expected_plan': 'some-custom-plan',
+            'expected_projects': ['project-a', 'project-b'],
+            'expected_file_paths': [],
+        },
+        {
+            'name': 'with_file_paths',
+            'args': [
+                run_affected_triggers_mode.RUN_AFFECTED_TRIGGERS_ARG_NAME,
+                run_affected_triggers_mode.SCHEDULING_PLAN_ARG_NAME,
+                'some-custom-plan',
+                run_affected_triggers_mode.FILE_PATHS_ARG_NAME,
+                'a/b/c.py',
+                'd/e/f.cc',
+            ],
+            'expected_plan': 'some-custom-plan',
+            'expected_projects': [],
+            'expected_file_paths': ['a/b/c.py', 'd/e/f.cc'],
+        },
+    ]
 
-    # Assertions.
-    default_projects = ['project-a', 'project-b']
-    mock_get_trigged_test_details.assert_called_once_with(
-        mock_plan_name, default_projects
-    )
-    mock_get_test_infos.assert_called_once_with(
-        self.ctr, [uc.MODULE_NAME], [test_detail]
-    )
-    unittest_utils.assert_equal_testinfo_lists(
-        self, test_infos, [uc.MODULE_INFO]
-    )
+    for case in test_cases:
+      with self.subTest(case['name']):
+        mock_get_trigged_test_details.reset_mock()
+        mock_get_test_infos.reset_mock()
+        # Function call.
+        args = arg_parser.parse_args(case['args'])
+        test_infos = self.ctr.translate(args)
+
+        # Assertions.
+        mock_get_trigged_test_details.assert_called_once_with(
+            case['expected_plan'],
+            case['expected_projects'],
+            case['expected_file_paths'],
+        )
+        mock_get_test_infos.assert_called_once_with(
+            self.ctr, [uc.MODULE_NAME], [test_detail]
+        )
+        unittest_utils.assert_equal_testinfo_lists(
+            self, test_infos, [uc.MODULE_INFO]
+        )
 
   @mock.patch.object(
       run_direct_mode,

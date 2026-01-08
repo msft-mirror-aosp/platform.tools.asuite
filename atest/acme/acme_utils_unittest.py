@@ -116,6 +116,74 @@ class TestAcmeUtilsModule(unittest.TestCase):
         check=True,
     )
 
+  @unittest.mock.patch.object(
+      atest_utils,
+      'get_build_top',
+      autospec=True,
+      return_value=MOCK_BUILD_TOP_PATH,
+  )
+  def test_get_file_paths_relative_to_build_top(self, mock_get_build_top):
+    """Tests get_file_paths_relative_to_build_top."""
+
+    def mock_resolve_side_effect(path_instance, strict=False):
+      if strict and 'invalid' in str(path_instance):
+        raise FileNotFoundError
+      return pathlib.Path(str(path_instance))
+
+    test_cases = [
+        {
+            'name': 'all_valid_paths',
+            'file_paths': [
+                f'{MOCK_BUILD_TOP_PATH}/a/b',
+                f'{MOCK_BUILD_TOP_PATH}/c',
+            ],
+            'expected': (['a/b', 'c'], []),
+        },
+        {
+            'name': 'all_invalid_paths',
+            'file_paths': ['/invalid/path1', '/another/invalid/path'],
+            'expected': ([], ['/invalid/path1', '/another/invalid/path']),
+        },
+        {
+            'name': 'mixed_paths',
+            'file_paths': [
+                f'{MOCK_BUILD_TOP_PATH}/a/b',
+                '/some/invalid/path',
+            ],
+            'expected': (['a/b'], ['/some/invalid/path']),
+        },
+        {'name': 'empty_list', 'file_paths': [], 'expected': ([], [])},
+    ]
+
+    with unittest.mock.patch.object(
+        pathlib.Path,
+        'resolve',
+        side_effect=mock_resolve_side_effect,
+        autospec=True,
+    ) as mock_resolve:
+      for test_case in test_cases:
+        with self.subTest(test_case['name']):
+          mock_get_build_top.reset_mock()
+          mock_resolve.reset_mock()
+          expected_relative_paths, expected_invalid_paths = test_case[
+              'expected'
+          ]
+          rel_paths, invalid_paths = (
+              acme_utils.get_file_paths_relative_to_build_top(
+                  test_case['file_paths']
+              )
+          )
+          self.assertCountEqual(expected_relative_paths, rel_paths)
+          self.assertCountEqual(expected_invalid_paths, invalid_paths)
+          # get_build_top should be called once for each valid path.
+          self.assertEqual(
+              len(expected_relative_paths), mock_get_build_top.call_count
+          )
+          # resolve should be called once for each path.
+          self.assertEqual(
+              len(test_case['file_paths']), mock_resolve.call_count
+          )
+
   def test_create_test_details_from_test_execution_plans(self):
     """Tests creation of TestDetail objects from TestExecutionPlans."""
     test_exec_plan1 = test_configs_pb2.TestExecutionPlan(
