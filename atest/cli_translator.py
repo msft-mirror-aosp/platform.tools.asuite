@@ -34,6 +34,7 @@ from atest import constants
 from atest import test_finder_handler
 from atest import test_mapping
 from atest.acme import run_affected_triggers_mode
+from atest.acme import run_direct_mode
 from atest.atest_enum import DetectType
 from atest.atest_enum import ExitCode
 from atest.metrics import metrics
@@ -305,7 +306,7 @@ class CLITranslator:
       info = self.mod_info.get_module_info(name)
       unsupported_binaries.extend(
           binary
-          for binary in (info.get('installed') or [])
+          for binary in info.get('installed') or []
           if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, binary)
       )
     if unsupported_binaries:
@@ -722,6 +723,9 @@ class CLITranslator:
         args.test_mapping,
         args.smart_test_selection,
         args.run_affected_triggers,
+        args.test_execution_plans,
+        args.test_workflows,
+        args.test_triggers,
     )):
       logging.debug('Finding Host Unit Tests...')
       host_unit_tests = test_finder_utils.find_host_unit_tests(
@@ -736,10 +740,16 @@ class CLITranslator:
       tests, test_details_list = self._get_test_mapping_tests(
           args, not bool(host_unit_tests)
       )
+    if any(
+        [args.test_triggers, args.test_workflows, args.test_execution_plans]
+    ):
+      tests, test_details_list = run_direct_mode.get_test_details(
+          args.test_execution_plans, args.test_workflows, args.test_triggers
+      )
     if args.run_affected_triggers:
       tests, test_details_list = (
           run_affected_triggers_mode.get_affected_test_details(
-              args.scheduling_plan
+              args.scheduling_plan, args.projects
           )
       )
 

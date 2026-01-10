@@ -20,16 +20,18 @@ from atest import unittest_constants
 from atest.acme import acme_test_constants
 from atest.acme import acme_utils
 from atest.acme import run_affected_triggers_mode
+from atest.metrics import metrics
 from test_configs_proto import test_configs_pb2
 
 
 class TestRunAffectedTriggersModeModule(unittest.TestCase):
 
+  @unittest.mock.patch.object(metrics, 'LocalDetectEvent', autospec=True)
   @unittest.mock.patch.object(
       acme_utils, 'get_reduced_test_configs', autospec=True
   )
   def test_get_affected_test_details_no_affected_tests(
-      self, mock_get_reduced_test_configs
+      self, mock_get_reduced_test_configs, mock_local_detect_event
   ):
     """Test get_affected_test_details exits if no tests are affected."""
     # Set up mocks.
@@ -45,12 +47,16 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
 
     # Assertions.
     mock_sys_exit.assert_called_once_with(atest_enum.ExitCode.TEST_NOT_FOUND)
+    mock_local_detect_event.assert_called_once_with(
+        detect_type=atest_enum.DetectType.RUN_AFFECTED_TRIGGERS_MODE, result=1
+    )
 
+  @unittest.mock.patch.object(metrics, 'LocalDetectEvent', autospec=True)
   @unittest.mock.patch.object(
       acme_utils, 'get_reduced_test_configs', autospec=True
   )
   def test_get_affected_test_details_all_filtered_out(
-      self, mock_get_reduced_test_configs
+      self, mock_get_reduced_test_configs, mock_local_detect_event
   ):
     """Test get_affected_test_details exits if all plans are filtered out."""
     # Set up mocks.
@@ -68,11 +74,17 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
 
     # Assertions.
     mock_sys_exit.assert_called_once_with(atest_enum.ExitCode.TEST_NOT_FOUND)
+    mock_local_detect_event.assert_called_once_with(
+        detect_type=atest_enum.DetectType.RUN_AFFECTED_TRIGGERS_MODE, result=1
+    )
 
+  @unittest.mock.patch.object(metrics, 'LocalDetectEvent', autospec=True)
   @unittest.mock.patch.object(
       acme_utils, 'get_reduced_test_configs', autospec=True
   )
-  def test_get_affected_test_details(self, mock_get_reduced_test_configs):
+  def test_get_affected_test_details(
+      self, mock_get_reduced_test_configs, mock_local_detect_event
+  ):
     """Tests that get_affected_test_details returns the correct TestDetails."""
     # Set up mocks.
     mock_get_reduced_test_configs.return_value = (
@@ -98,6 +110,43 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
     )
 
     self.assertCountEqual(expected_return_val, actual_return_val)
+    mock_local_detect_event.assert_called_once_with(
+        detect_type=atest_enum.DetectType.RUN_AFFECTED_TRIGGERS_MODE, result=1
+    )
+
+  @unittest.mock.patch.object(
+      acme_utils, 'get_reduced_test_configs', autospec=True
+  )
+  def test_get_affected_test_details_specific_projects(
+      self, mock_get_reduced_test_configs
+  ):
+    """Tests get_affected_test_details when called with a list of projects."""
+    # Set up mocks.
+    mock_get_reduced_test_configs.return_value = (
+        acme_test_constants.SAMPLE_TEST_CONFIG
+    )
+
+    # Function call.
+    test_projects = ['some/mock/project-a', 'another/mock/project-b']
+    tests, test_details = run_affected_triggers_mode.get_affected_test_details(
+        acme_test_constants.SCHEDULING_PLAN.name, projects=test_projects
+    )
+    actual_return_val = zip(tests, test_details)
+    expected_return_val = zip(
+        [
+            unittest_constants.MODULE_NAME,
+            unittest_constants.MODULE2_NAME,
+            unittest_constants.MODULE_NAME,
+        ],
+        [
+            acme_test_constants.MODULE_PLAN_TEST_DETAILS,
+            acme_test_constants.MODULE2_PLAN_TEST_DETAILS,
+            acme_test_constants.MODULE_PLAN_SIMPLE_TEST_DETAILS,
+        ],
+    )
+
+    self.assertCountEqual(expected_return_val, actual_return_val)
+    mock_get_reduced_test_configs.assert_called_once_with(test_projects)
 
 
 if __name__ == '__main__':

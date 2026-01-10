@@ -12,19 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Module for running test triggers affected by the locally modified files."""
+"""Module for running test triggers affected by the relevant files."""
 
 import argparse
 import sys
+import typing
 
 from atest import atest_enum
 from atest import atest_utils
 from atest import test_mapping
 from atest.acme import acme_utils
+from atest.metrics import metrics
 
 RUN_AFFECTED_TRIGGERS_ARG_NAME = '--run-affected-triggers'
 SCHEDULING_PLAN_ARG_NAME = '--scheduling-plan'
 DEFAULT_SCHEDULING_PLAN = 'presubmit'
+PROJECTS_ARG_NAME = '--projects'
 
 
 def add_global_arguments(parser: argparse.ArgumentParser):
@@ -53,6 +56,15 @@ def add_arguments(parser: argparse.ArgumentParser):
       ),
       default=DEFAULT_SCHEDULING_PLAN,
   )
+  parser.add_argument(
+      PROJECTS_ARG_NAME,
+      default=[],
+      nargs='*',
+      help=(
+          '(For use with --run-affected-triggers) Only find affected triggers'
+          ' within the specified projects.'
+      ),
+  )
 
 
 # pylint: disable=unused-argument
@@ -63,9 +75,13 @@ def process_parsed_args(args: argparse.Namespace):
 
 def get_affected_test_details(
     scheduling_plan_name: str,
+    projects: list[typing.Optional[str]] | None = None,
 ) -> tuple[list[str], list[test_mapping.TestDetail]]:
   """Returns the TestDetails for the relevant TestExecutionPlans."""
-  test_configs = acme_utils.get_reduced_test_configs()
+  metrics.LocalDetectEvent(
+      detect_type=atest_enum.DetectType.RUN_AFFECTED_TRIGGERS_MODE, result=1
+  )
+  test_configs = acme_utils.get_reduced_test_configs(projects)
   if not test_configs:
     atest_utils.print_and_log_warning(
         'No affected tests found based on the local changes.'

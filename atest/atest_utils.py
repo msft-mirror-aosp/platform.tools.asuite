@@ -14,7 +14,6 @@
 
 """Utility functions for atest."""
 
-
 # pylint: disable=import-outside-toplevel
 # pylint: disable=too-many-lines
 
@@ -653,6 +652,9 @@ def is_test_mapping(args):
       args.host_unit_test_only,
       args.smart_test_selection,
       args.run_affected_triggers,
+      args.test_execution_plans,
+      args.test_triggers,
+      args.test_workflows,
   )):
     return False
   if any((args.test_mapping, args.include_subdirs, not args.tests)):

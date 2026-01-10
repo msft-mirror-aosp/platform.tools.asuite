@@ -42,25 +42,49 @@ class TestAcmeUtilsModule(unittest.TestCase):
       mock_subprocess_run,
       mock_get_build_out_dir,
   ):
-    """Tests successful getting TestDetails for relevant TestTriggers."""
-    # Set up mocks.
-    fake_pb_path = '/fake/path/to/test-configs.pb'
-    mock_get_build_out_dir.return_value = fake_pb_path
-    mock_file = unittest.mock.mock_open(
-        read_data=acme_test_constants.SAMPLE_TEST_CONFIG.SerializeToString()
-    )
-    mock_open_builtin.return_value = mock_file.return_value
+    """Test the get_reduced_test_configs method."""
+    test_cases = [
+        (
+            'no_args',
+            {},
+            [acme_utils.REDUCE_TEST_CONFIGS_CMD],
+        ),
+        (
+            'with_projects',
+            {
+                'projects': ['a', 'b'],
+            },
+            [acme_utils.REDUCE_TEST_CONFIGS_CMD, '-projects', 'a', 'b'],
+        ),
+    ]
+    for name, kwargs, expected_cmd in test_cases:
+      with self.subTest(name):
+        # Set up mocks.
+        mock_subprocess_run.reset_mock()
+        mock_open_builtin.reset_mock()
+        mock_get_build_top.reset_mock()
+        mock_get_build_out_dir.reset_mock()
+        fake_pb_path = '/fake/path/to/test-configs.pb'
+        mock_get_build_out_dir.return_value = fake_pb_path
+        mock_file = unittest.mock.mock_open(
+            read_data=acme_test_constants.SAMPLE_TEST_CONFIG.SerializeToString()
+        )
+        mock_open_builtin.return_value = mock_file.return_value
 
-    # Function call.
-    test_configs = acme_utils.get_reduced_test_configs()
+        # Function call.
+        test_configs = acme_utils.get_reduced_test_configs(**kwargs)
 
-    # Assertions.
-    self.assertEqual(acme_test_constants.SAMPLE_TEST_CONFIG, test_configs)
-    mock_get_build_top.assert_called_once()
-    mock_subprocess_run.assert_called_once_with(
-        acme_utils.REDUCE_TEST_CONFIGS_CMD, cwd=MOCK_BUILD_TOP_PATH, check=True
-    )
-    mock_open_builtin.assert_called_once_with(fake_pb_path, 'rb')
+        # Assertions.
+        self.assertEqual(acme_test_constants.SAMPLE_TEST_CONFIG, test_configs)
+
+        mock_subprocess_run.assert_called_once_with(
+            expected_cmd, cwd=MOCK_BUILD_TOP_PATH, check=True
+        )
+        mock_get_build_top.assert_called_once()
+        mock_get_build_out_dir.assert_called_once_with(
+            acme_utils.REDUCE_TEST_CONFIGS_OUTPUT_SUB_PATH
+        )
+        mock_open_builtin.assert_called_once_with(fake_pb_path, 'rb')
 
   @unittest.mock.patch.object(subprocess, 'run', autospec=True)
   @unittest.mock.patch.object(
@@ -69,12 +93,12 @@ class TestAcmeUtilsModule(unittest.TestCase):
       autospec=True,
       return_value=MOCK_BUILD_TOP_PATH,
   )
-  def test_build_reduced_test_configs_call_error(
+  def test_get_reduced_test_configs_call_error(
       self,
       mock_get_build_top,
       mock_subprocess_run,
   ):
-    """Tests successful getting TestDetails for relevant TestTriggers."""
+    """Tests get_reduced_test_configs raises an error when subprocess fails."""
     # Set up mocks.
     mock_subprocess_run.side_effect = subprocess.CalledProcessError(
         returncode=1,
@@ -87,7 +111,9 @@ class TestAcmeUtilsModule(unittest.TestCase):
 
     mock_get_build_top.assert_called_once()
     mock_subprocess_run.assert_called_once_with(
-        acme_utils.REDUCE_TEST_CONFIGS_CMD, cwd=MOCK_BUILD_TOP_PATH, check=True
+        [acme_utils.REDUCE_TEST_CONFIGS_CMD],
+        cwd=MOCK_BUILD_TOP_PATH,
+        check=True,
     )
 
   def test_create_test_details_from_test_execution_plans(self):

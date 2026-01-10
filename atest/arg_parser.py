@@ -22,6 +22,7 @@ import logging
 from atest import atest_utils
 from atest import constants
 from atest.acme import run_affected_triggers_mode
+from atest.acme import run_direct_mode
 from atest.atest_utils import BuildOutputMode
 from atest.crystalball import perf_mode
 
@@ -268,6 +269,7 @@ def create_atest_arg_parser():
       ),
   )
   run_affected_triggers_mode.add_global_arguments(parser)
+  run_direct_mode.add_global_arguments(parser)
   parser.add_argument(
       '--sts',
       default=False,
