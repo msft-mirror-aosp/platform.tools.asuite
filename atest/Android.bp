@@ -33,6 +33,7 @@ python_defaults {
         "py-oauth2client",
         "pyyaml",
         "ca_certs_locater",
+        "resultdb_uploader_python_library",
     ],
     exclude_srcs: [
         "asuite_lib_test/*.py",
