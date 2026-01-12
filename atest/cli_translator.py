@@ -749,7 +749,10 @@ class CLITranslator:
     if args.run_affected_triggers:
       tests, test_details_list = (
           run_affected_triggers_mode.get_affected_test_details(
-              args.scheduling_plan, args.projects, args.file_paths
+              args.scheduling_plan,
+              args.current_project,
+              args.projects,
+              args.file_paths,
           )
       )
 

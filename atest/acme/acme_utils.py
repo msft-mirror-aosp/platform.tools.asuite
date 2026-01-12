@@ -89,6 +89,19 @@ def get_file_paths_relative_to_build_top(
   return relative_paths, invalid_file_paths
 
 
+def get_current_project() -> typing.Optional[str]:
+  """Returns the current repo project."""
+  ret = subprocess.run(
+      "repo forall . -c 'echo $REPO_PROJECT'",
+      shell=True,
+      check=False,
+      capture_output=True,
+      encoding='utf-8',
+  )
+  if not ret.returncode:
+    return ret.stdout.strip()
+
+
 def get_filtered_test_execution_plans(
     test_configs: test_configs_pb2.TestConfigs, scheduling_plan_name: str
 ) -> list[test_configs_pb2.TestExecutionPlan]:

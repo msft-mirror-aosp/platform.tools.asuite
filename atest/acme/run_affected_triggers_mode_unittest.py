@@ -27,6 +27,7 @@ from test_configs_proto import test_configs_pb2
 
 class TestRunAffectedTriggersModeModule(unittest.TestCase):
 
+  @unittest.mock.patch.object(acme_utils, 'get_current_project', autospec=True)
   @unittest.mock.patch.object(
       acme_utils, 'get_file_paths_relative_to_build_top', autospec=True
   )
@@ -41,6 +42,7 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
       mock_print_and_log_error,
       mock_sys_exit,
       mock_get_rel_paths,
+      mock_get_current_project,
   ):
     """Tests for process_parsed_args with valid arguments."""
     test_cases = [
@@ -48,6 +50,7 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
             'run_affected_triggers_false',
             {
                 'run_affected_triggers': False,
+                'current_project': False,
                 'projects': [],
                 'file_paths': [],
             },
@@ -56,6 +59,7 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
             'run_affected_triggers_true',
             {
                 'run_affected_triggers': True,
+                'current_project': False,
                 'projects': [],
                 'file_paths': [],
             },
@@ -64,6 +68,7 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
             'run_affected_triggers_true_with_projects',
             {
                 'run_affected_triggers': True,
+                'current_project': False,
                 'projects': ['a'],
                 'file_paths': [],
             },
@@ -72,8 +77,18 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
             'run_affected_triggers_true_with_file_paths',
             {
                 'run_affected_triggers': True,
+                'current_project': False,
                 'projects': [],
                 'file_paths': ['a/b.c'],
+            },
+        ),
+        (
+            'run_affected_triggers_true_with_current_project',
+            {
+                'run_affected_triggers': True,
+                'current_project': True,
+                'projects': [],
+                'file_paths': [],
             },
         ),
     ]
@@ -85,6 +100,8 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
         mock_print_and_log_error.reset_mock()
         mock_get_rel_paths.reset_mock()
         mock_get_rel_paths.return_value = ([], [])
+        mock_get_current_project.reset_mock()
+        mock_get_current_project.return_value = 'fake/project'
         args = argparse.Namespace(**args_dict)
 
         # Function call.
@@ -95,7 +112,10 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
         mock_print_and_log_error.assert_not_called()
         if args.file_paths:
           mock_get_rel_paths.assert_called_once_with(args.file_paths)
+        if args.current_project:
+          mock_get_current_project.assert_called_once()
 
+  @unittest.mock.patch.object(acme_utils, 'get_current_project', autospec=True)
   @unittest.mock.patch.object(
       acme_utils, 'get_file_paths_relative_to_build_top', autospec=True
   )
@@ -110,27 +130,67 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
       mock_print_and_log_error,
       mock_sys_exit,
       mock_get_rel_paths,
+      mock_get_current_project,
   ):
     """Tests for process_parsed_args with invalid argument combinations."""
     mock_get_rel_paths.return_value = ([], [])
-    args_dict = {
-        'run_affected_triggers': True,
-        'projects': ['a'],
-        'file_paths': ['a/b.c'],
-    }
-    args = argparse.Namespace(**args_dict)
+    mock_get_current_project.return_value = 'fake/project'
+    test_cases = [
+        {
+            'name': 'projects_and_file_paths',
+            'args_dict': {
+                'run_affected_triggers': True,
+                'current_project': False,
+                'projects': ['a'],
+                'file_paths': ['a/b.c'],
+            },
+        },
+        {
+            'name': 'projects_and_current_project',
+            'args_dict': {
+                'run_affected_triggers': True,
+                'current_project': True,
+                'projects': ['a'],
+                'file_paths': [],
+            },
+        },
+        {
+            'name': 'file_paths_and_current_project',
+            'args_dict': {
+                'run_affected_triggers': True,
+                'current_project': True,
+                'projects': [],
+                'file_paths': ['a/b.c'],
+            },
+        },
+        {
+            'name': 'all_three',
+            'args_dict': {
+                'run_affected_triggers': True,
+                'current_project': True,
+                'projects': ['a'],
+                'file_paths': ['a/b.c'],
+            },
+        },
+    ]
 
-    # Function call.
-    run_affected_triggers_mode.process_parsed_args(args)
+    for case in test_cases:
+      with self.subTest(case['name']):
+        mock_sys_exit.reset_mock()
+        mock_print_and_log_error.reset_mock()
+        args = argparse.Namespace(**case['args_dict'])
 
-    # Assertions.
-    mock_sys_exit.assert_called_once_with(
-        atest_enum.ExitCode.INVALID_RUN_AFFECTED_TRIGGERS_ARGS
-    )
-    mock_print_and_log_error.assert_called_once_with(
-        'Only one of --projects or --file-paths can be'
-        ' used with --run-affected-triggers.'
-    )
+        # Function call.
+        run_affected_triggers_mode.process_parsed_args(args)
+
+        # Assertions.
+        mock_sys_exit.assert_called_once_with(
+            atest_enum.ExitCode.INVALID_RUN_AFFECTED_TRIGGERS_ARGS
+        )
+        mock_print_and_log_error.assert_called_once_with(
+            'Only one of --projects, --file-paths or --current-project can be'
+            ' used with --run-affected-triggers.'
+        )
 
   @unittest.mock.patch.object(
       acme_utils, 'get_file_paths_relative_to_build_top', autospec=True
@@ -152,6 +212,7 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
         'run_affected_triggers': True,
         'projects': [],
         'file_paths': ['a/b.c'],
+        'current_project': False,
     }
     mock_get_rel_paths.return_value = ([], ['a/b.c'])
     args = argparse.Namespace(**args_dict)
@@ -167,6 +228,47 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
         "The following input file paths do not exist: ['a/b.c']"
     )
     mock_get_rel_paths.assert_called_once_with(args.file_paths)
+
+  @unittest.mock.patch.object(
+      acme_utils, 'get_current_project', autospec=True, return_value=None
+  )
+  @unittest.mock.patch.object(
+      acme_utils, 'get_file_paths_relative_to_build_top', autospec=True
+  )
+  @unittest.mock.patch.object(sys, 'exit', autospec=True)
+  @unittest.mock.patch.object(
+      run_affected_triggers_mode.atest_utils,
+      'print_and_log_error',
+      autospec=True,
+  )
+  def test_process_parsed_args_no_current_project(
+      self,
+      mock_print_and_log_error,
+      mock_sys_exit,
+      mock_get_rel_paths,
+      mock_get_current_project,
+  ):
+    """Tests for process_parsed_args when the current project can't be found."""
+    args_dict = {
+        'run_affected_triggers': True,
+        'projects': [],
+        'file_paths': [],
+        'current_project': True,
+    }
+    mock_get_rel_paths.return_value = ([], [])
+    args = argparse.Namespace(**args_dict)
+
+    # Function call.
+    run_affected_triggers_mode.process_parsed_args(args)
+
+    # Assertions.
+    mock_get_current_project.assert_called_once()
+    mock_sys_exit.assert_called_once_with(
+        atest_enum.ExitCode.INVALID_RUN_AFFECTED_TRIGGERS_ARGS
+    )
+    mock_print_and_log_error.assert_called_once_with(
+        'Unable to determine the current repo project.'
+    )
 
   @unittest.mock.patch.object(metrics, 'LocalDetectEvent', autospec=True)
   @unittest.mock.patch.object(
@@ -336,6 +438,45 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
     self.assertCountEqual(expected_return_val, actual_return_val)
     mock_get_reduced_test_configs.assert_called_once_with(None, rel_paths)
     mock_get_rel_paths.assert_called_once_with(test_file_paths)
+
+  @unittest.mock.patch.object(acme_utils, 'get_current_project', autospec=True)
+  @unittest.mock.patch.object(
+      acme_utils, 'get_reduced_test_configs', autospec=True
+  )
+  def test_get_affected_test_details_current_project(
+      self,
+      mock_get_reduced_test_configs,
+      mock_get_current_project,
+  ):
+    """Tests get_affected_test_details when filtering by the current project."""
+    # Set up mocks.
+    mock_get_reduced_test_configs.return_value = (
+        acme_test_constants.SAMPLE_TEST_CONFIG
+    )
+    mock_project = 'some/mock/project'
+    mock_get_current_project.return_value = mock_project
+
+    # Function call.
+    tests, test_details = run_affected_triggers_mode.get_affected_test_details(
+        acme_test_constants.SCHEDULING_PLAN.name, current_project=True
+    )
+    actual_return_val = zip(tests, test_details)
+    expected_return_val = zip(
+        [
+            unittest_constants.MODULE_NAME,
+            unittest_constants.MODULE2_NAME,
+            unittest_constants.MODULE_NAME,
+        ],
+        [
+            acme_test_constants.MODULE_PLAN_TEST_DETAILS,
+            acme_test_constants.MODULE2_PLAN_TEST_DETAILS,
+            acme_test_constants.MODULE_PLAN_SIMPLE_TEST_DETAILS,
+        ],
+    )
+
+    self.assertCountEqual(expected_return_val, actual_return_val)
+    mock_get_reduced_test_configs.assert_called_once_with([mock_project], [])
+    mock_get_current_project.assert_called_once()
 
 
 if __name__ == '__main__':
