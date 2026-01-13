@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Mobly test runner."""
+
 import argparse
 import dataclasses
 import datetime
@@ -24,26 +25,21 @@ import shlex
 import shutil
 import subprocess
 import tempfile
-import time
 from typing import Any, Dict, List, Optional, Set
-
-import yaml
-
-try:
-  from googleapiclient import errors, http
-except ModuleNotFoundError as err:
-  logging.debug('Import error due to: %s', err)
+import uuid
 
 from atest import atest_configs
 from atest import atest_enum
 from atest import atest_utils
 from atest import constants
 from atest import result_reporter
-
 from atest.logstorage import logstorage_utils
-from atest.metrics import metrics
+from atest.mobly.rerun_options import RerunOptions
+from atest.mobly.test_result_uploaders import ants_test_result_uploader
+from atest.mobly.test_result_uploaders import resultdb_test_result_uploader
 from atest.test_finders import test_info
 from atest.test_runners import test_runner_base
+import yaml
 
 
 _ERROR_TEST_FILE_NOT_FOUND = (
@@ -110,6 +106,7 @@ WORKUNIT_ATEST_MOBLY_RUNNER = 'ATEST_MOBLY_RUNNER'
 WORKUNIT_ATEST_MOBLY_TEST_RUN = 'ATEST_MOBLY_TEST_RUN'
 
 FILE_UPLOAD_RETRIES = 3
+MILLI_TO_NANO_MULTIPLIER = 1_000_000
 
 _MOBLY_RESULT_TO_RESULT_REPORTER_STATUS = {
     SUMMARY_RESULT_PASS: test_runner_base.PASSED_STATUS,
@@ -145,219 +142,8 @@ class MoblyTestFiles:
   misc_data: List[str]
 
 
-@dataclasses.dataclass(frozen=True)
-class RerunOptions:
-  """Data class representing rerun options."""
-
-  iterations: int
-  rerun_until_failure: bool
-  retry_any_failure: bool
-
-
 class MoblyTestRunnerError(Exception):
   """Errors encountered by the MoblyTestRunner."""
-
-
-class MoblyResultUploader:
-  """Uploader for Android Build test storage."""
-
-  def __init__(self, extra_args):
-    """Set up the build client."""
-    self._build_client = None
-    self._legacy_client = None
-    self._legacy_result_id = None
-    self._test_results = {}
-
-    upload_start = time.monotonic()
-    creds, self._invocation = (
-        logstorage_utils.do_upload_flow(extra_args)
-        if logstorage_utils.is_upload_enabled(extra_args)
-        else (None, None)
-    )
-
-    self._root_workunit = None
-    self._current_workunit = None
-
-    if creds:
-      metrics.LocalDetectEvent(
-          detect_type=atest_enum.DetectType.UPLOAD_FLOW_MS,
-          result=int((time.monotonic() - upload_start) * 1000),
-      )
-      self._build_client = logstorage_utils.BuildClient(creds)
-      self._legacy_client = logstorage_utils.BuildClient(
-          creds,
-          api_version=constants.STORAGE_API_VERSION_LEGACY,
-          url=constants.DISCOVERY_SERVICE_LEGACY,
-      )
-      self._setup_root_workunit()
-    else:
-      logging.debug('Result upload is disabled.')
-
-  def _setup_root_workunit(self):
-    """Create and populate fields for the root workunit."""
-    self._root_workunit = self._build_client.insert_work_unit(self._invocation)
-    self._root_workunit['type'] = WORKUNIT_ATEST_MOBLY_RUNNER
-    self._root_workunit['runCount'] = 0
-
-  @property
-  def enabled(self):
-    """Returns True if the uploader is enabled."""
-    return self._build_client is not None
-
-  @property
-  def invocation(self):
-    """The invocation of the current run."""
-    return self._invocation
-
-  @property
-  def current_workunit(self):
-    """The workunit of the current iteration."""
-    return self._current_workunit
-
-  def start_new_workunit(self):
-    """Create and start a new workunit for the iteration."""
-    if not self.enabled:
-      return
-    self._current_workunit = self._build_client.insert_work_unit(
-        self._invocation
-    )
-    self._current_workunit['type'] = WORKUNIT_ATEST_MOBLY_TEST_RUN
-    self._current_workunit['parentId'] = self._root_workunit['id']
-
-  def set_workunit_iteration_details(
-      self, iteration_num: int, rerun_options: RerunOptions
-  ):
-    """Set iteration-related fields in the current workunit.
-
-    Args:
-        iteration_num: Index of the current iteration.
-        rerun_options: Rerun options for the test.
-    """
-    if not self.enabled:
-      return
-    details = {}
-    if rerun_options.retry_any_failure:
-      details['childAttemptNumber'] = iteration_num
-    else:
-      details['childRunNumber'] = iteration_num
-    self._current_workunit.update(details)
-
-  def _finalize_workunit(self, workunit: Dict[str, Any]):
-    """Finalize the specified workunit."""
-    workunit['schedulerState'] = 'completed'
-    logging.debug('Finalizing workunit: %s', workunit)
-    self._build_client.client.workunit().update(
-        resourceId=workunit['id'], body=workunit
-    )
-    if workunit is not self._root_workunit:
-      self._root_workunit['runCount'] += 1
-
-  def finalize_current_workunit(self):
-    """Finalize the workunit for the current iteration."""
-    if not self.enabled:
-      return
-    self._test_results.clear()
-    self._finalize_workunit(self._current_workunit)
-    self._current_workunit = None
-
-  def record_test_result(self, test_result):
-    """Record a test result to be uploaded."""
-    test_identifier = test_result['testIdentifier']
-    class_method = f'{test_identifier["testClass"]}.{test_identifier["method"]}'
-    self._test_results[class_method] = test_result
-
-  def upload_test_results(self):
-    """Bulk upload all recorded test results."""
-    if not (self.enabled and self._test_results):
-      return
-    response = (
-        self._build_client.client.testresult()
-        .bulkinsert(
-            invocationId=self._invocation['invocationId'],
-            body={'testResults': list(self._test_results.values())},
-        )
-        .execute()
-    )
-    logging.debug('Uploaded test results: %s', response)
-
-  def _upload_single_file(
-      self, path: str, base_dir: str, legacy_result_id: str
-  ):
-    """Upload a single test file to build storage."""
-    invocation_id = self._invocation['invocationId']
-    workunit_id = self._current_workunit['id']
-    name = os.path.join(workunit_id, os.path.relpath(path, base_dir))
-    metadata = {
-        'invocationId': invocation_id,
-        'workUnitId': workunit_id,
-        'name': name,
-    }
-    logging.debug('Uploading test artifact file %s', name)
-    try:
-      self._build_client.client.testartifact().update(
-          resourceId=name,
-          invocationId=invocation_id,
-          workUnitId=workunit_id,
-          body=metadata,
-          legacyTestResultId=legacy_result_id,
-          media_body=http.MediaFileUpload(path),
-      ).execute(num_retries=FILE_UPLOAD_RETRIES)
-    except errors.HttpError as e:
-      logging.debug('Failed to upload file %s with error: %s', name, e)
-
-  def upload_test_artifacts(self, log_dir: str):
-    """Upload test artifacts and associate them to the workunit.
-
-    Args:
-        log_dir: The directory of logs to upload.
-    """
-    if not self.enabled:
-      return
-    # Use the legacy API to insert a test result and get a test result
-    # id, as it is required for test artifact upload.
-    res = (
-        self._legacy_client.client.testresult()
-        .insert(
-            buildId=self.invocation['primaryBuild']['buildId'],
-            target=self.invocation['primaryBuild']['buildTarget'],
-            attemptId='latest',
-            body={
-                'status': 'completePass',
-            },
-        )
-        .execute()
-    )
-
-    for root, _, file_names in os.walk(log_dir):
-      for file_name in file_names:
-        self._upload_single_file(
-            os.path.join(root, file_name), log_dir, res['id']
-        )
-
-  def finalize_invocation(self):
-    """Set the root work unit and invocation as complete."""
-    if not self.enabled:
-      return
-    self._finalize_workunit(self._root_workunit)
-    self.invocation['runner'] = 'mobly'
-    self.invocation['schedulerState'] = 'completed'
-    logging.debug('Finalizing invocation: %s', self.invocation)
-    self._build_client.update_invocation(self.invocation)
-    self._build_client = None
-
-  def add_result_link(self, reporter: result_reporter.ResultReporter):
-    """Add the invocation link to the result reporter.
-
-    Args:
-        reporter: The result reporter to add to.
-    """
-    new_result_link = constants.RESULT_LINK % self._invocation['invocationId']
-    if isinstance(reporter.test_result_link, list):
-      reporter.test_result_link.append(new_result_link)
-    elif isinstance(reporter.test_result_link, str):
-      reporter.test_result_link = [reporter.test_result_link, new_result_link]
-    else:
-      reporter.test_result_link = [new_result_link]
 
 
 class MoblyTestRunner(test_runner_base.TestRunnerBase):
@@ -407,7 +193,27 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
     rerun_options = self._get_rerun_options(extra_args)
 
     reporter.silent = False
-    uploader = MoblyResultUploader(extra_args)
+    user_enabled_upload = logstorage_utils.update_upload_preference(
+        extra_args
+    )
+    ants_uploader = ants_test_result_uploader.AntsTestResultUploader(
+        extra_args, user_enabled_upload
+    )
+    resultdb_uploader = resultdb_test_result_uploader.ResultDBUploader(
+        user_enabled_upload,
+        base_log_path=self.results_dir,
+        is_prod=True,
+    )
+    if user_enabled_upload:
+      if ants_uploader.invocation is not None:
+        # use the ants invocation id if available
+        ants_invocation_id = ants_uploader.invocation['invocationId']
+      else:
+        # ants uploader maybe not be enabled if credentials are not found
+        # it's still possible to upload to ResultDB in this case
+        # use a random UUID if ants uploader is not enabled
+        ants_invocation_id = str(uuid.uuid4())
+      resultdb_uploader.set_ants_invocation_id(ants_invocation_id)
 
     try:
       for tinfo in test_infos:
@@ -434,13 +240,25 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             mobly_args,
         )
         ret_code |= self._run_and_handle_results(
-            mobly_command, tinfo, rerun_options, mobly_args, reporter, uploader
+            mobly_command,
+            tinfo,
+            rerun_options,
+            mobly_args,
+            reporter,
+            ants_uploader,
+            resultdb_uploader,
         )
     finally:
+      if ants_uploader.enabled:
+        ants_uploader.finalize_invocation()
+        ants_uploader.add_result_link(reporter)
+      if resultdb_uploader.enabled:
+        if resultdb_uploader.upload():
+          logging.debug('Successfully uploaded test results to ResultDB.')
+          resultdb_uploader.add_result_link(reporter)
+        else:
+          logging.error('Failed to upload test results to ResultDB.')
       self._cleanup()
-      if uploader.enabled:
-        uploader.finalize_invocation()
-        uploader.add_result_link(reporter)
     return ret_code
 
   def host_env_check(self) -> None:
@@ -756,7 +574,8 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
       rerun_options: RerunOptions,
       mobly_args: argparse.ArgumentParser,
       reporter: result_reporter.ResultReporter,
-      uploader: MoblyResultUploader,
+      ants_uploader: ants_test_result_uploader.AntsTestResultUploader,
+      resultdb_uploader: resultdb_test_result_uploader.ResultDBUploader,
   ) -> int:
     """Runs for the specified number of iterations and handles results.
 
@@ -784,31 +603,40 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
       # Set up result reporter and uploader
       reporter.runners.clear()
       reporter.pre_test = None
-      uploader.start_new_workunit()
+      ants_uploader.start_new_workunit()
 
       # Run the Mobly test command
       curr_ret_code = self._run_mobly_command(mobly_command)
       ret_code |= curr_ret_code
 
-      # Process results from generated summary file
+      # Process the test results from the latest test run.
       latest_log_dir = os.path.join(
           self.results_dir,
           MOBLY_LOGS_DIR,
           mobly_args.testbed or LOCAL_TESTBED,
           LATEST_DIR,
-      )
+        )
+      # Get the real path of the latest log directory to avoid symlink issues
+      # when uploading artifacts.
+      latest_log_dir = os.readlink(latest_log_dir)
       summary_file = os.path.join(latest_log_dir, TEST_SUMMARY_YAML)
       test_results = self._process_test_results_from_summary(
-          summary_file, tinfo, iteration_num, rerun_options.iterations, uploader
+          latest_log_dir,
+          summary_file,
+          tinfo,
+          iteration_num,
+          rerun_options.iterations,
+          ants_uploader,
+          resultdb_uploader,
       )
       for test_result in test_results:
         reporter.process_test_result(test_result)
       reporter.set_current_iteration_summary(iteration_num)
       try:
-        uploader.upload_test_results()
-        uploader.upload_test_artifacts(latest_log_dir)
-        uploader.set_workunit_iteration_details(iteration_num, rerun_options)
-        uploader.finalize_current_workunit()
+        ants_uploader.upload_test_results()
+        ants_uploader.upload_test_artifacts(latest_log_dir)
+        ants_uploader.set_workunit_iteration_details(iteration_num, rerun_options)
+        ants_uploader.finalize_current_workunit()
       except Exception as e:
         logging.debug('Failed to upload test results. Error: %s', e)
 
@@ -837,18 +665,21 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
   # pylint: disable=too-many-locals
   def _process_test_results_from_summary(
       self,
+      log_dir: str,
       summary_file: str,
       tinfo: test_info.TestInfo,
       iteration_num: int,
       total_iterations: int,
-      uploader: MoblyResultUploader,
+      ants_uploader: ants_test_result_uploader.AntsTestResultUploader,
+      resultdb_uploader: resultdb_test_result_uploader.ResultDBUploader,
   ) -> List[test_runner_base.TestResult]:
     """Parses the Mobly summary file into test results for the ResultReporter
 
     as well as the MoblyResultUploader.
 
     Args:
-        summary_file: Path to the Mobly summary file.
+        log_dir: The directory containing the Mobly logs.
+        summary_file: The path to the Mobly summary file.
         tinfo: The TestInfo of the test.
         iteration_num: The index of the current iteration.
         total_iterations: The total number of iterations.
@@ -905,10 +736,10 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
       reported_results.append(test_runner_base.TestResult(**reported_result))
 
       # Add result for upload (if enabled)
-      if uploader.enabled:
+      if ants_uploader.enabled:
         uploaded_result = {
-            'invocationId': uploader.invocation['invocationId'],
-            'workUnitId': uploader.current_workunit['id'],
+            'invocationId': ants_uploader.invocation['invocationId'],
+            'workUnitId': ants_uploader.current_workunit['id'],
             'testIdentifier': {
                 'module': tinfo.test_name,
                 'testClass': record[SUMMARY_KEY_TEST_CLASS],
@@ -927,7 +758,39 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
               'errorMessage': record[SUMMARY_KEY_DETAILS],
               'trace': record[SUMMARY_KEY_STACKTRACE],
           }
-        uploader.record_test_result(uploaded_result)
+        ants_uploader.record_test_result(uploaded_result)
+
+      if resultdb_uploader.enabled:
+        start_time_ms = 0
+        if record.get(SUMMARY_KEY_BEGIN_TIME) is not None:
+          start_time_ms = record[SUMMARY_KEY_BEGIN_TIME]
+
+        artifact_paths = []
+        for root, _, file_names in os.walk(log_dir):
+          for file_name in file_names:
+            # get relative path to latest_log_dir
+            file_path = os.path.join(root, file_name)
+            # get the relative path to the results_dir since the
+            # resultdb_uploader exe will be invoked from the results_dir
+            relative_path = os.path.relpath(file_path, self.results_dir)
+            artifact_paths.append(relative_path)
+
+        uploaded_result = {
+          'ants_work_unit_id': ants_uploader.current_workunit['id'],
+          'module_name': tinfo.test_name,
+          'class_name': record[SUMMARY_KEY_TEST_CLASS],
+          'method_name': record[SUMMARY_KEY_TEST_NAME],
+          'status': record[SUMMARY_KEY_RESULT],
+          'start_time': int(start_time_ms * MILLI_TO_NANO_MULTIPLIER),
+          'duration': int(time_elapsed_ms * MILLI_TO_NANO_MULTIPLIER),
+          'artifact_paths': artifact_paths,
+        }
+        if record[SUMMARY_KEY_RESULT] != SUMMARY_RESULT_PASS:
+          uploaded_result['summary_html'] = (
+            f'<p><b>Error Message: </b>{record[SUMMARY_KEY_DETAILS]}</p>'
+            f'<p><b>Stack Trace: </b>{record[SUMMARY_KEY_STACKTRACE]}</p>'
+          )
+        resultdb_uploader.add_test_result(uploaded_result)
 
     return reported_results
 

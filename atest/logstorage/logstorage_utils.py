@@ -36,11 +36,15 @@ def is_credential_available() -> bool:
   return constants.CREDENTIAL_FILE_NAME and constants.TOKEN_FILE_PATH
 
 
-def is_upload_enabled(args: dict[str, str]) -> bool:
-  """Determines whether log upload is enabled."""
-  if not is_credential_available() or not constants.GTF_TARGETS:
-    return False
+def credential_exists() -> bool:
+  """Checks whether the credential file exists."""
+  return is_credential_available() and constants.GTF_TARGETS
 
+
+def update_upload_preference(args: dict[str, str]) -> bool:
+  """Update the upload preference and return whether upload is requested by the
+  user. If True, ResultDB uploads will be enabled always, and AnTS uploads will
+  be enabled only if credential_exists()."""
   config_folder_path = atest_utils.get_config_folder()
   config_folder_path.mkdir(parents=True, exist_ok=True)
   upload_requested_file = config_folder_path.joinpath(
@@ -85,6 +89,13 @@ def is_upload_enabled(args: dict[str, str]) -> bool:
     return False
 
   return False
+
+
+def is_upload_enabled(args: dict[str, str]) -> bool:
+  """Determines whether log upload is enabled."""
+  if not credential_exists():
+    return False
+  return update_upload_preference(args)
 
 
 def do_upload_flow(
