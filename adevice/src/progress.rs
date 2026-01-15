@@ -6,31 +6,40 @@ use std::time::{Duration, Instant};
 static PROGRESS: LazyLock<Progress> = LazyLock::new(|| Progress {
     message: Arc::new(Mutex::new("".to_string())),
     is_complete: Arc::new(Mutex::new(false)),
+    quiet: Arc::new(Mutex::new(false)),
 });
 
 pub struct Progress {
     message: Arc<Mutex<String>>,
     is_complete: Arc<Mutex<bool>>,
+    quiet: Arc<Mutex<bool>>,
 }
 
 impl Progress {
     fn start(&self) {
         let is_complete = self.is_complete.clone();
         let message_ref = self.message.clone();
+        let quiet_ref = self.quiet.clone();
         thread::spawn(move || {
             let start = Instant::now();
             while !*is_complete.lock().unwrap() {
-                let minutes = start.elapsed().as_secs() / 60;
-                let seconds = start.elapsed().as_secs() % 60;
-                let mut message =
-                    format!("     {:01}:{:02} {}", minutes, seconds, message_ref.lock().unwrap());
-                if message.len() > 80 {
-                    message.truncate(77);
-                    message.push('…');
+                if !*quiet_ref.lock().unwrap() {
+                    let minutes = start.elapsed().as_secs() / 60;
+                    let seconds = start.elapsed().as_secs() % 60;
+                    let mut message = format!(
+                        "     {:01}:{:02} {}",
+                        minutes,
+                        seconds,
+                        message_ref.lock().unwrap()
+                    );
+                    if message.len() > 80 {
+                        message.truncate(77);
+                        message.push('…');
+                    }
+                    print!("\x1B[2K"); // clear the line
+                    print!("\r{message} ");
+                    io::stdout().flush().unwrap();
                 }
-                print!("\x1B[2K"); // clear the line
-                print!("\r{message} ");
-                io::stdout().flush().unwrap();
                 thread::sleep(Duration::from_millis(100));
             }
             let mut complete = PROGRESS.is_complete.lock().unwrap();
@@ -41,10 +50,17 @@ impl Progress {
     fn stop(&self) {
         let mut is_complete = self.is_complete.lock().unwrap();
         *is_complete = true;
-        print!("\x1B[2K"); // clear the line
-        print!("\r");
-        io::stdout().flush().unwrap();
+        if !*self.quiet.lock().unwrap() {
+            print!("\x1B[2K"); // clear the line
+            print!("\r");
+            io::stdout().flush().unwrap();
+        }
     }
+}
+
+pub fn set_quiet(quiet: bool) {
+    let mut q = PROGRESS.quiet.lock().unwrap();
+    *q = quiet;
 }
 
 pub fn update(message: &str) {

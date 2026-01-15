@@ -88,6 +88,9 @@ pub struct GlobalOptions {
     // Don't wait for device to become available after restarting it.
     #[clap(long = "nowait", global = true, alias = "no_wait", alias = "no-wait")]
     pub nowait: bool,
+    // Suppress file list output
+    #[clap(long, short = 'q', global = true)]
+    pub quiet: bool,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
