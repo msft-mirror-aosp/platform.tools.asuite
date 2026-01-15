@@ -51,6 +51,7 @@ def get_full_test_configs() -> test_configs_pb2.TestConfigs:
 
 def get_reduced_test_configs(
     projects: list[typing.Optional[str]] | None = None,
+    file_paths: list[typing.Optional[str]] | None = None,
 ) -> test_configs_pb2.TestConfigs:
   """Runs the reduce-test-configs script and returns the TestConfigs proto."""
 
@@ -58,6 +59,10 @@ def get_reduced_test_configs(
   if projects:
     cmd.append('-projects')
     cmd.extend(projects)
+  if file_paths:
+    cmd.append('--filepaths')
+    relative_file_paths, _ = get_file_paths_relative_to_build_top(file_paths)
+    cmd.extend(relative_file_paths)
 
   # TODO: b/460119831 - Return a more informative error message.
   subprocess.run(cmd, cwd=atest_utils.get_build_top(), check=True)
@@ -65,6 +70,23 @@ def get_reduced_test_configs(
       REDUCE_TEST_CONFIGS_OUTPUT_SUB_PATH
   )
   return _parse_test_configs_proto(output_path)
+
+
+def get_file_paths_relative_to_build_top(
+    file_paths: list[str],
+) -> tuple([list[str], list[str]]):
+  """Returns file paths relative to build top and a list of invalid paths."""
+  relative_paths = []
+  invalid_file_paths = []
+  for fp in file_paths:
+    try:
+      resolved_path = pathlib.Path(fp).resolve(strict=True)
+      relative_paths.append(
+          str(resolved_path.relative_to(atest_utils.get_build_top()))
+      )
+    except FileNotFoundError:
+      invalid_file_paths.append(fp)
+  return relative_paths, invalid_file_paths
 
 
 def get_filtered_test_execution_plans(
