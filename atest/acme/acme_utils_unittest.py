@@ -348,6 +348,25 @@ class TestAcmeUtilsModule(unittest.TestCase):
     )
     self.assertCountEqual([], test_execution_plans)
 
+  @unittest.mock.patch('subprocess.run', autospec=True)
+  def test_get_current_project(self, mock_subprocess_run):
+    """Tests that get_current_project returns the correct project."""
+    mock_subprocess_run.return_value = subprocess.CompletedProcess(
+        args=[],
+        returncode=0,
+        stdout='platform/development',
+        stderr=None,
+    )
+    project = acme_utils.get_current_project()
+    self.assertEqual('platform/development', project)
+    mock_subprocess_run.assert_called_once_with(
+        "repo forall . -c 'echo $REPO_PROJECT'",
+        shell=True,
+        check=False,
+        capture_output=True,
+        encoding='utf-8',
+    )
+
 
 if __name__ == '__main__':
   unittest.main()

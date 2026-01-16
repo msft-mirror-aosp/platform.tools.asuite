@@ -753,10 +753,12 @@ class CLITranslatorUnittests(unittest.TestCase):
     test_infos = self.ctr.translate(args)
 
     # Assertions.
+    default_current_project = False
     default_projects = []
     default_file_paths = []
     mock_get_trigged_test_details.assert_called_once_with(
         run_affected_triggers_mode.DEFAULT_SCHEDULING_PLAN,
+        default_current_project,
         default_projects,
         default_file_paths,
     )
@@ -767,6 +769,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         self, test_infos, [uc.MODULE_INFO]
     )
 
+  @unittest.mock.patch.object(acme_utils, 'get_current_project', autospec=True)
   @unittest.mock.patch.object(
       acme_utils, 'get_file_paths_relative_to_build_top', autospec=True
   )
@@ -786,10 +789,12 @@ class CLITranslatorUnittests(unittest.TestCase):
       mock_get_test_infos,
       mock_get_trigged_test_details,
       mock_get_rel_paths,
+      mock_get_current_project,
   ):
     """Test translate method for run_affected with non-default args."""
     # Set up mocks.
     mock_get_rel_paths.return_value = ([], [])
+    mock_get_current_project.return_value = 'fake/project'
     test_detail = test_mapping.TestDetail({'name': uc.MODULE_NAME})
     mock_get_trigged_test_details.return_value = (
         [uc.MODULE_NAME],
@@ -808,6 +813,7 @@ class CLITranslatorUnittests(unittest.TestCase):
                 'project-b',
             ],
             'expected_plan': 'some-custom-plan',
+            'expected_current_project': False,
             'expected_projects': ['project-a', 'project-b'],
             'expected_file_paths': [],
         },
@@ -822,8 +828,22 @@ class CLITranslatorUnittests(unittest.TestCase):
                 'd/e/f.cc',
             ],
             'expected_plan': 'some-custom-plan',
+            'expected_current_project': False,
             'expected_projects': [],
             'expected_file_paths': ['a/b/c.py', 'd/e/f.cc'],
+        },
+        {
+            'name': 'with_current_project',
+            'args': [
+                run_affected_triggers_mode.RUN_AFFECTED_TRIGGERS_ARG_NAME,
+                run_affected_triggers_mode.SCHEDULING_PLAN_ARG_NAME,
+                'some-custom-plan',
+                run_affected_triggers_mode.CURRENT_PROJECT_ARG_NAME,
+            ],
+            'expected_plan': 'some-custom-plan',
+            'expected_current_project': True,
+            'expected_projects': [],
+            'expected_file_paths': [],
         },
     ]
 
@@ -838,6 +858,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         # Assertions.
         mock_get_trigged_test_details.assert_called_once_with(
             case['expected_plan'],
+            case['expected_current_project'],
             case['expected_projects'],
             case['expected_file_paths'],
         )
