@@ -167,6 +167,14 @@ class FinderMethod(Enum):
     return self._finder_class
 
 
+_FILE_PATH_FINDERS = (
+    FinderMethod.CACHE,
+    FinderMethod.MODULE_FILE_PATH,
+    FinderMethod.INTEGRATION_FILE_PATH,
+    FinderMethod.SUITE_PLAN_FILE_PATH,
+)
+
+
 def _get_finder_instance_dict(module_info):
   """Return dict of finder instances.
 
@@ -202,15 +210,17 @@ def _get_test_finders():
   return test_finders
 
 
+_REF_MATCH_WITH_TRAILING_DOT = re.compile(r'[\w.-]+\.$')
+
+
 def _validate_ref(ref: str):
   # Filter out trailing dot but keeping `.` and `..` in ref.
-  if '..' not in ref:
-    if re.match(r'(?:[\w\.\d-]+)\.$', ref):
-      atest_utils.colorful_print(
-          f'Found trailing dot({ref}). Please correct it and try again.',
-          constants.RED,
-      )
-      sys.exit(ExitCode.INPUT_TEST_REFERENCE_ERROR)
+  if '..' not in ref and _REF_MATCH_WITH_TRAILING_DOT.match(ref):
+    atest_utils.colorful_print(
+        f'Found trailing dot({ref}). Please correct it and try again.',
+        constants.RED,
+    )
+    sys.exit(ExitCode.INPUT_TEST_REFERENCE_ERROR)
 
 
 # pylint: disable=too-many-branches
@@ -229,20 +239,12 @@ def _get_test_reference_types(ref):
       ref: A string referencing a test.
 
   Returns:
-      A list of possible REFERENCE_TYPEs (ints) for reference string.
+      A list of possible FinderMethod items for the reference string.
   """
   _validate_ref(ref)
-  file_path_finders = [
-      FinderMethod.CACHE,
-      FinderMethod.MODULE_FILE_PATH,
-      FinderMethod.INTEGRATION_FILE_PATH,
-      FinderMethod.SUITE_PLAN_FILE_PATH,
-  ]
-  if ref.startswith('.') or '..' in ref:
-    return file_path_finders
+  if ref.startswith('.') or '..' in ref or ref.startswith('/'):
+    return list(_FILE_PATH_FINDERS)
   if '/' in ref:
-    if ref.startswith('/'):
-      return file_path_finders
     if ':' in ref:
       return [
           FinderMethod.CACHE,
@@ -264,17 +266,19 @@ def _get_test_reference_types(ref):
     ]
   if atest_utils.get_test_and_mainline_modules(ref):
     return [FinderMethod.CACHE, FinderMethod.MAINLINE_MODULE]
-  if '.' in ref:
+
+  has_dot = '.' in ref
+  if has_dot:
     ref_end = ref.rsplit('.', 1)[-1]
     ref_end_is_upper = ref_end[0].isupper()
   # parse_test_reference() will return none empty dictionary if input test
   # reference match $module:$package_class.
   if test_finder_utils.parse_test_reference(ref):
-    if '.' in ref:
+    if has_dot:
       if ref_end_is_upper:
         # Possible types:
         # Module:fully.qualified.Class
-        # Module:filly.qualifiled.(P|p)ackage (b/289515000)
+        # Module:fully.qualified.(P|p)ackage (b/289515000)
         # Integration:fully.q.Class
         return [
             FinderMethod.CACHE,
@@ -294,11 +298,10 @@ def _get_test_reference_types(ref):
         FinderMethod.MODULE_CLASS,
         FinderMethod.INTEGRATION,
     ]
-  if '.' in ref:
-    # The string of ref_end possibly includes specific mathods, e.g.
+  if has_dot:
+    # The string of ref_end possibly includes specific methods, e.g.
     # foo.java#method, so let ref_end be the first part of splitting '#'.
-    if '#' in ref_end:
-      ref_end = ref_end.split('#')[0]
+    ref_end = ref_end.split('#', 1)[0]
     if ref_end in ('java', 'kt', 'bp', 'mk', 'cc', 'cpp'):
       return [
           FinderMethod.CACHE,
@@ -347,7 +350,7 @@ def _get_test_reference_types(ref):
   ]
 
 
-def _get_registered_find_methods(module_info):
+def _get_registered_find_methods(finder_instance_dict):
   """Return list of registered find methods.
 
   This is used to return find methods that were not listed in the
@@ -355,51 +358,45 @@ def _get_registered_find_methods(module_info):
   find methods will run before the default find methods.
 
   Args:
-      module_info: ModuleInfo for finder classes to instantiate with.
+      finder_instance_dict: Dict of finder instances to use.
 
   Returns:
       List of registered find methods.
   """
   find_methods = []
-  finder_instance_dict = _get_finder_instance_dict(module_info)
-  for finder in _get_test_finders():
-    finder_instance = finder_instance_dict[finder.NAME]
-    for find_method_info in finder_instance.get_all_find_methods():
-      find_methods.append(
-          test_finder_base.Finder(
-              finder_instance, find_method_info.find_method, finder.NAME
-          )
-      )
+  for finder_instance in finder_instance_dict.values():
+    find_methods.extend(
+        test_finder_base.Finder(
+            finder_instance, find_method_info.find_method, finder_instance.NAME
+        )
+        for find_method_info in finder_instance.get_all_find_methods()
+    )
   return find_methods
 
 
-def _get_default_find_methods(module_info, test):
+def _get_default_find_methods(finder_instance_dict, test):
   """Default find methods to be used based on the given test name.
 
   Args:
-      module_info: ModuleInfo for finder instances to use.
+      finder_instance_dict: Dict of finder instances to use.
       test: String of test name to help determine which find methods to utilize.
 
   Returns:
       List of find methods to use.
   """
-  find_methods = []
-  finder_instance_dict = _get_finder_instance_dict(module_info)
   test_ref_types = _get_test_reference_types(test)
   logging.debug(
       'Resolved input to possible references: %s',
-      ', '.join([t.get_name() for t in test_ref_types]),
+      ', '.join(t.get_name() for t in test_ref_types),
   )
-  for test_ref_type in test_ref_types:
-    find_method = test_ref_type.get_method()
-    finder_instance = finder_instance_dict[
-        test_ref_type.get_finder_class().NAME
-    ]
-    finder_info = test_ref_type.get_name()
-    find_methods.append(
-        test_finder_base.Finder(finder_instance, find_method, finder_info)
-    )
-  return find_methods
+  return [
+      test_finder_base.Finder(
+          finder_instance_dict[test_ref_type.get_finder_class().NAME],
+          test_ref_type.get_method(),
+          test_ref_type.get_name(),
+      )
+      for test_ref_type in test_ref_types
+  ]
 
 
 def get_find_methods_for_test(module_info, test):
@@ -411,6 +408,7 @@ def get_find_methods_for_test(module_info, test):
   Returns:
       List of ordered find methods.
   """
-  registered_find_methods = _get_registered_find_methods(module_info)
-  default_find_methods = _get_default_find_methods(module_info, test)
+  finder_instance_dict = _get_finder_instance_dict(module_info)
+  registered_find_methods = _get_registered_find_methods(finder_instance_dict)
+  default_find_methods = _get_default_find_methods(finder_instance_dict, test)
   return registered_find_methods + default_find_methods
