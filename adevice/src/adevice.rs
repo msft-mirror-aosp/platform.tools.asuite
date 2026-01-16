@@ -121,6 +121,7 @@ pub fn adevice(
     opt_log_file: Option<File>,
     profiler: &mut Profiler,
 ) -> Result<()> {
+    progress::set_quiet(cli.global_options.quiet);
     // If we can initialize a log file, then setup the tracing/log subscriber to write there.
     // Otherwise, logs will be dropped.
     if let Some(log_file) = opt_log_file {
@@ -200,6 +201,7 @@ pub fn adevice(
         diff_mode,
         &partition_paths,
         cli.global_options.force,
+        cli.global_options.quiet,
         stdout,
     )?;
     progress::stop();
@@ -308,6 +310,7 @@ fn get_update_commands(
     diff_mode: DiffMode,
     partitions: &[PathBuf],
     force: bool,
+    quiet: bool,
     stdout: &mut impl Write,
 ) -> Result<commands::Commands> {
     // NOTE: The Ninja deps list can be _ahead_of_ the product tree output list.
@@ -339,11 +342,11 @@ fn get_update_commands(
         diff_mode,
     )?;
     progress::stop();
-    print_status(stdout, status_per_file)?;
+    print_status(stdout, status_per_file, quiet)?;
 
     // Shadow apks are apks that are installed outside the system partition with `adb install`
     // If they exist, we should print instructions to uninstall and stop the update.
-    shadow_apk_check(stdout, status_per_file)?;
+    shadow_apk_check(stdout, status_per_file, quiet)?;
 
     #[allow(clippy::len_zero)]
     if needs_building.len() > 0 {
@@ -461,7 +464,11 @@ impl PushState {
 const RED_WARNING_LINE: &str = "  \x1b[1;31m!! Warning: !!\x1b[0m\n";
 
 /// Group each file by state and print the state message followed by the files in that state.
-fn print_status(stdout: &mut impl Write, files: &HashMap<PathBuf, PushState>) -> Result<()> {
+fn print_status(
+    stdout: &mut impl Write,
+    files: &HashMap<PathBuf, PushState>,
+    quiet: bool,
+) -> Result<()> {
     for state in [
         PushState::Push,
         // Skip UpToDate and TrackOrMakeClean, don't print those.
@@ -470,7 +477,7 @@ fn print_status(stdout: &mut impl Write, files: &HashMap<PathBuf, PushState>) ->
         PushState::UntrackOrBuild,
         // Skip APKInstalled, it is handleded in shadow_apk_check.
     ] {
-        print_files_in_state(stdout, files, state)?;
+        print_files_in_state(stdout, files, state, quiet)?;
     }
     Ok(())
 }
@@ -623,6 +630,7 @@ fn print_files_in_state(
     stdout: &mut impl Write,
     files: &HashMap<PathBuf, PushState>,
     push_state: PushState,
+    quiet: bool,
 ) -> Result<()> {
     let filtered_files: HashMap<&PathBuf, &PushState> =
         files.iter().filter(|(_, state)| *state == &push_state).collect();
@@ -631,13 +639,15 @@ fn print_files_in_state(
         return Ok(());
     }
     writeln!(stdout, "{}", &push_state.get_action_msg())?;
-    let file_list_output = filtered_files
-        .keys()
-        .sorted()
-        .map(|path| format!("\t{}", path.display()))
-        .collect::<Vec<String>>()
-        .join("\n");
-    writeln!(stdout, "{file_list_output}")?;
+    if !quiet {
+        let file_list_output = filtered_files
+            .keys()
+            .sorted()
+            .map(|path| format!("\t{}", path.display()))
+            .collect::<Vec<String>>()
+            .join("\n");
+        writeln!(stdout, "{file_list_output}")?;
+    }
     Ok(())
 }
 
@@ -650,7 +660,11 @@ fn get_product_out_from_env() -> Option<PathBuf> {
 
 /// Prints uninstall commands for every package installed
 /// Bails if there are any installed packages.
-fn shadow_apk_check(stdout: &mut impl Write, files: &HashMap<PathBuf, PushState>) -> Result<()> {
+fn shadow_apk_check(
+    stdout: &mut impl Write,
+    files: &HashMap<PathBuf, PushState>,
+    quiet: bool,
+) -> Result<()> {
     let filtered_files: HashMap<&PathBuf, &PushState> =
         files.iter().filter(|(_, state)| *state == &PushState::ApkInstalled).collect();
 
@@ -659,13 +673,15 @@ fn shadow_apk_check(stdout: &mut impl Write, files: &HashMap<PathBuf, PushState>
     }
 
     writeln!(stdout, "{}", PushState::ApkInstalled.get_action_msg())?;
-    let file_list_output = filtered_files
-        .keys()
-        .sorted()
-        .map(|path| format!("adb uninstall {};", path.display()))
-        .collect::<Vec<String>>()
-        .join("\n");
-    writeln!(stdout, "{file_list_output}")?;
+    if !quiet {
+        let file_list_output = filtered_files
+            .keys()
+            .sorted()
+            .map(|path| format!("adb uninstall {};", path.display()))
+            .collect::<Vec<String>>()
+            .join("\n");
+        writeln!(stdout, "{file_list_output}")?;
+    }
     bail!("{} shadowing apks found. Uninstall to continue.", filtered_files.keys().len());
 }
 
@@ -752,6 +768,7 @@ mod tests {
             DiffMode::UsePermissions,
             &partitions,
             force,
+            false, // quiet
             &mut stdout,
         )?;
         assert_eq!(results.upserts.values().len(), 0);
@@ -782,6 +799,7 @@ mod tests {
             DiffMode::UsePermissions,
             &partitions,
             force,
+            false, // quiet
             &mut stdout,
         )?;
         assert_eq!(results.upserts.values().len(), 2);
@@ -811,6 +829,7 @@ mod tests {
             DiffMode::UsePermissions,
             &partitions,
             force,
+            false, // quiet
             &mut stdout,
         );
         assert!(results.is_err());
@@ -826,7 +845,7 @@ mod tests {
     fn test_shadow_apk_check_no_shadowing_apks() -> Result<()> {
         let mut output = Vec::new();
         let files = &HashMap::from([(PathBuf::from("/system/app1.apk"), PushState::Push)]);
-        let result = shadow_apk_check(&mut output, files);
+        let result = shadow_apk_check(&mut output, files, false);
 
         assert!(result.is_ok());
         assert!(output.is_empty());
@@ -841,7 +860,7 @@ mod tests {
             (PathBuf::from("/data/app2.apk"), PushState::ApkInstalled),
             (PathBuf::from("/data/app3.apk"), PushState::ApkInstalled),
         ]);
-        let result = shadow_apk_check(&mut output, files);
+        let result = shadow_apk_check(&mut output, files, false);
         assert!(result.is_err());
         let output_str = String::from_utf8(output).unwrap();
         assert!(
@@ -992,6 +1011,7 @@ mod tests {
             DiffMode::UsePermissions,
             &partitions,
             force,
+            false, // quiet
             &mut stdout,
         )
     }
@@ -1007,5 +1027,43 @@ mod tests {
     fn dir_metadata() -> FileMetadata {
         FileMetadata { file_type: fingerprint::FileType::Directory, ..Default::default() }
     }
+
+    #[test]
+    fn test_quiet_mode_suppresses_output() -> Result<()> {
+        let product_out = PathBuf::from("");
+        let installed_apks = HashSet::<String>::new();
+        let partitions = Vec::new();
+        let force = true;
+
+        // Common setup
+        let device_files = HashMap::new();
+        // Host files have one file that needs push
+        let host_files =
+            HashMap::from([(PathBuf::from("system/myfile"), file_metadata("digest1"))]);
+        let ninja_deps = vec!["system/myfile".to_string()];
+
+        // Test with quiet = true
+        let mut stdout_quiet = Vec::new();
+        get_update_commands(
+            &device_files,
+            &host_files,
+            &ninja_deps,
+            product_out.clone(),
+            &installed_apks,
+            DiffMode::UsePermissions,
+            &partitions,
+            force,
+            true, // quiet
+            &mut stdout_quiet,
+        )?;
+        let output_quiet = String::from_utf8(stdout_quiet)?;
+        // Should contain the header
+        assert!(output_quiet.contains("Ready to push"));
+        // Should NOT contain the file name
+        assert!(!output_quiet.contains("system/myfile"));
+
+        Ok(())
+    }
+
     // TODO(rbraunstein): Add tests for collect_status_per_file after we decide on output.
 }
