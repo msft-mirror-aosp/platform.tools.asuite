@@ -25,7 +25,16 @@ use anyhow::Result;
 fn main() -> Result<()> {
     let total_time = std::time::Instant::now();
     let host = RealHost::new();
-    let cli = cli::Cli::parse();
+
+    let mut args: Vec<String> = std::env::args().collect();
+    if std::env::var("GEMINI_CLI").ok().as_deref() == Some("1")
+        && !args.iter().any(|arg| arg == "-q" || arg == "--quiet")
+    {
+        println!("Adding --quiet because we're running under gemini-cli ('GEMINI_CLI=1')");
+        args.push("--quiet".to_string());
+    }
+    let cli = cli::Cli::parse_from(args);
+
     let mut profiler = Profiler::default();
     let device = RealDevice::new(cli.global_options.serial.clone());
     let mut metrics = Metrics::default();
