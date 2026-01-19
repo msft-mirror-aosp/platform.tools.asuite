@@ -240,8 +240,6 @@ class JDKTableXML:
         if self._check_android_sdk_in_xml():
             return
         if self._sdk.path_analysis(self._default_android_sdk_path):
-            # TODO(b/151582629): Revise the API_LEVEL to CODE_NAME when
-            #                    abandoning the sdk_config.py.
             self._append_config(templates.ANDROID_SDK_XML.format(
                 ANDROID_SDK_PATH=self._sdk.android_sdk_path,
                 FOLDER_NAME=self._sdk.max_folder_name,
