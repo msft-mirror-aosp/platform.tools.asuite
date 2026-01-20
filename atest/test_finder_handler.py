@@ -47,25 +47,25 @@ class FinderMethod(Enum):
   """An enum object for test finders.
 
   Explanation of FinderMethod:
-  0. MODULE: LOCAL_MODULE or LOCAL_PACKAGE_NAME value in Android.mk/Android.bp.
-  1. MAINLINE_MODULE: module[mod1.apk+mod2.apex] pattern in TEST_MAPPING files.
-  2. CLASS: Names which the same with a ClassName.java/kt file.
-  3. QUALIFIED_CLASS: String like "a.b.c.ClassName".
-  4. MODULE_CLASS: Combo of MODULE and CLASS as "module:class".
-  5. PACKAGE: Package in java file. Same as file path to java file.
-  6. MODULE_PACKAGE: Combo of MODULE and PACKAGE as "module:package".
-  7. MODULE_FILE_PATH: File path to dir of tests or test itself.
-  8. INTEGRATION_FILE_PATH: File path to config xml in one of the 4 integration
+  MODULE: LOCAL_MODULE or LOCAL_PACKAGE_NAME value in Android.mk/Android.bp.
+  MAINLINE_MODULE: module[mod1.apk+mod2.apex] pattern in TEST_MAPPING files.
+  CLASS: Names which the same with a ClassName.java/kt file.
+  QUALIFIED_CLASS: String like "a.b.c.ClassName".
+  MODULE_CLASS: Combo of MODULE and CLASS as "module:class".
+  PACKAGE: Package in java file. Same as file path to java file.
+  MODULE_PACKAGE: Combo of MODULE and PACKAGE as "module:package".
+  MODULE_FILE_PATH: File path to dir of tests or test itself.
+  INTEGRATION_FILE_PATH: File path to config xml in one of the 4 integration
                             config directories.
-  9. INTEGRATION: xml file name in one of the 4 integration config directories.
-  10. SUITE: Value of the "run-suite-tag" in xml config file in 4 config dirs.
+  INTEGRATION: xml file name in one of the 4 integration config directories.
+  SUITE: Value of the "run-suite-tag" in xml config file in 4 config dirs.
              Same as value of "test-suite-tag" in AndroidTest.xml files.
-  11. CC_CLASS: Test case in cc file.
-  12. SUITE_PLAN: Suite name such as cts.
-  13. SUITE_PLAN_FILE_PATH: File path to config xml in the suite config
+  CC_CLASS: Test case in cc file.
+  SUITE_PLAN: Suite name such as cts.
+  SUITE_PLAN_FILE_PATH: File path to config xml in the suite config
                             directories.
-  14. CACHE: A pseudo type that runs cache_finder without finding test in real.
-  15: CONFIG: Find tests by the given AndroidTest.xml file path.
+  CACHE: A pseudo type that runs cache_finder without finding test in real.
+  CONFIG: Find tests by the given AndroidTest.xml file path.
   """
 
   MODULE = (
@@ -149,22 +149,10 @@ class FinderMethod(Enum):
       module_finder.ModuleFinder,
   )
 
-  def __init__(self, name, method, finder_class):
-    self._name = name
-    self._method = method
-    self._finder_class = finder_class
-
-  def get_name(self):
-    """Return finder's name."""
-    return self._name
-
-  def get_method(self):
-    """Return finder's method."""
-    return self._method
-
-  def get_finder_class(self):
-    """Return finder's class."""
-    return self._finder_class
+  def __init__(self, finder_name, method, finder_class):
+    self.finder_name = finder_name
+    self.method = method
+    self.finder_class = finder_class
 
 
 _FILE_PATH_FINDERS = (
@@ -211,6 +199,7 @@ def _get_test_finders():
 
 
 _REF_MATCH_WITH_TRAILING_DOT = re.compile(r'[\w.-]+\.$')
+_SOURCE_CODE_EXTENSIONS = frozenset({'java', 'kt', 'bp', 'mk', 'cc', 'cpp'})
 
 
 def _validate_ref(ref: str):
@@ -245,25 +234,18 @@ def _get_test_reference_types(ref):
   if ref.startswith('.') or '..' in ref or ref.startswith('/'):
     return list(_FILE_PATH_FINDERS)
   if '/' in ref:
-    if ':' in ref:
-      return [
-          FinderMethod.CACHE,
-          FinderMethod.MODULE_FILE_PATH,
-          FinderMethod.INTEGRATION_FILE_PATH,
-          FinderMethod.INTEGRATION,
-          FinderMethod.SUITE_PLAN_FILE_PATH,
-          FinderMethod.MODULE_CLASS,
-      ]
-    return [
+    finders = [
         FinderMethod.CACHE,
         FinderMethod.MODULE_FILE_PATH,
         FinderMethod.INTEGRATION_FILE_PATH,
         FinderMethod.INTEGRATION,
         FinderMethod.SUITE_PLAN_FILE_PATH,
-        FinderMethod.CC_CLASS,
-        # TODO: Uncomment in SUITE when it's supported
-        # FinderMethod.SUITE
+        FinderMethod.MODULE_CLASS if ':' in ref else FinderMethod.CC_CLASS,
     ]
+    # TODO: Uncomment in SUITE when it's supported
+    # if ':' not in ref:
+    #   finders.append(FinderMethod.SUITE)
+    return finders
   if atest_utils.get_test_and_mainline_modules(ref):
     return [FinderMethod.CACHE, FinderMethod.MAINLINE_MODULE]
 
@@ -300,15 +282,16 @@ def _get_test_reference_types(ref):
     ]
   if has_dot:
     # The string of ref_end possibly includes specific methods, e.g.
-    # foo.java#method, so let ref_end be the first part of splitting '#'.
-    ref_end = ref_end.split('#', 1)[0]
-    if ref_end in ('java', 'kt', 'bp', 'mk', 'cc', 'cpp'):
+    # foo.java#method, so let ref_end_for_extension_check be the first part
+    # of splitting '#'.
+    ref_end_for_extension_check = ref_end.split('#', 1)[0]
+    if ref_end_for_extension_check in _SOURCE_CODE_EXTENSIONS:
       return [
           FinderMethod.CACHE,
           FinderMethod.MODULE,
           FinderMethod.MODULE_FILE_PATH,
       ]
-    if ref_end == 'xml':
+    if ref_end_for_extension_check == 'xml':
       return [
           FinderMethod.CACHE,
           FinderMethod.INTEGRATION_FILE_PATH,
@@ -363,15 +346,13 @@ def _get_registered_find_methods(finder_instance_dict):
   Returns:
       List of registered find methods.
   """
-  find_methods = []
-  for finder_instance in finder_instance_dict.values():
-    find_methods.extend(
-        test_finder_base.Finder(
-            finder_instance, find_method_info.find_method, finder_instance.NAME
-        )
-        for find_method_info in finder_instance.get_all_find_methods()
-    )
-  return find_methods
+  return [
+      test_finder_base.Finder(
+          finder_instance, find_method_info.find_method, finder_instance.NAME
+      )
+      for finder_instance in finder_instance_dict.values()
+      for find_method_info in finder_instance.get_all_find_methods()
+  ]
 
 
 def _get_default_find_methods(finder_instance_dict, test):
@@ -387,13 +368,13 @@ def _get_default_find_methods(finder_instance_dict, test):
   test_ref_types = _get_test_reference_types(test)
   logging.debug(
       'Resolved input to possible references: %s',
-      ', '.join(t.get_name() for t in test_ref_types),
+      ', '.join(t.finder_name for t in test_ref_types),
   )
   return [
       test_finder_base.Finder(
-          finder_instance_dict[test_ref_type.get_finder_class().NAME],
-          test_ref_type.get_method(),
-          test_ref_type.get_name(),
+          finder_instance_dict[test_ref_type.finder_class.NAME],
+          test_ref_type.method,
+          test_ref_type.finder_name,
       )
       for test_ref_type in test_ref_types
   ]
@@ -403,6 +384,7 @@ def get_find_methods_for_test(module_info, test):
   """Return a list of ordered find methods.
 
   Args:
+    module_info: ModuleInfo for finder classes to use.
     test: String of test name to get find methods for.
 
   Returns:
