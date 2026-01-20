@@ -15,6 +15,7 @@
 
 """Rollout control for Atest features."""
 
+import datetime
 import functools
 import getpass
 import hashlib
@@ -61,6 +62,7 @@ class RolloutControlledFeature:
       feature_id: int | None = None,
       owners: list[str] | None = None,
       print_message: str | None = None,
+      randomized_daily: bool = False,
   ):
     """Initializes the object.
 
@@ -77,10 +79,13 @@ class RolloutControlledFeature:
           feature will be read from OWNERS file.
         print_message: The message to print to the console when the feature is
           enabled for the user.
+        randomized_daily: If True, the feature enablement will be randomized
+          daily.
     """
     if rollout_percentage < 0 or rollout_percentage > 100:
       raise ValueError(
-          f'Rollout percentage must be in [0, 100]. Got {rollout_percentage} instead.'
+          f'Rollout percentage must be in [0, 100]. Got {rollout_percentage}'
+          ' instead.'
       )
     if feature_id is not None and feature_id <= 0:
       raise ValueError(
@@ -94,6 +99,7 @@ class RolloutControlledFeature:
     self._feature_id = feature_id
     self._owners = owners
     self._print_message = print_message
+    self._randomized_daily = randomized_daily
 
   def _check_env_control_flag(self) -> bool | None:
     """Checks the environment variable to override the feature enablement.
@@ -124,7 +130,8 @@ class RolloutControlledFeature:
 
     if not username:
       logging.debug(
-          f'Unable to determine the username. Disabling the feature {self._name}.'
+          'Unable to determine the username. Disabling the feature'
+          f' {self._name}.'
       )
       return False
 
@@ -133,6 +140,10 @@ class RolloutControlledFeature:
 
     hash_object = hashlib.sha256()
     hash_object.update(f'{username} {self._name}'.encode('utf-8'))
+    if self._randomized_daily:
+      hash_object.update(
+          f' {datetime.date.today().isoformat()}'.encode('utf-8')
+      )
     return int(hash_object.hexdigest(), 16) % 100 < self._rollout_percentage
 
   @functools.cache

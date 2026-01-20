@@ -37,16 +37,21 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
     mock_sha256 = self.enterContext(
         mock.patch.object(rollout_control.hashlib, 'sha256', autospec=True)
     )
-    mock_sha256.return_value.hexdigest.return_value = self._MOCK_HASH_HEX
+    self.mock_hash_obj = mock_sha256.return_value
+    self.mock_hash_obj.hexdigest.return_value = self._MOCK_HASH_HEX
 
   def _create_feature(
-      self, rollout_percentage: float, owners: list[str] | None = None
+      self,
+      rollout_percentage: float,
+      owners: list[str] | None = None,
+      randomized_daily: bool = False,
   ) -> rollout_control.RolloutControlledFeature:
     return rollout_control.RolloutControlledFeature(
         name=self._FEATURE_NAME,
         rollout_percentage=rollout_percentage,
         env_control_flag=self._ENV_CONTROL_FLAG,
         owners=owners or [],
+        randomized_daily=randomized_daily,
     )
 
   def _assert_enabled_with_env_flag(
@@ -99,6 +104,25 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
 
     self.assertFalse(feature.is_enabled(self._TEST_USERNAME))
     self.assertTrue(feature.is_enabled(self._OWNER_USERNAME))
+
+  def test_randomized_daily_is_enabled(self):
+    """Tests that the date is used in the hash for daily random feature."""
+    feature = self._create_feature(
+        rollout_percentage=self._MOCK_HASH_VALUE + 1, randomized_daily=True
+    )
+
+    with mock.patch.object(
+        rollout_control.datetime, 'date', autospec=True
+    ) as mock_date:
+      mock_date.today.return_value.isoformat.return_value = '2024-01-01'
+      self.assertTrue(feature.is_enabled(self._TEST_USERNAME))
+      update_calls = [
+          mock.call(
+              f'{self._TEST_USERNAME} {self._FEATURE_NAME}'.encode('utf-8')
+          ),
+          mock.call(' 2024-01-01'.encode('utf-8')),
+      ]
+      self.mock_hash_obj.update.assert_has_calls(update_calls)
 
 
 if __name__ == '__main__':
