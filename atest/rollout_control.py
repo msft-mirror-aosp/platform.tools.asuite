@@ -205,7 +205,4 @@ atest_indexing_parallelization = RolloutControlledFeature(
     rollout_percentage=0,
     env_control_flag='ATEST_INDEXING_PARALLEL',
     feature_id=4,
-    print_message=(
-        'Atest indexing parallelization is enabled (go/atest-fast-index).'
-    ),
 )
