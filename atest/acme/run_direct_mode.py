@@ -21,6 +21,7 @@ from atest import atest_enum
 from atest import atest_utils
 from atest import test_mapping
 from atest.acme import acme_utils
+from test_configs_proto import test_configs_pb2
 
 
 RUN_TEST_EXECUTION_PLANS_ARG_NAME = '--test-execution-plans'
@@ -102,12 +103,12 @@ def _ensure_input_test_configs_exist(
     sys.exit(atest_enum.ExitCode.TEST_NOT_FOUND)
 
 
-def get_test_details(
+def _get_test_execution_plans(
     test_execution_plan_names: list[str] | None = None,
     test_workflow_names: list[str] | None = None,
     test_trigger_names: list[str] | None = None,
-) -> list[test_mapping.TestDetail]:
-  """Returns the TestDetails for all TestExecutionPlans in the given configs."""
+) -> [test_configs_pb2.TestExecutionPlan]:
+  """Returns the TestExecutionPlans referenced in the given configs."""
   # Get TestConfigs and validate user input.
   test_configs = acme_utils.get_full_test_configs()
   _ensure_input_test_configs_exist(
@@ -128,6 +129,21 @@ def get_test_details(
       + acme_utils.get_execution_plans_for_test_triggers(
           test_configs, test_trigger_names
       )
+  )
+  return execution_plans
+
+
+def get_test_details(
+    test_execution_plan_names: list[str] | None = None,
+    test_workflow_names: list[str] | None = None,
+    test_trigger_names: list[str] | None = None,
+) -> list[test_mapping.TestDetail]:
+  """Returns the TestDetails for all TestExecutionPlans in the given configs."""
+  # Get TestConfigs and validate user input.
+  execution_plans = _get_test_execution_plans(
+      test_execution_plan_names=test_execution_plan_names or [],
+      test_workflow_names=test_workflow_names or [],
+      test_trigger_names=test_trigger_names or [],
   )
 
   # Get deduplicated TestDetails.

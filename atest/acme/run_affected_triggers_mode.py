@@ -23,6 +23,7 @@ from atest import atest_utils
 from atest import test_mapping
 from atest.acme import acme_utils
 from atest.metrics import metrics
+from test_configs_proto import test_configs_pb2
 
 RUN_AFFECTED_TRIGGERS_ARG_NAME = '--run-affected-triggers'
 SCHEDULING_PLAN_ARG_NAME = '--scheduling-plan'
@@ -129,16 +130,13 @@ def _ensure_file_paths_exist(file_paths):
     sys.exit(atest_enum.ExitCode.INVALID_RUN_AFFECTED_TRIGGERS_ARGS)
 
 
-def get_affected_test_details(
+def _get_test_execution_plans(
     scheduling_plan_name: str,
     current_project: bool | None = None,
     projects: list[typing.Optional[str]] | None = None,
     file_paths: list[typing.Optional[str]] | None = None,
-) -> tuple[list[str], list[test_mapping.TestDetail]]:
-  """Returns the TestDetails for the relevant TestExecutionPlans."""
-  metrics.LocalDetectEvent(
-      detect_type=atest_enum.DetectType.RUN_AFFECTED_TRIGGERS_MODE, result=1
-  )
+) -> list[test_configs_pb2.TestExecutionPlan]:
+  """Returns the relevant TestExecutionPlans."""
   if current_project:
     projects = [acme_utils.get_current_project()]
   file_paths = file_paths or []
@@ -164,6 +162,22 @@ def get_affected_test_details(
         f' Available scheduling plans: {available_scheduling_plans}'
     )
     sys.exit(atest_enum.ExitCode.TEST_NOT_FOUND)
+  return test_execution_plans
+
+
+def get_affected_test_details(
+    scheduling_plan_name: str,
+    current_project: bool | None = None,
+    projects: list[typing.Optional[str]] | None = None,
+    file_paths: list[typing.Optional[str]] | None = None,
+) -> tuple[list[str], list[test_mapping.TestDetail]]:
+  """Returns the TestDetails for the relevant TestExecutionPlans."""
+  metrics.LocalDetectEvent(
+      detect_type=atest_enum.DetectType.RUN_AFFECTED_TRIGGERS_MODE, result=1
+  )
+  test_execution_plans = _get_test_execution_plans(
+      scheduling_plan_name, current_project, projects, file_paths
+  )
   test_details = acme_utils.create_test_details_from_test_execution_plans(
       test_execution_plans
   )
