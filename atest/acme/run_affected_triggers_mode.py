@@ -95,6 +95,9 @@ def add_arguments(parser: argparse.ArgumentParser):
 def process_parsed_args(args: argparse.Namespace):
   """Processes --run-affected-triggers related arguments."""
   if args.run_affected_triggers:
+    metrics.LocalDetectEvent(
+        detect_type=atest_enum.DetectType.RUN_AFFECTED_TRIGGERS_MODE, result=1
+    )
     # Check that only one of the three args is used.
     if (
         sum(
@@ -135,8 +138,8 @@ def _get_test_execution_plans(
     current_project: bool | None = None,
     projects: list[typing.Optional[str]] | None = None,
     file_paths: list[typing.Optional[str]] | None = None,
-) -> list[test_configs_pb2.TestExecutionPlan]:
-  """Returns the relevant TestExecutionPlans."""
+) -> [test_configs_pb2.TestExecutionPlan]:
+  """Returns the TestDetails for the relevant TestExecutionPlans."""
   if current_project:
     projects = [acme_utils.get_current_project()]
   file_paths = file_paths or []
