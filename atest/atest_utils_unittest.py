@@ -925,7 +925,7 @@ class AtestUtilsUnittests(unittest.TestCase):
   def test_quote(self):
     """Test method of quote()"""
     target_str = r'TEST_(F|P)[0-9].*\w$'
-    expected_str = "'TEST_(F|P)[0-9].*\w$'"
+    expected_str = r"'TEST_(F|P)[0-9].*\w$'"
     self.assertEqual(atest_utils.quote(target_str), expected_str)
     self.assertEqual(atest_utils.quote('TEST_P224'), 'TEST_P224')
 
