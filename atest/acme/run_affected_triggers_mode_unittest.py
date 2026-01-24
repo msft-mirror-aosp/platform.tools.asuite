@@ -27,6 +27,7 @@ from test_configs_proto import test_configs_pb2
 
 class TestRunAffectedTriggersModeModule(unittest.TestCase):
 
+  @unittest.mock.patch.object(metrics, 'LocalDetectEvent', autospec=True)
   @unittest.mock.patch.object(acme_utils, 'get_current_project', autospec=True)
   @unittest.mock.patch.object(
       acme_utils, 'get_file_paths_relative_to_build_top', autospec=True
@@ -43,6 +44,7 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
       mock_sys_exit,
       mock_get_rel_paths,
       mock_get_current_project,
+      mock_local_detect_event,
   ):
     """Tests for process_parsed_args with valid arguments."""
     test_cases = [
@@ -102,6 +104,7 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
         mock_get_rel_paths.return_value = ([], [])
         mock_get_current_project.reset_mock()
         mock_get_current_project.return_value = 'fake/project'
+        mock_local_detect_event.reset_mock()
         args = argparse.Namespace(**args_dict)
 
         # Function call.
@@ -114,6 +117,13 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
           mock_get_rel_paths.assert_called_once_with(args.file_paths)
         if args.current_project:
           mock_get_current_project.assert_called_once()
+        if args.run_affected_triggers:
+          mock_local_detect_event.assert_called_once_with(
+              detect_type=atest_enum.DetectType.RUN_AFFECTED_TRIGGERS_MODE,
+              result=1,
+          )
+        else:
+          mock_local_detect_event.assert_not_called()
 
   @unittest.mock.patch.object(acme_utils, 'get_current_project', autospec=True)
   @unittest.mock.patch.object(
@@ -270,14 +280,12 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
         'Unable to determine the current repo project.'
     )
 
-  @unittest.mock.patch.object(metrics, 'LocalDetectEvent', autospec=True)
   @unittest.mock.patch.object(
       acme_utils, 'get_reduced_test_configs', autospec=True
   )
   def test_get_affected_test_details_no_affected_tests(
       self,
       mock_get_reduced_test_configs,
-      mock_local_detect_event,
   ):
     """Test get_affected_test_details exits if no tests are affected."""
     # Set up mocks.
@@ -293,18 +301,13 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
 
     # Assertions.
     mock_sys_exit.assert_called_once_with(atest_enum.ExitCode.TEST_NOT_FOUND)
-    mock_local_detect_event.assert_called_once_with(
-        detect_type=atest_enum.DetectType.RUN_AFFECTED_TRIGGERS_MODE, result=1
-    )
 
-  @unittest.mock.patch.object(metrics, 'LocalDetectEvent', autospec=True)
   @unittest.mock.patch.object(
       acme_utils, 'get_reduced_test_configs', autospec=True
   )
   def test_get_affected_test_details_all_filtered_out(
       self,
       mock_get_reduced_test_configs,
-      mock_local_detect_event,
   ):
     """Test get_affected_test_details exits if all plans are filtered out."""
     # Set up mocks.
@@ -322,18 +325,13 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
 
     # Assertions.
     mock_sys_exit.assert_called_once_with(atest_enum.ExitCode.TEST_NOT_FOUND)
-    mock_local_detect_event.assert_called_once_with(
-        detect_type=atest_enum.DetectType.RUN_AFFECTED_TRIGGERS_MODE, result=1
-    )
 
-  @unittest.mock.patch.object(metrics, 'LocalDetectEvent', autospec=True)
   @unittest.mock.patch.object(
       acme_utils, 'get_reduced_test_configs', autospec=True
   )
   def test_get_affected_test_details(
       self,
       mock_get_reduced_test_configs,
-      mock_local_detect_event,
   ):
     """Tests that get_affected_test_details returns the correct TestDetails."""
     # Set up mocks.
@@ -360,9 +358,6 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
     )
 
     self.assertCountEqual(expected_return_val, actual_return_val)
-    mock_local_detect_event.assert_called_once_with(
-        detect_type=atest_enum.DetectType.RUN_AFFECTED_TRIGGERS_MODE, result=1
-    )
 
   @unittest.mock.patch.object(
       acme_utils, 'get_reduced_test_configs', autospec=True
