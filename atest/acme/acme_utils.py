@@ -14,6 +14,7 @@
 
 """Util functions for running ACME Test Configurations via atest."""
 
+import dataclasses
 import pathlib
 import subprocess
 import typing
@@ -23,6 +24,7 @@ from atest import constants
 from atest import test_mapping
 from test_configs_proto import test_configs_pb2
 
+
 REDUCE_TEST_CONFIGS_CMD = 'build/soong/testconfigs/scripts/reduce-test-configs'
 REDUCE_TEST_CONFIGS_OUTPUT_SUB_PATH = (
     'soong/test-configs-reduced/test_configs.pb'
@@ -30,6 +32,29 @@ REDUCE_TEST_CONFIGS_OUTPUT_SUB_PATH = (
 
 TEST_CONFIGS_BUILD_TARGET = 'test-configs-zip'
 TEST_CONFIGS_OUTPUT_SUB_PATH = 'soong/test-configs/test_configs.pb'
+
+
+@dataclasses.dataclass(frozen=True)
+class ModuleExecutionPlanMap:
+  """Mapping of module names to their associated test execution plans."""
+
+  _mapping: dict[str, set[str]]
+
+  def get_all_module_names(self) -> list[str]:
+    """Returns a list of all module names."""
+    return list(self._mapping.keys())
+
+  def get_execution_plans_for_module(self, module_name: str) -> set[str]:
+    """Returns the set of execution plan names for a given module."""
+    return self._mapping.get(module_name, set())
+
+  def add_execution_plans_to_test_infos(self, test_infos):
+    """Adds the associated execution plans to the given TestInfos."""
+    for ti in test_infos:
+      ti.data['execution_plans'] = list(
+          self.get_execution_plans_for_module(ti.test_name)
+      )
+    return test_infos
 
 
 def _parse_test_configs_proto(
