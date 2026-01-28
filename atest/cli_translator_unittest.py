@@ -16,6 +16,7 @@
 
 """Unittests for cli_translator."""
 
+import copy
 from importlib import reload
 from io import StringIO
 import json
@@ -31,6 +32,7 @@ from atest import atest_utils
 from atest import cli_translator as cli_t
 from atest import constants
 from atest import module_info
+from atest import rollout_control
 from atest import test_finder_handler
 from atest import test_mapping
 from atest import unittest_constants as uc
@@ -724,6 +726,12 @@ class CLITranslatorUnittests(unittest.TestCase):
         self, test_infos, [uc.MODULE_INFO, uc.CLASS_INFO]
     )
 
+  # TODO: b/462794425 - Remove test case when rollout is complete.
+  @mock.patch.object(
+      rollout_control.use_atest_execution_plan_suite_runner,
+      'is_enabled',
+      autospec=True,
+  )
   @mock.patch.object(
       run_affected_triggers_mode,
       'get_affected_test_details',
@@ -735,11 +743,15 @@ class CLITranslatorUnittests(unittest.TestCase):
       side_effect=gettestinfos_side_effect,
       autospec=True,
   )
-  def test_translate_run_affected_default_args(
-      self, mock_get_test_infos, mock_get_trigged_test_details
+  def test_translate_run_affected_default_args_use_exec_plan_runner_disabled(
+      self,
+      mock_get_test_infos,
+      mock_get_trigged_test_details,
+      mock_is_exec_plan_runner_enabled,
   ):
     """Test translate method for run_affected."""
     # Set up mocks.
+    mock_is_exec_plan_runner_enabled.return_value = False
     test_detail = test_mapping.TestDetail({'name': uc.MODULE_NAME})
     mock_get_trigged_test_details.return_value = (
         [uc.MODULE_NAME],
@@ -769,8 +781,64 @@ class CLITranslatorUnittests(unittest.TestCase):
         self, test_infos, [uc.MODULE_INFO]
     )
 
-  @unittest.mock.patch.object(acme_utils, 'get_current_project', autospec=True)
   @unittest.mock.patch.object(
+      rollout_control.use_atest_execution_plan_suite_runner,
+      'is_enabled',
+      autospec=True,
+  )
+  @mock.patch.object(
+      run_affected_triggers_mode,
+      'get_module_execution_plan_map',
+      autospec=True,
+  )
+  @mock.patch.object(
+      cli_t.CLITranslator,
+      '_get_test_infos',
+      side_effect=gettestinfos_side_effect,
+      autospec=True,
+  )
+  def test_translate_run_affected(
+      self,
+      mock_get_test_infos,
+      mock_get_mep,
+      mock_is_exec_plan_runner_enabled,
+  ):
+    """Test translate method for run_affected with execution plan runner."""
+    # Set up mocks.
+    mock_is_exec_plan_runner_enabled.return_value = True
+    mock_get_mep.return_value = acme_utils.ModuleExecutionPlanMap(
+        {uc.MODULE_NAME: {'plan-a', 'plan-b'}}
+    )
+    expected_module_info = copy.deepcopy(uc.MODULE_INFO)
+    expected_module_info.data['execution_plans'] = ['plan-a', 'plan-b']
+
+    # Function call.
+    args = arg_parser.parse_args(
+        [run_affected_triggers_mode.RUN_AFFECTED_TRIGGERS_ARG_NAME]
+    )
+    test_infos = self.ctr.translate(args)
+
+    # Assertions.
+    mock_get_mep.assert_called_once_with(
+        scheduling_plan_name=run_affected_triggers_mode.DEFAULT_SCHEDULING_PLAN
+    )
+    mock_get_test_infos.assert_called_once_with(
+        self.ctr, [uc.MODULE_NAME], None
+    )
+    # The order of execution_plans is not guaranteed.
+    test_infos[0].data['execution_plans'].sort()
+    unittest_utils.assert_equal_testinfo_lists(
+        self, test_infos, [expected_module_info]
+    )
+
+  # TODO: b/462794425 - Remove test case when rollout is complete.
+  @mock.patch.object(
+      rollout_control.use_atest_execution_plan_suite_runner,
+      'is_enabled',
+      autospec=True,
+  )
+  @mock.patch.object(acme_utils, 'get_current_project', autospec=True)
+  @mock.patch.object(
       acme_utils, 'get_file_paths_relative_to_build_top', autospec=True
   )
   @mock.patch.object(
@@ -784,15 +852,17 @@ class CLITranslatorUnittests(unittest.TestCase):
       side_effect=gettestinfos_side_effect,
       autospec=True,
   )
-  def test_translate_run_affected_non_default_args(
+  def test_translate_run_affected_non_default_args_use_exec_plan_runner_disabled(
       self,
       mock_get_test_infos,
       mock_get_trigged_test_details,
       mock_get_rel_paths,
       mock_get_current_project,
+      mock_is_exec_plan_runner_enabled,
   ):
     """Test translate method for run_affected with non-default args."""
     # Set up mocks.
+    mock_is_exec_plan_runner_enabled.return_value = False
     mock_get_rel_paths.return_value = ([], [])
     mock_get_current_project.return_value = 'fake/project'
     test_detail = test_mapping.TestDetail({'name': uc.MODULE_NAME})
@@ -870,6 +940,110 @@ class CLITranslatorUnittests(unittest.TestCase):
         )
 
   @mock.patch.object(
+      rollout_control.use_atest_execution_plan_suite_runner,
+      'is_enabled',
+      autospec=True,
+  )
+  @mock.patch.object(
+      run_direct_mode,
+      'get_module_execution_plan_map',
+      autospec=True,
+  )
+  @mock.patch.object(
+      cli_t.CLITranslator,
+      '_get_test_infos',
+      side_effect=gettestinfos_side_effect,
+      autospec=True,
+  )
+  def test_translate_run_direct_mode(
+      self,
+      mock_get_test_infos,
+      mock_get_mep,
+      mock_is_exec_plan_runner_enabled,
+  ):
+    """Test translate method for run_direct_mode."""
+    # Set up mocks.
+    mock_is_exec_plan_runner_enabled.return_value = True
+    mock_get_mep.return_value = acme_utils.ModuleExecutionPlanMap(
+        {uc.MODULE_NAME: {'exec-plan-1', 'exec-plan-2'}}
+    )
+
+    test_cases = [
+        {
+            'name': 'all_args',
+            'args': [
+                '--test-execution-plans',
+                'some-plan',
+                'another-plan',
+                '--test-workflows',
+                'some-workflow',
+                'another-workflow',
+                '--test-triggers',
+                'some-trigger',
+                'another-trigger',
+            ],
+            'expected_plans': ['some-plan', 'another-plan'],
+            'expected_workflows': ['some-workflow', 'another-workflow'],
+            'expected_triggers': ['some-trigger', 'another-trigger'],
+        },
+        {
+            'name': 'only_execution_plans',
+            'args': ['--test-execution-plans', 'some-plan', 'another-plan'],
+            'expected_plans': ['some-plan', 'another-plan'],
+            'expected_workflows': [],
+            'expected_triggers': [],
+        },
+        {
+            'name': 'only_workflows',
+            'args': ['--test-workflows', 'some-workflow', 'another-workflow'],
+            'expected_plans': [],
+            'expected_workflows': ['some-workflow', 'another-workflow'],
+            'expected_triggers': [],
+        },
+        {
+            'name': 'only_triggers',
+            'args': ['--test-triggers', 'some-trigger', 'another-trigger'],
+            'expected_plans': [],
+            'expected_workflows': [],
+            'expected_triggers': ['some-trigger', 'another-trigger'],
+        },
+    ]
+
+    for case in test_cases:
+      with self.subTest(f'{case['name']}'):
+        mock_get_mep.reset_mock()
+        mock_get_test_infos.reset_mock()
+        # Function call.
+        args = arg_parser.parse_args(case['args'])
+        test_infos = self.ctr.translate(args)
+
+        # Assertions.
+        mock_get_mep.assert_called_once_with(
+            case['expected_plans'],
+            case['expected_workflows'],
+            case['expected_triggers'],
+        )
+        mock_get_test_infos.assert_called_once_with(
+            self.ctr, [uc.MODULE_NAME], None
+        )
+        expected_module_info = copy.deepcopy(uc.MODULE_INFO)
+        expected_module_info.data['execution_plans'] = [
+            'exec-plan-1',
+            'exec-plan-2',
+        ]
+        # The order of execution_plans is not guaranteed.
+        test_infos[0].data['execution_plans'].sort()
+        unittest_utils.assert_equal_testinfo_lists(
+            self, test_infos, [expected_module_info]
+        )
+
+  # TODO: b/462794425 - Remove test case when rollout is complete.
+  @mock.patch.object(
+      rollout_control.use_atest_execution_plan_suite_runner,
+      'is_enabled',
+      autospec=True,
+  )
+  @mock.patch.object(
       run_direct_mode,
       'get_test_details',
       autospec=True,
@@ -880,11 +1054,15 @@ class CLITranslatorUnittests(unittest.TestCase):
       side_effect=gettestinfos_side_effect,
       autospec=True,
   )
-  def test_translate_run_direct_mode(
-      self, mock_get_test_infos, mock_get_test_details
+  def test_translate_run_direct_mode_use_exec_plan_runner_disabled(
+      self,
+      mock_get_test_infos,
+      mock_get_test_details,
+      mock_is_exec_plan_runner_enabled,
   ):
-    """Test translate method for run_direct_mode."""
+    """Test translate method for run_direct_mode without exec plan runner."""
     # Set up mocks.
+    mock_is_exec_plan_runner_enabled.return_value = False
     test_detail = test_mapping.TestDetail({'name': uc.MODULE_NAME})
     mock_get_test_details.return_value = (
         [uc.MODULE_NAME],

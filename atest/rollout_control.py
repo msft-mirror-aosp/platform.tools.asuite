@@ -218,3 +218,15 @@ atest_indexing_parallelization = RolloutControlledFeature(
     feature_id=4,
     randomized_daily=True,
 )
+
+# TODO: b/462794425 - Tracking bug for AtestExecutionPlanSuiteRunner feature.
+use_atest_execution_plan_suite_runner = RolloutControlledFeature(
+    name=(
+        'Use TF AtestExecutionPlanSuiteRunner when running TestExecutionPlans.'
+    ),
+    owners=['navil@google.com'],
+    rollout_percentage=0,
+    env_control_flag='USE_ATEST_EXECUTION_PLAN_SUITE_RUNNER',
+    feature_id=5,
+    print_message='Running tests using ExecutionPlanSuiteRunner.',
+)

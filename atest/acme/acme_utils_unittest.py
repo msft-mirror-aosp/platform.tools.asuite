@@ -369,6 +369,54 @@ class TestAcmeUtilsModule(unittest.TestCase):
         encoding='utf-8',
     )
 
+  def test_use_atest_execution_plan_suite_runner(self):
+    """Tests use_atest_execution_plan_suite_runner."""
+    test_info_with_plans = copy.deepcopy(unittest_constants.MODULE_INFO)
+    test_info_with_plans.data = {'execution_plans': ['plan1']}
+    test_info_no_plans = copy.deepcopy(unittest_constants.MODULE_INFO)
+    test_info_no_plans.data = {}
+
+    self.assertTrue(
+        acme_utils.use_atest_execution_plan_suite_runner([test_info_with_plans])
+    )
+    self.assertFalse(
+        acme_utils.use_atest_execution_plan_suite_runner([test_info_no_plans])
+    )
+    self.assertFalse(acme_utils.use_atest_execution_plan_suite_runner([]))
+
+  @unittest.mock.patch.object(atest_utils, 'get_build_out_dir', autospec=True)
+  def test_create_atest_execution_plan_suite_runner_test_args(
+      self, mock_get_build_out_dir
+  ):
+    """Tests create_atest_execution_plan_suite_runner_test_args."""
+    fake_zip_path = '/fake/path/to/test-configs.zip'
+    mock_get_build_out_dir.return_value = fake_zip_path
+    test_info1 = copy.deepcopy(unittest_constants.MODULE_INFO)
+    test_info1.data = {'execution_plans': ['plan1', 'plan2']}
+    test_info2 = copy.deepcopy(unittest_constants.MODULE_INFO2)
+    test_info2.data = {'execution_plans': ['plan3']}
+
+    args = acme_utils.create_atest_execution_plan_suite_runner_test_args(
+        [test_info1, test_info2]
+    )
+
+    expected_args = [
+        '--execution-plans',
+        'plan1',
+        '--execution-plans',
+        'plan2',
+        '--execution-plans',
+        'plan3',
+        '--extra-file',
+        f'test-configs.zip={fake_zip_path}',
+        '--config-zip-paths',
+        'test-configs.zip',
+    ]
+    self.assertEqual(expected_args, args)
+    mock_get_build_out_dir.assert_called_once_with(
+        acme_utils.TEST_CONFIGS_ZIP_PATH
+    )
+
 
 class TestModuleExecutionPlanMap(unittest.TestCase):
   """Tests ModuleExecutionPlanMap dataclass."""
