@@ -127,6 +127,62 @@ class RunDirectModeUnittest(unittest.TestCase):
         test_details,
     )
 
+  @mock.patch.object(
+      acme_utils, 'get_execution_plans_for_test_triggers', autospec=True
+  )
+  @mock.patch.object(
+      acme_utils, 'get_execution_plans_for_test_workflows', autospec=True
+  )
+  @mock.patch.object(acme_utils, 'get_test_execution_plans', autospec=True)
+  @mock.patch.object(
+      run_direct_mode, '_ensure_input_test_configs_exist', autospec=True
+  )
+  @mock.patch.object(acme_utils, 'get_full_test_configs', autospec=True)
+  def test_get_module_execution_plan_map_function_calls(
+      self,
+      mock_get_configs,
+      mock_validate_configs,
+      mock_get_plans,
+      mock_get_plans_for_workflows,
+      mock_get_plans_for_triggers,
+  ):
+    """Test get_module_execution_plan_map calls helper functions."""
+    # Set return values for mocked functions.
+    mock_get_configs.return_value = TEST_CONFIGS
+    mock_get_plans.return_value = [acme_test_constants.TEST_EXECUTION_PLAN]
+    mock_get_plans_for_workflows.return_value = []
+    mock_get_plans_for_triggers.return_value = []
+
+    # Call the function under test.
+    plan_names = ['plan1']
+    mep = run_direct_mode.get_module_execution_plan_map(
+        test_execution_plan_names=plan_names
+    )
+
+    # Assertions.
+    mock_get_configs.assert_called_once_with()
+    mock_validate_configs.assert_called_once_with(
+        TEST_CONFIGS,
+        test_execution_plan_names=plan_names,
+        test_workflow_names=[],
+        test_trigger_names=[],
+    )
+    mock_get_plans.assert_called_once_with(TEST_CONFIGS, plan_names)
+    mock_get_plans_for_workflows.assert_called_once_with(TEST_CONFIGS, [])
+    mock_get_plans_for_triggers.assert_called_once_with(TEST_CONFIGS, [])
+
+    self.assertCountEqual(
+        [
+            unittest_constants.MODULE_NAME,
+            unittest_constants.MODULE2_NAME,
+        ],
+        mep.get_all_module_names(),
+    )
+    self.assertEqual(
+        {acme_test_constants.TEST_EXECUTION_PLAN.name},
+        mep.get_execution_plans_for_module(unittest_constants.MODULE_NAME),
+    )
+
   @mock.patch(
       'atest.acme.run_direct_mode.atest_utils.print_and_log_warning',
       autospec=True,
@@ -194,6 +250,73 @@ class RunDirectModeUnittest(unittest.TestCase):
             inputs['expected_message']
         )
 
+  @mock.patch(
+      'atest.acme.run_direct_mode.atest_utils.print_and_log_warning',
+      autospec=True,
+  )
+  @mock.patch.object(acme_utils, 'get_full_test_configs', autospec=True)
+  def test_get_module_execution_plan_map_with_invalid_inputs(
+      self, mock_get_configs, mock_print_and_log_warning
+  ):
+    """Test get_module_execution_plan_map exits when an invalid config is given."""
+    mock_get_configs.return_value = TEST_CONFIGS
+    base_error_message = 'Unable to find all test configs.'
+    test_cases = {
+        'invalid_plan': {
+            'plans': ['invalid-plan'],
+            'workflows': [],
+            'triggers': [],
+            'expected_message': (
+                f'{base_error_message}\n'
+                "Missing test execution plans: {'invalid-plan'}"
+            ),
+        },
+        'invalid_workflow': {
+            'plans': [],
+            'workflows': ['invalid-workflow'],
+            'triggers': [],
+            'expected_message': (
+                f'{base_error_message}\n'
+                "Missing test workflows: {'invalid-workflow'}"
+            ),
+        },
+        'invalid_trigger': {
+            'plans': [],
+            'workflows': [],
+            'triggers': ['invalid-trigger'],
+            'expected_message': (
+                f'{base_error_message}\n'
+                "Missing test triggers: {'invalid-trigger'}"
+            ),
+        },
+        'all_invalid': {
+            'plans': ['invalid-plan'],
+            'workflows': ['invalid-workflow'],
+            'triggers': ['invalid-trigger'],
+            'expected_message': (
+                f'{base_error_message}\n'
+                "Missing test execution plans: {'invalid-plan'}\n"
+                "Missing test workflows: {'invalid-workflow'}\n"
+                "Missing test triggers: {'invalid-trigger'}"
+            ),
+        },
+    }
+    for name, inputs in test_cases.items():
+      with self.subTest(name):
+        mock_print_and_log_warning.reset_mock()
+        with mock.patch.object(sys, 'exit', autospec=True) as mock_sys_exit:
+          run_direct_mode.get_module_execution_plan_map(
+              test_execution_plan_names=inputs['plans'],
+              test_workflow_names=inputs['workflows'],
+              test_trigger_names=inputs['triggers'],
+          )
+          mock_sys_exit.assert_called_once_with(
+              atest_enum.ExitCode.TEST_NOT_FOUND
+          )
+        mock_print_and_log_warning.assert_called_once_with(
+            inputs['expected_message']
+        )
+
   @mock.patch.object(acme_utils, 'get_full_test_configs', autospec=True)
   def test_get_test_details_end_to_end(self, mock_get_configs):
     """Test get_test_details."""
@@ -225,6 +348,37 @@ class RunDirectModeUnittest(unittest.TestCase):
     )
 
     self.assertCountEqual(list(expected_return_val), list(actual_return_val))
+
+  @mock.patch.object(acme_utils, 'get_full_test_configs', autospec=True)
+  def test_get_module_execution_plan_map_end_to_end(self, mock_get_configs):
+    """Test get_module_execution_plan_map."""
+    mock_get_configs.return_value = TEST_CONFIGS
+
+    mep = run_direct_mode.get_module_execution_plan_map(
+        test_execution_plan_names=[
+            acme_test_constants.TEST_EXECUTION_PLAN_3.name
+        ],
+        test_workflow_names=[acme_test_constants.TEST_WORKFLOW_2.name],
+        test_trigger_names=[
+            acme_test_constants.TEST_TRIGGER_LIST_WORKFLOW.name
+        ],
+    )
+
+    self.assertCountEqual(
+        [
+            unittest_constants.MODULE_NAME,
+            unittest_constants.MODULE2_NAME,
+        ],
+        mep.get_all_module_names(),
+    )
+    self.assertEqual(
+        {
+            acme_test_constants.TEST_EXECUTION_PLAN.name,
+            acme_test_constants.TEST_EXECUTION_PLAN_2.name,
+            acme_test_constants.TEST_EXECUTION_PLAN_3.name,
+        },
+        mep.get_execution_plans_for_module(unittest_constants.MODULE2_NAME),
+    )
 
 
 if __name__ == '__main__':

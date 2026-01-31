@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import pathlib
 import subprocess
 import unittest
 
 from atest import atest_utils
+from atest import unittest_constants
 from atest.acme import acme_test_constants
 from atest.acme import acme_utils
 from test_configs_proto import test_configs_pb2
@@ -366,6 +368,54 @@ class TestAcmeUtilsModule(unittest.TestCase):
         capture_output=True,
         encoding='utf-8',
     )
+
+
+class TestModuleExecutionPlanMap(unittest.TestCase):
+  """Tests ModuleExecutionPlanMap dataclass."""
+
+  def test_get_all_module_names(self):
+    """Tests get_all_module_names."""
+    mapping = {
+        'module1': {'plan1', 'plan2'},
+        'module2': {'plan3'},
+    }
+    mep = acme_utils.ModuleExecutionPlanMap(mapping)
+
+    self.assertCountEqual(['module1', 'module2'], mep.get_all_module_names())
+
+  def test_get_execution_plans_for_module(self):
+    """Tests get_execution_plans_for_module."""
+    mapping = {
+        'module1': {'plan1', 'plan2'},
+        'module2': {'plan3'},
+    }
+    mep = acme_utils.ModuleExecutionPlanMap(mapping)
+
+    self.assertEqual(
+        {'plan1', 'plan2'}, mep.get_execution_plans_for_module('module1')
+    )
+    self.assertEqual({'plan3'}, mep.get_execution_plans_for_module('module2'))
+    self.assertEqual(set(), mep.get_execution_plans_for_module('unknown'))
+
+  def test_add_execution_plans_to_test_infos(self):
+    """Tests add_execution_plans_to_test_infos."""
+    mapping = {
+        unittest_constants.MODULE_NAME: {'plan1', 'plan2'},
+        unittest_constants.MODULE2_NAME: {'plan3'},
+    }
+    mep = acme_utils.ModuleExecutionPlanMap(mapping)
+
+    test_info1 = copy.deepcopy(unittest_constants.MODULE_INFO)
+    test_info1.data = {}
+    test_info2 = copy.deepcopy(unittest_constants.MODULE_INFO2)
+    test_info2.data = {}
+
+    mep.add_execution_plans_to_test_infos([test_info1, test_info2])
+
+    self.assertCountEqual(
+        ['plan1', 'plan2'], test_info1.data['execution_plans']
+    )
+    self.assertCountEqual(['plan3'], test_info2.data['execution_plans'])
 
 
 if __name__ == '__main__':

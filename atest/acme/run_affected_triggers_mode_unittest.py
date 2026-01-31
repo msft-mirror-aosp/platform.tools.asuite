@@ -473,6 +473,171 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
     mock_get_reduced_test_configs.assert_called_once_with([mock_project], [])
     mock_get_current_project.assert_called_once()
 
+  @unittest.mock.patch.object(
+      acme_utils, 'get_reduced_test_configs', autospec=True
+  )
+  def test_get_module_execution_plan_map_no_affected_tests(
+      self,
+      mock_get_reduced_test_configs,
+  ):
+    """Test get_module_execution_plan_map exits if no tests are affected."""
+    # Set up mocks.
+    mock_get_reduced_test_configs.return_value = test_configs_pb2.TestConfigs()
+    mock_sys_exit = self.enterContext(
+        unittest.mock.patch.object(sys, 'exit', autospec=True)
+    )
+
+    # Function call.
+    run_affected_triggers_mode.get_module_execution_plan_map(
+        acme_test_constants.SCHEDULING_PLAN.name
+    )
+
+    # Assertions.
+    mock_sys_exit.assert_called_once_with(atest_enum.ExitCode.TEST_NOT_FOUND)
+
+  @unittest.mock.patch.object(
+      acme_utils, 'get_reduced_test_configs', autospec=True
+  )
+  def test_get_module_execution_plan_map_all_filtered_out(
+      self,
+      mock_get_reduced_test_configs,
+  ):
+    """Test get_module_execution_plan_map exits if all plans are filtered out."""
+    # Set up mocks.
+    mock_get_reduced_test_configs.return_value = (
+        acme_test_constants.SAMPLE_TEST_CONFIG
+    )
+    mock_sys_exit = self.enterContext(
+        unittest.mock.patch.object(sys, 'exit', autospec=True)
+    )
+
+    # Function call.
+    run_affected_triggers_mode.get_module_execution_plan_map(
+        'some-other-scheduling-plan'
+    )
+
+    # Assertions.
+    mock_sys_exit.assert_called_once_with(atest_enum.ExitCode.TEST_NOT_FOUND)
+
+  @unittest.mock.patch.object(
+      acme_utils, 'get_reduced_test_configs', autospec=True
+  )
+  def test_get_module_execution_plan_map(
+      self,
+      mock_get_reduced_test_configs,
+  ):
+    """Tests that get_module_execution_plan_map returns correct plans."""
+    # Set up mocks.
+    mock_get_reduced_test_configs.return_value = (
+        acme_test_constants.SAMPLE_TEST_CONFIG
+    )
+
+    # Function call.
+    mep = run_affected_triggers_mode.get_module_execution_plan_map(
+        acme_test_constants.SCHEDULING_PLAN.name,
+    )
+
+    self.assertCountEqual(
+        [
+            unittest_constants.MODULE_NAME,
+            unittest_constants.MODULE2_NAME,
+        ],
+        mep.get_all_module_names(),
+    )
+
+  @unittest.mock.patch.object(
+      acme_utils, 'get_reduced_test_configs', autospec=True
+  )
+  def test_get_module_execution_plan_map_specific_projects(
+      self,
+      mock_get_reduced_test_configs,
+  ):
+    """Tests get_module_execution_plan_map with specific projects."""
+    # Set up mocks.
+    mock_get_reduced_test_configs.return_value = (
+        acme_test_constants.SAMPLE_TEST_CONFIG
+    )
+
+    # Function call.
+    test_projects = ['some/mock/project-a', 'another/mock/project-b']
+    mep = run_affected_triggers_mode.get_module_execution_plan_map(
+        acme_test_constants.SCHEDULING_PLAN.name, projects=test_projects
+    )
+
+    self.assertCountEqual(
+        [
+            unittest_constants.MODULE_NAME,
+            unittest_constants.MODULE2_NAME,
+        ],
+        mep.get_all_module_names(),
+    )
+    mock_get_reduced_test_configs.assert_called_once_with(test_projects, [])
+
+  @unittest.mock.patch.object(
+      acme_utils, 'get_file_paths_relative_to_build_top', autospec=True
+  )
+  @unittest.mock.patch.object(
+      acme_utils, 'get_reduced_test_configs', autospec=True
+  )
+  def test_get_module_execution_plan_map_specific_file_paths(
+      self, mock_get_reduced_test_configs, mock_get_rel_paths
+  ):
+    """Tests get_module_execution_plan_map with specific file paths."""
+    # Set up mocks.
+    mock_get_reduced_test_configs.return_value = (
+        acme_test_constants.SAMPLE_TEST_CONFIG
+    )
+    rel_paths = ['a/b/c', 'd/e/f']
+    mock_get_rel_paths.return_value = (rel_paths, [])
+
+    # Function call.
+    test_file_paths = ['/some/path/a/b/c', '/another/path/d/e/f']
+    mep = run_affected_triggers_mode.get_module_execution_plan_map(
+        acme_test_constants.SCHEDULING_PLAN.name, file_paths=test_file_paths
+    )
+
+    self.assertCountEqual(
+        [
+            unittest_constants.MODULE_NAME,
+            unittest_constants.MODULE2_NAME,
+        ],
+        mep.get_all_module_names(),
+    )
+    mock_get_reduced_test_configs.assert_called_once_with(None, rel_paths)
+    mock_get_rel_paths.assert_called_once_with(test_file_paths)
+
+  @unittest.mock.patch.object(acme_utils, 'get_current_project', autospec=True)
+  @unittest.mock.patch.object(
+      acme_utils, 'get_reduced_test_configs', autospec=True
+  )
+  def test_get_module_execution_plan_map_current_project(
+      self,
+      mock_get_reduced_test_configs,
+      mock_get_current_project,
+  ):
+    """Tests get_module_execution_plan_map with current project."""
+    # Set up mocks.
+    mock_get_reduced_test_configs.return_value = (
+        acme_test_constants.SAMPLE_TEST_CONFIG
+    )
+    mock_project = 'some/mock/project'
+    mock_get_current_project.return_value = mock_project
+
+    # Function call.
+    mep = run_affected_triggers_mode.get_module_execution_plan_map(
+        acme_test_constants.SCHEDULING_PLAN.name, current_project=True
+    )
+
+    self.assertCountEqual(
+        [
+            unittest_constants.MODULE_NAME,
+            unittest_constants.MODULE2_NAME,
+        ],
+        mep.get_all_module_names(),
+    )
+    mock_get_reduced_test_configs.assert_called_once_with([mock_project], [])
+    mock_get_current_project.assert_called_once()
+
 
 if __name__ == '__main__':
   unittest.main()

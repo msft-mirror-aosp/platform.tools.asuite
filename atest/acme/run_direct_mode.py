@@ -15,6 +15,7 @@
 """Module for running test config modules directly."""
 
 import argparse
+import collections
 import sys
 
 from atest import atest_enum
@@ -101,6 +102,29 @@ def _ensure_input_test_configs_exist(
       error_message += f'\nMissing test triggers: {invalid_test_triggers}'
     atest_utils.print_and_log_warning(error_message)
     sys.exit(atest_enum.ExitCode.TEST_NOT_FOUND)
+
+
+def get_module_execution_plan_map(
+    test_execution_plan_names: list[str] | None = None,
+    test_workflow_names: list[str] | None = None,
+    test_trigger_names: list[str] | None = None,
+) -> acme_utils.ModuleExecutionPlanMap:
+  """Returns the ModuleExecutionPlanMap for the relevant TestExecutionPlans."""
+  # Get ExecutionPlans from TestConfigs.
+  test_execution_plans = _get_test_execution_plans(
+      test_execution_plan_names=test_execution_plan_names or [],
+      test_workflow_names=test_workflow_names or [],
+      test_trigger_names=test_trigger_names or [],
+  )
+
+  module_to_exec_plan_names_dict = collections.defaultdict(set)
+  for test_exec_plan in test_execution_plans:
+    for module_plan in test_exec_plan.tests:
+      module_to_exec_plan_names_dict[module_plan.module].add(
+          test_exec_plan.name
+      )
+
+  return acme_utils.ModuleExecutionPlanMap(module_to_exec_plan_names_dict)
 
 
 def _get_test_execution_plans(

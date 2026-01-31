@@ -15,6 +15,7 @@
 """Module for running test triggers affected by the relevant files."""
 
 import argparse
+import collections
 import sys
 import typing
 
@@ -131,6 +132,26 @@ def _ensure_file_paths_exist(file_paths):
         f'The following input file paths do not exist: {invalid_file_paths}'
     )
     sys.exit(atest_enum.ExitCode.INVALID_RUN_AFFECTED_TRIGGERS_ARGS)
+
+
+def get_module_execution_plan_map(
+    scheduling_plan_name: str,
+    current_project: bool | None = None,
+    projects: list[typing.Optional[str]] | None = None,
+    file_paths: list[typing.Optional[str]] | None = None,
+) -> acme_utils.ModuleExecutionPlanMap:
+  """Returns the ModuleExecutionPlanMap for the affected TestExecutionPlans."""
+  test_execution_plans = _get_test_execution_plans(
+      scheduling_plan_name, current_project, projects, file_paths
+  )
+  module_to_exec_plan_names_dict = collections.defaultdict(set)
+  for test_exec_plan in test_execution_plans:
+    for module_plan in test_exec_plan.tests:
+      module_to_exec_plan_names_dict[module_plan.module].add(
+          test_exec_plan.name
+      )
+
+  return acme_utils.ModuleExecutionPlanMap(module_to_exec_plan_names_dict)
 
 
 def _get_test_execution_plans(
