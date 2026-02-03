@@ -213,7 +213,8 @@ tf_preparer_incremental_setup = RolloutControlledFeature(
 
 atest_indexing_parallelization = RolloutControlledFeature(
     name='Atest indexing parallelization',
-    rollout_percentage=0,
+    rollout_percentage=5,
     env_control_flag='ATEST_INDEXING_PARALLEL',
     feature_id=4,
+    randomized_daily=True,
 )
