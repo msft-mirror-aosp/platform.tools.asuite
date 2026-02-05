@@ -1656,6 +1656,7 @@ class Test(ABC):
           Target('atest_script_help.sh', Variant.HOST),
           Target('atest_tradefed.sh', Variant.HOST),
           Target('tradefed', Variant.HOST),
+          Target('tradefed-contrib', Variant.HOST),
       ]
       + [Target(t, Variant.HOST) for t in constants.GTF_TARGETS]
   )
