@@ -775,8 +775,14 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             relative_path = os.path.relpath(file_path, self.results_dir)
             artifact_paths.append(relative_path)
 
+        ants_work_unit_id = (
+            ants_uploader.current_workunit['id']
+            if ants_uploader.current_workunit
+            else str(uuid.uuid4())
+        )
+
         uploaded_result = {
-          'ants_work_unit_id': ants_uploader.current_workunit['id'],
+          'ants_work_unit_id': ants_work_unit_id,
           'module_name': tinfo.test_name,
           'class_name': record[SUMMARY_KEY_TEST_CLASS],
           'method_name': record[SUMMARY_KEY_TEST_NAME],
