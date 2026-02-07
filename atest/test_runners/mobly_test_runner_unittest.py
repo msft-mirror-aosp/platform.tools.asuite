@@ -968,6 +968,57 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         expected_errored_result,
     )
 
+  @mock.patch('atest.test_runners.mobly_test_runner.uuid.uuid4')
+  @mock.patch('atest.test_runners.mobly_test_runner.os.path.relpath', side_effect=lambda x, _: os.path.basename(x))
+  @mock.patch('atest.test_runners.mobly_test_runner.os.walk')
+  @mock.patch(
+      'atest.mobly.test_result_uploaders.resultdb_test_result_uploader.ResultDBUploader',
+      autospec=True,
+  )
+  @mock.patch(
+      'atest.mobly.test_result_uploaders.ants_test_result_uploader.AntsTestResultUploader',
+      autospec=True,
+  )
+  def test_process_test_results_from_summary_resultdb_no_ants_workunit(
+      self, mock_ants_uploader_cls, mock_resultdb_uploader_cls, mock_os_walk, _, mock_uuid
+  ):
+    """Tests that _process_test_results_from_summary creates correct result for
+    ResultDB when ANTS workunit is not available.
+    """
+    mock_ants_uploader = mock_ants_uploader_cls.return_value
+    mock_resultdb_uploader = mock_resultdb_uploader_cls.return_value
+    mock_ants_uploader.enabled = False
+    mock_ants_uploader.current_workunit = None
+    mock_resultdb_uploader.enabled = True
+    mock_os_walk.return_value = [
+        (MOBLY_LOGS_DIR, [], ['file1.log', 'file2.txt'])
+    ]
+    mock_uuid.return_value = 'some-uuid'
+    self.runner._process_test_results_from_summary(
+        MOBLY_LOGS_DIR,
+        MOBLY_SUMMARY_FILE,
+        self.tinfo,
+        0,
+        1,
+        mock_ants_uploader,
+        mock_resultdb_uploader,
+    )
+
+    expected_passed_result = {
+        'ants_work_unit_id': 'some-uuid',
+        'module_name': TEST_NAME,
+        'class_name': 'SampleTest',
+        'method_name': 'test_should_pass',
+        'status': 'PASS',
+        'start_time': 1000000000,
+        'duration': 1000000000,
+        'artifact_paths': ['file1.log', 'file2.txt'],
+    }
+    self.assertEqual(
+        mock_resultdb_uploader.add_test_result.call_args_list[0].args[0],
+        expected_passed_result,
+    )
+
 
 if __name__ == '__main__':
   unittest.main()

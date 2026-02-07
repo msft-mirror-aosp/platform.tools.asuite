@@ -107,19 +107,16 @@ WmTests:com.android.tradefed.targetprep.UnitTests: Passed: 0, Failed: 0
 from __future__ import print_function
 
 from collections import OrderedDict
-import logging
 import os
-import pathlib
-import re
 import zipfile
 
-from atest import atest_configs
 from atest import atest_enum
 from atest import atest_utils as au
 from atest import constants
 from atest.atest_enum import ExitCode
 from atest.crystalball import metric_printer
 from atest.metrics import metrics
+from atest.test_runners import atest_tf_test_runner
 from atest.test_runners import test_runner_base
 
 UNSUPPORTED_FLAG = 'UNSUPPORTED_RUNNER'
@@ -143,7 +140,7 @@ class RunStat:
         assumption_failed: Count of assumption failure tests.
         run_errors: A boolean if there were run errors
     """
-    # TODO(b/109822985): Track group and run estimated totals for updating
+    # TODO: b/109822985 - Track group and run estimated totals for updating
     # summary line
     self.passed = passed
     self.failed = failed
@@ -214,6 +211,13 @@ class ResultReporter:
 
     Args:
         silent: A boolean of silence or not.
+        collect_only: A boolean of collect tests only or not.
+        wait_for_debugger: A boolean of wait for debugger or not.
+        args: An argparse.Namespace class instance holding parsed args.
+        test_infos: A list of TestInfo instances.
+        class_level_report: A boolean of class level report or not.
+        runner_errors_as_warnings: A boolean of treating runner errors as
+          warnings or not.
     """
     self.run_stats = RunStat()
     self.runners = OrderedDict()
@@ -314,13 +318,12 @@ class ResultReporter:
     for runner_name, groups in self.runners.items():
       for group_name, stats in groups.items():
         name = group_name if group_name else runner_name
-        test_run_name = (
-            self.all_test_results[-1].test_run_name
-            # If `name` contains all information in `test_run_name`, do not
-            # attach the test run name.
-            if self.all_test_results[-1].test_run_name not in name
-            else None
-        )
+        # If `name` contains all information in `test_run_name`, do not
+        # attach the test run name.
+        if self.all_test_results[-1].test_run_name not in name:
+          test_run_name = self.all_test_results[-1].test_run_name
+        else:
+          test_run_name = None
         summary = self.process_summary(name, stats, test_run_name=test_run_name)
         run_summary.append(summary)
     summary_list = ITER_SUMMARY.get(iteration_num, [])
@@ -331,16 +334,10 @@ class ResultReporter:
     """Print the combined summary of all the iterations."""
     total_summary = ''
     for key, value in ITER_COUNTS.items():
-      total_summary += '%s: %s: %s, %s: %s, %s: %s, %s: %s\n' % (
-          key,
-          'Passed',
-          value.get('passed', 0),
-          'Failed',
-          value.get('failed', 0),
-          'Ignored',
-          value.get('ignored', 0),
-          'Assumption_failed',
-          value.get('assumption_failed', 0),
+      total_summary += (
+          f'{key}: Passed: {value.get("passed", 0)}, Failed:'
+          f' {value.get("failed", 0)}, Ignored: {value.get("ignored", 0)},'
+          f' Assumption_failed: {value.get("assumption_failed", 0)}\n'
       )
     return f"{au.delimiter('-', 7)}\nITERATIONS RESULT\n{total_summary}"
 
@@ -409,7 +406,7 @@ class ResultReporter:
 
     self.run_stats.perf_info.print_perf_info()
     print()
-    if not UNSUPPORTED_FLAG in self.runners.values():
+    if UNSUPPORTED_FLAG not in self.runners.values():
       if tests_ret == ExitCode.SUCCESS:
         if run_error_count > 0:
           print(
@@ -431,9 +428,9 @@ class ResultReporter:
     metric_printer.PerfInfo.print_perf_test_metrics(
         self._test_infos, self.log_path, self._args
     )
-    # TODO(b/174535786) Error handling while uploading test results has
+    # TODO: b/174535786 - Error handling while uploading test results has
     # unexpected exceptions.
-    # TODO (b/174627499) Saving this information in atest history.
+    # TODO: b/174627499 - Saving this information in atest history.
     if self.test_result_link:
       print('Test Result uploaded to %s' % au.mark_green(self.test_result_link))
     return tests_ret
@@ -499,7 +496,6 @@ class ResultReporter:
         error_label = au.mark_red('(Completed With ERRORS)')
       # Only extract host_log_content if test name is tradefed
       # Import here to prevent circular-import error.
-      from atest.test_runners import atest_tf_test_runner
 
       if name == atest_tf_test_runner.AtestTradefedTestRunner.NAME:
         find_logs = au.find_files(
@@ -539,18 +535,12 @@ class ResultReporter:
     ITER_COUNTS[name] = temp
 
     summary_name = f'{name}:{test_run_name}' if test_run_name else name
-    summary = '%s: %s: %s, %s: %s, %s: %s, %s: %s %s %s' % (
-        summary_name,
-        passed_label,
-        stats.passed,
-        failed_label,
-        stats.failed,
-        ignored_label,
-        stats.ignored,
-        assumption_failed_label,
-        stats.assumption_failed,
-        error_label,
-        host_log_content,
+    summary = (
+        f'{summary_name}: {passed_label}: {stats.passed}, '
+        f'{failed_label}: {stats.failed}, '
+        f'{ignored_label}: {stats.ignored}, '
+        f'{assumption_failed_label}: {stats.assumption_failed} '
+        f'{error_label} {host_log_content}'
     )
     return summary
 
@@ -561,7 +551,7 @@ class ResultReporter:
         test: a TestResult namedtuple.
         group: a RunStat instance for a test group.
     """
-    # TODO(109822985): Track group and run estimated totals for updating
+    # TODO: b/109822985 - Track group and run estimated totals for updating
     # summary line
     if test.status == test_runner_base.PASSED_STATUS:
       self.run_stats.passed += 1
@@ -594,7 +584,7 @@ class ResultReporter:
       return
     title = self._get_group_name(test) or test.runner_name
     underline = '-' * (len(title))
-    print('\n%s\n%s' % (title, underline))
+    print(f'\n{title}\n{underline}')
 
   # pylint: disable=too-many-branches
   def _print_result(self, test):
@@ -638,9 +628,7 @@ class ResultReporter:
         # Example: [26/92] test_name: FAILED (32ms)
         color = constants.RED
       print(
-          '[{}/{}] {}'.format(
-              test.test_count, test.group_total, test.test_name
-          ),
+          f'[{test.test_count}/{test.group_total}] {test.test_name}',
           end='',
       )
       if self.collect_only:
@@ -658,9 +646,7 @@ class ResultReporter:
     if not self.class_level_report:
       return test.group_name
     module_name = test.group_name if test.group_name else ''
-    test_class, test_method = (
-        test.test_name.split('#') if test.test_name else ['', '']
-    )
+    test_class, _ = test.test_name.split('#') if test.test_name else ['', '']
     if not test_class:
       return module_name
     return f'{module_name}:{test_class}'
