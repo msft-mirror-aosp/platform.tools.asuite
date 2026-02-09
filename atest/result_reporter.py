@@ -104,9 +104,6 @@ WmTests:com.android.tradefed.targetprep.UnitTests: Passed: 0, Failed: 0
 (Completed With ERRORS)
 """
 
-from __future__ import print_function
-
-from collections import OrderedDict
 import os
 import zipfile
 
@@ -181,7 +178,7 @@ class ResultReporter:
                     This include pass/fail counts across ALL test runners.
 
   - self.runners:  Is of the form: {RunnerName: {GroupName: RunStat Instance}}
-                   Where {} is an ordered dict.
+                   Where {} is a dict.
 
                    The stats instance contains stats for each test group.
                    If the runner doesn't support groups, then the group
@@ -220,7 +217,7 @@ class ResultReporter:
           warnings or not.
     """
     self.run_stats = RunStat()
-    self.runners = OrderedDict()
+    self.runners = {}
     self.failed_tests = []
     self.all_test_results = []
     self.pre_test = None
@@ -246,7 +243,7 @@ class ResultReporter:
         test: A TestResult namedtuple.
     """
     if test.runner_name not in self.runners:
-      self.runners[test.runner_name] = OrderedDict()
+      self.runners[test.runner_name] = {}
     assert self.runners[test.runner_name] != FAILURE_FLAG
     self.all_test_results.append(test)
     group_name = self._get_group_name(test)
@@ -271,8 +268,8 @@ class ResultReporter:
     print('\n', runner_name, '\n', '-' * len(runner_name), sep='')
     print(
         au.mark_red(
-            'Runner encountered a critical failure. Skipping.\nFAILURE: %s'
-            % failure_msg
+            'Runner encountered a critical failure. Skipping.\nFAILURE:'
+            f' {failure_msg}'
         )
     )
 
@@ -359,13 +356,13 @@ class ResultReporter:
       device_detail = '(Test executed with 1 device.)'
     else:
       device_detail = f'(Test executed with {self.device_count} devices.)'
-    print('\n{}'.format(au.mark_cyan(f'Summary {device_detail}')))
+    print(f'{au.mark_cyan(f"Summary {device_detail}")}\n')
     print(au.delimiter('-', 7))
 
     multi_iterations = len(ITER_SUMMARY) > 1
     for iter_num, summary_list in ITER_SUMMARY.items():
       if multi_iterations:
-        print(au.mark_blue('ITERATION %s' % (int(iter_num) + 1)))
+        print(au.mark_blue(f'ITERATION {int(iter_num) + 1}'))
       for summary in summary_list:
         print(summary)
     if multi_iterations:
@@ -417,10 +414,7 @@ class ResultReporter:
         else:
           print(au.mark_green('All tests passed!'))
       else:
-        message = '%d %s failed' % (
-            failed_sum,
-            'tests' if failed_sum > 1 else 'test',
-        )
+        message = f'{failed_sum} {"tests" if failed_sum > 1 else "test"} failed'
         print(au.mark_red(message))
         print('-' * len(message))
         self.print_failed_tests()
@@ -432,7 +426,7 @@ class ResultReporter:
     # unexpected exceptions.
     # TODO: b/174627499 - Saving this information in atest history.
     if self.test_result_link:
-      print('Test Result uploaded to %s' % au.mark_green(self.test_result_link))
+      print(f'Test Result uploaded to {au.mark_green(self.test_result_link)}')
     return tests_ret
 
   def print_collect_tests(self):
@@ -508,8 +502,7 @@ class ResultReporter:
             host_log_content = host_log_content + au.extract_zip_text(tf_log)
           else:
             with open(tf_log, 'r', encoding='utf-8') as f:
-              for line in f:
-                host_log_content = host_log_content + line
+              host_log_content += f.read()
 
       # Print the content for the standard error file for a single module.
       if name and self.log_path and len(str(name).split()) > 1:
@@ -600,15 +593,11 @@ class ResultReporter:
       return
     if not self.pre_test or (test.test_run_name != self.pre_test.test_run_name):
       print(
-          '%s (%s %s)'
-          % (
-              au.mark_blue(test.test_run_name),
-              test.group_total,
-              'Test' if test.group_total == 1 else 'Tests',
-          )
+          f'{au.mark_blue(test.test_run_name)} ({test.group_total} '
+          f'{"Test" if test.group_total == 1 else "Tests"})'
       )
     if test.status == test_runner_base.ERROR_STATUS:
-      print('RUNNER ERROR: %s\n' % test.details)
+      print(f'RUNNER ERROR: {test.details}\n')
       self.pre_test = test
       return
     if test.test_name:
@@ -634,7 +623,7 @@ class ResultReporter:
       if self.collect_only:
         print()
       else:
-        print(': {} {}'.format(au.colorize(test.status, color), test.test_time))
+        print(f': {au.colorize(test.status, color)} {test.test_time}')
       if test.status == test_runner_base.PASSED_STATUS:
         metric_printer.PerfInfo.print_banchmark_result(test)
       if test.status == test_runner_base.FAILED_STATUS:
@@ -645,8 +634,8 @@ class ResultReporter:
     """Given a single test result, get its group name to use in the reporter."""
     if not self.class_level_report:
       return test.group_name
-    module_name = test.group_name if test.group_name else ''
-    test_class, _ = test.test_name.split('#') if test.test_name else ['', '']
+    module_name = test.group_name or ''
+    test_class = (test.test_name or '').split('#')[0]
     if not test_class:
       return module_name
     return f'{module_name}:{test_class}'
