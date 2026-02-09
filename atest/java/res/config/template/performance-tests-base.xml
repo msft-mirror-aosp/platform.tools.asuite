@@ -18,4 +18,5 @@
   <include name="template/atest_device_test_base" />
 
   <option name="enable-module-dynamic-download" value="true" />
+  <option name="remove-module-buffering" value="true" />
 </configuration>
