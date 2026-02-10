@@ -535,7 +535,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         if tf_subproc.poll() is not None and len(inputs) == 1:
           inputs.pop().close()
           if not reporter.all_test_results:
-            if atest_configs.GLOBAL_ARGS.user_type:
+            module_started = any(
+                h.state.get('current_group') for h in event_handlers.values()
+            )
+            if atest_configs.GLOBAL_ARGS.user_type and not module_started:
               atest_utils.colorful_print(
                   "The test module doesn't support "
                   f"'{atest_configs.GLOBAL_ARGS.user_type}' "

@@ -96,7 +96,7 @@ class CLITranslatorUnittests(unittest.TestCase):
     self.ctr = cli_t.CLITranslator()
 
     # Create a mock of args.
-    self.args = arg_parser.create_atest_arg_parser().parse_args()
+    self.args = arg_parser.create_atest_arg_parser().parse_args([])
     self.args.tests = []
     # Test mapping related args
     self.args.test_mapping = False
