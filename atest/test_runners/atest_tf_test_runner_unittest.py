@@ -436,6 +436,74 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     mock_conn1.assert_has_calls([mock.call.close()])
     mock_conn2.assert_has_calls([mock.call.close()])
 
+  @mock.patch.object(atest_utils, 'colorful_print')
+  @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_process_connection')
+  @mock.patch('select.select')
+  def test_start_monitor_user_type_error_logic(
+      self, mock_select, mock_process, mock_print
+  ):
+    """Test _start_monitor method misleading error logic."""
+    mock_server = mock.Mock()
+    mock_subproc = mock.Mock()
+    mock_reporter = mock.Mock()
+    mock_reporter.all_test_results = []
+    mock_conn = mock.Mock()
+
+    # Set user_type to trigger the logic
+    self._global_args.user_type = (
+        'concurrent_foreground_and_visible_background_user'
+    )
+
+    # Scenario 1: Module started. Should NOT show "user type doesn't support"
+    mock_server.accept.side_effect = [(mock_conn, 'addr')]
+    mock_select.side_effect = [
+        ([mock_server], [], []),  # Accept connection
+        ([mock_conn], [], []),  # Read data
+    ]
+    mock_process.side_effect = [False]  # Close connection
+    mock_subproc.poll.side_effect = [None, True]  # End loop
+
+    with mock.patch(
+        'atest.test_runners.atest_tf_test_runner.EventHandler'
+    ) as mock_handler_cls:
+      mock_handler = mock.Mock()
+      mock_handler_cls.return_value = mock_handler
+      mock_handler.state = {'current_group': 'some_module'}
+      mock_handler.log_associations = []
+
+      self.tr._start_monitor(mock_server, mock_subproc, mock_reporter, {})
+
+    # Check that the "doesn't support" message was NOT printed
+    for call in mock_print.call_args_list:
+      self.assertNotIn("doesn't support", call[0][0])
+
+    # Scenario 2: Module NOT started. SHOULD show "user type doesn't support"
+    mock_print.reset_mock()
+    mock_server.accept.side_effect = [(mock_conn, 'addr')]
+    mock_select.side_effect = [
+        ([mock_server], [], []),
+        ([mock_conn], [], []),
+    ]
+    mock_process.side_effect = [False]
+    mock_subproc.poll.side_effect = [None, True]
+
+    with mock.patch(
+        'atest.test_runners.atest_tf_test_runner.EventHandler'
+    ) as mock_handler_cls:
+      mock_handler = mock.Mock()
+      mock_handler_cls.return_value = mock_handler
+      mock_handler.state = {}  # No current_group
+      mock_handler.log_associations = []
+
+      self.tr._start_monitor(mock_server, mock_subproc, mock_reporter, {})
+
+    # Check that the "doesn't support" message WAS printed
+    msg_printed = any(
+        "The test module doesn't support" in str(call[0][0])
+        for call in mock_print.call_args_list
+    )
+    self.assertTrue(msg_printed)
+
   def test_start_socket_server(self):
     """Test start_socket_server method."""
     server = self.tr._start_socket_server()
