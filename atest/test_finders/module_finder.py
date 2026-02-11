@@ -1196,6 +1196,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         test_config_name = os.path.splitext(os.path.basename(test_config))[0]
         if test_config_name.endswith(self._PERF_PROFILE_SUFFIX):
           continue
+        if '/.intermediates/' in test_config:
+          continue
         test_xml = os.path.join(self.root_dir, test_config)
         if (
             not pathlib.Path(test_xml).is_file()
