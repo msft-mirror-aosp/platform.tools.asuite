@@ -151,6 +151,11 @@ def get_module_execution_plan_map(
           test_exec_plan.name
       )
 
+  if not module_to_exec_plan_names_dict:
+    atest_utils.print_and_log_warning(
+        'All tests for the given test execution plans were disabled.'
+    )
+    sys.exit(atest_enum.ExitCode.TEST_NOT_FOUND)
   return acme_utils.ModuleExecutionPlanMap(module_to_exec_plan_names_dict)
 
 
@@ -170,7 +175,7 @@ def _get_test_execution_plans(
   test_configs = acme_utils.get_reduced_test_configs(
       projects, relative_file_paths
   )
-  if not test_configs:
+  if not test_configs or not test_configs.ListFields():
     atest_utils.print_and_log_warning(
         'No affected tests found based on the local changes.'
     )
@@ -207,4 +212,9 @@ def get_affected_test_details(
   )
 
   tests = [x.name for x in test_details]
+  if not tests:
+    atest_utils.print_and_log_warning(
+        'All tests for the given test execution plans were disabled.'
+    )
+    sys.exit(atest_enum.ExitCode.TEST_NOT_FOUND)
   return tests, test_details
