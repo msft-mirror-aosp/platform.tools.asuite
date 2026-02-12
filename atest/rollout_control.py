@@ -233,5 +233,5 @@ atest_indexing_parallelization = RolloutControlledFeature(
     rollout_percentage=5,
     env_control_flag='ATEST_INDEXING_PARALLEL',
     feature_id=4,
-    randomization_type=_RandomizationType.BY_USER_DAILY,
+    randomization_type=_RandomizationType.BY_RUN_ID,
 )
