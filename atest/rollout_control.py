@@ -16,6 +16,7 @@
 """Rollout control for Atest features."""
 
 import datetime
+import enum
 import functools
 import getpass
 import hashlib
@@ -26,8 +27,19 @@ from atest import atest_enum
 from atest import atest_utils
 from atest.metrics import metrics
 
-
 _ENABLED_VALUES = {'true', '1'}
+
+
+@enum.unique
+class _RandomizationType(enum.Enum):
+  """The type of random selection for the feature rollout control."""
+
+  # Deterministic by user, i.e. same user always gets the same enablement.
+  BY_USER = enum.auto()
+  # Deterministic by user and day, i.e. same user gets same enablement on the same day.
+  BY_USER_DAILY = enum.auto()
+  # Randomized based on the atest run_id, applicable to all features uniformly per run.
+  BY_RUN_ID = enum.auto()
 
 
 @functools.cache
@@ -62,7 +74,7 @@ class RolloutControlledFeature:
       feature_id: int | None = None,
       owners: list[str] | None = None,
       print_message: str | None = None,
-      randomized_daily: bool = False,
+      randomization_type: _RandomizationType = _RandomizationType.BY_USER,
   ):
     """Initializes the object.
 
@@ -79,8 +91,8 @@ class RolloutControlledFeature:
           feature will be read from OWNERS file.
         print_message: The message to print to the console when the feature is
           enabled for the user.
-        randomized_daily: If True, the feature enablement will be randomized
-          daily.
+        randomization_type: The type of random selection for the feature rollout
+          control.
     """
     if rollout_percentage < 0 or rollout_percentage > 100:
       raise ValueError(
@@ -99,7 +111,7 @@ class RolloutControlledFeature:
     self._feature_id = feature_id
     self._owners = owners
     self._print_message = print_message
-    self._randomized_daily = randomized_daily
+    self._randomization_type = randomization_type
 
   def _check_env_control_flag(self) -> bool | None:
     """Checks the environment variable to override the feature enablement.
@@ -139,11 +151,16 @@ class RolloutControlledFeature:
       return True
 
     hash_object = hashlib.sha256()
-    hash_object.update(f'{username} {self._name}'.encode('utf-8'))
-    if self._randomized_daily:
-      hash_object.update(
-          f' {datetime.date.today().isoformat()}'.encode('utf-8')
-      )
+
+    if self._randomization_type == _RandomizationType.BY_RUN_ID:
+      hash_object.update(f'{metrics.get_run_id()} {self._name}'.encode('utf-8'))
+    else:
+      hash_object.update(f'{username} {self._name}'.encode('utf-8'))
+      if self._randomization_type == _RandomizationType.BY_USER_DAILY:
+        hash_object.update(
+            f' {datetime.date.today().isoformat()}'.encode('utf-8')
+        )
+
     return int(hash_object.hexdigest(), 16) % 100 < self._rollout_percentage
 
   @functools.cache
@@ -216,5 +233,5 @@ atest_indexing_parallelization = RolloutControlledFeature(
     rollout_percentage=5,
     env_control_flag='ATEST_INDEXING_PARALLEL',
     feature_id=4,
-    randomized_daily=True,
+    randomization_type=_RandomizationType.BY_USER_DAILY,
 )
