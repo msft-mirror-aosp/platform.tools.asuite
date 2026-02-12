@@ -123,6 +123,11 @@ def get_module_execution_plan_map(
       module_to_exec_plan_names_dict[module_plan.module].add(
           test_exec_plan.name
       )
+  if not module_to_exec_plan_names_dict:
+    atest_utils.print_and_log_warning(
+        'All tests for the given test execution plans were disabled.'
+    )
+    sys.exit(atest_enum.ExitCode.TEST_NOT_FOUND)
 
   return acme_utils.ModuleExecutionPlanMap(module_to_exec_plan_names_dict)
 
@@ -176,4 +181,9 @@ def get_test_details(
   )
 
   tests = [x.name for x in test_details]
+  if not tests:
+    atest_utils.print_and_log_warning(
+        'All tests for the given test execution plans were disabled.'
+    )
+    sys.exit(atest_enum.ExitCode.TEST_NOT_FOUND)
   return tests, test_details
