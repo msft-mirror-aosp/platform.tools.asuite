@@ -44,14 +44,14 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
       self,
       rollout_percentage: float,
       owners: list[str] | None = None,
-      randomized_daily: bool = False,
+      randomization_type: rollout_control._RandomizationType = rollout_control._RandomizationType.BY_USER,
   ) -> rollout_control.RolloutControlledFeature:
     return rollout_control.RolloutControlledFeature(
         name=self._FEATURE_NAME,
         rollout_percentage=rollout_percentage,
         env_control_flag=self._ENV_CONTROL_FLAG,
         owners=owners or [],
-        randomized_daily=randomized_daily,
+        randomization_type=randomization_type,
     )
 
   def _assert_enabled_with_env_flag(
@@ -108,7 +108,8 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
   def test_randomized_daily_is_enabled(self):
     """Tests that the date is used in the hash for daily random feature."""
     feature = self._create_feature(
-        rollout_percentage=self._MOCK_HASH_VALUE + 1, randomized_daily=True
+        rollout_percentage=self._MOCK_HASH_VALUE + 1,
+        randomization_type=rollout_control._RandomizationType.BY_USER_DAILY,
     )
 
     with mock.patch.object(
@@ -121,6 +122,23 @@ class RolloutControlledFeatureUnittests(unittest.TestCase):
               f'{self._TEST_USERNAME} {self._FEATURE_NAME}'.encode('utf-8')
           ),
           mock.call(' 2024-01-01'.encode('utf-8')),
+      ]
+      self.mock_hash_obj.update.assert_has_calls(update_calls)
+
+  def test_randomized_all_is_enabled(self):
+    """Tests that the run_id is used in the hash for ALL random feature."""
+    feature = self._create_feature(
+        rollout_percentage=self._MOCK_HASH_VALUE + 1,
+        randomization_type=rollout_control._RandomizationType.BY_RUN_ID,
+    )
+
+    with mock.patch.object(
+        rollout_control.metrics, 'get_run_id', autospec=True
+    ) as mock_get_run_id:
+      mock_get_run_id.return_value = 'test_run_id'
+      self.assertTrue(feature.is_enabled(self._TEST_USERNAME))
+      update_calls = [
+          mock.call(f'test_run_id {self._FEATURE_NAME}'.encode('utf-8')),
       ]
       self.mock_hash_obj.update.assert_has_calls(update_calls)
 
