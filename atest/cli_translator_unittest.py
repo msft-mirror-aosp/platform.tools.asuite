@@ -759,9 +759,7 @@ class CLITranslatorUnittests(unittest.TestCase):
     )
 
     # Function call.
-    args = arg_parser.parse_args(
-        [run_affected_triggers_mode.RUN_AFFECTED_TRIGGERS_ARG_NAME]
-    )
+    args = arg_parser.parse_args([acme_utils.RUN_AFFECTED_TRIGGERS_ARG_NAME])
     test_infos = self.ctr.translate(args)
 
     # Assertions.
@@ -769,7 +767,7 @@ class CLITranslatorUnittests(unittest.TestCase):
     default_projects = []
     default_file_paths = []
     mock_get_trigged_test_details.assert_called_once_with(
-        run_affected_triggers_mode.DEFAULT_SCHEDULING_PLAN,
+        acme_utils.DEFAULT_SCHEDULING_PLAN,
         default_current_project,
         default_projects,
         default_file_paths,
@@ -813,14 +811,12 @@ class CLITranslatorUnittests(unittest.TestCase):
     expected_module_info.data['execution_plans'] = ['plan-a', 'plan-b']
 
     # Function call.
-    args = arg_parser.parse_args(
-        [run_affected_triggers_mode.RUN_AFFECTED_TRIGGERS_ARG_NAME]
-    )
+    args = arg_parser.parse_args([acme_utils.RUN_AFFECTED_TRIGGERS_ARG_NAME])
     test_infos = self.ctr.translate(args)
 
     # Assertions.
     mock_get_mep.assert_called_once_with(
-        scheduling_plan_name=run_affected_triggers_mode.DEFAULT_SCHEDULING_PLAN
+        scheduling_plan_name=acme_utils.DEFAULT_SCHEDULING_PLAN
     )
     mock_get_test_infos.assert_called_once_with(
         self.ctr, [uc.MODULE_NAME], None
@@ -875,10 +871,10 @@ class CLITranslatorUnittests(unittest.TestCase):
         {
             'name': 'with_projects',
             'args': [
-                run_affected_triggers_mode.RUN_AFFECTED_TRIGGERS_ARG_NAME,
-                run_affected_triggers_mode.SCHEDULING_PLAN_ARG_NAME,
+                acme_utils.RUN_AFFECTED_TRIGGERS_ARG_NAME,
+                acme_utils.SCHEDULING_PLAN_ARG_NAME,
                 'some-custom-plan',
-                run_affected_triggers_mode.PROJECTS_ARG_NAME,
+                acme_utils.PROJECTS_ARG_NAME,
                 'project-a',
                 'project-b',
             ],
@@ -890,10 +886,10 @@ class CLITranslatorUnittests(unittest.TestCase):
         {
             'name': 'with_file_paths',
             'args': [
-                run_affected_triggers_mode.RUN_AFFECTED_TRIGGERS_ARG_NAME,
-                run_affected_triggers_mode.SCHEDULING_PLAN_ARG_NAME,
+                acme_utils.RUN_AFFECTED_TRIGGERS_ARG_NAME,
+                acme_utils.SCHEDULING_PLAN_ARG_NAME,
                 'some-custom-plan',
-                run_affected_triggers_mode.FILE_PATHS_ARG_NAME,
+                acme_utils.FILE_PATHS_ARG_NAME,
                 'a/b/c.py',
                 'd/e/f.cc',
             ],
@@ -905,10 +901,10 @@ class CLITranslatorUnittests(unittest.TestCase):
         {
             'name': 'with_current_project',
             'args': [
-                run_affected_triggers_mode.RUN_AFFECTED_TRIGGERS_ARG_NAME,
-                run_affected_triggers_mode.SCHEDULING_PLAN_ARG_NAME,
+                acme_utils.RUN_AFFECTED_TRIGGERS_ARG_NAME,
+                acme_utils.SCHEDULING_PLAN_ARG_NAME,
                 'some-custom-plan',
-                run_affected_triggers_mode.CURRENT_PROJECT_ARG_NAME,
+                acme_utils.CURRENT_PROJECT_ARG_NAME,
             ],
             'expected_plan': 'some-custom-plan',
             'expected_current_project': True,

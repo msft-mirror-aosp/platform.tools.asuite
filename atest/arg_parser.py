@@ -21,6 +21,7 @@ import logging
 
 from atest import atest_utils
 from atest import constants
+from atest.acme import acme_utils
 from atest.acme import run_affected_triggers_mode
 from atest.acme import run_direct_mode
 from atest.atest_utils import BuildOutputMode
@@ -28,9 +29,10 @@ from atest.crystalball import perf_mode
 
 _EXTRA_MODULE_MAP = {
     perf_mode.PERF_MODE_ARG_NAME: perf_mode,
-    run_affected_triggers_mode.RUN_AFFECTED_TRIGGERS_ARG_NAME: (
-        run_affected_triggers_mode
-    ),
+    acme_utils.RUN_AFFECTED_TRIGGERS_ARG_NAME: run_affected_triggers_mode,
+    acme_utils.RUN_TEST_EXECUTION_PLANS_ARG_NAME: run_direct_mode,
+    acme_utils.RUN_TEST_TRIGGERS_ARG_NAME: run_direct_mode,
+    acme_utils.RUN_TEST_WORKFLOWS_ARG_NAME: run_direct_mode,
 }
 
 _INCLUDE_PREVIEW_TESTS_FLAG = '--include-preview-tests'

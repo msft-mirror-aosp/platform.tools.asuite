@@ -26,19 +26,12 @@ from atest.acme import acme_utils
 from atest.metrics import metrics
 from test_configs_proto import test_configs_pb2
 
-RUN_AFFECTED_TRIGGERS_ARG_NAME = '--run-affected-triggers'
-SCHEDULING_PLAN_ARG_NAME = '--scheduling-plan'
-DEFAULT_SCHEDULING_PLAN = 'presubmit'
-CURRENT_PROJECT_ARG_NAME = '--current-project'
-PROJECTS_ARG_NAME = '--projects'
-FILE_PATHS_ARG_NAME = '--file-paths'
-
 
 def add_global_arguments(parser: argparse.ArgumentParser):
   """Adds flags for running ACME test configs to the global argument parser."""
 
   parser.add_argument(
-      RUN_AFFECTED_TRIGGERS_ARG_NAME,
+      acme_utils.RUN_AFFECTED_TRIGGERS_ARG_NAME,
       default=False,
       action='store_true',
       help=(
@@ -51,17 +44,17 @@ def add_global_arguments(parser: argparse.ArgumentParser):
 def add_arguments(parser: argparse.ArgumentParser):
   """Adds arguments specific to --run-affected-triggers mode to the argument parser."""
   parser.add_argument(
-      SCHEDULING_PLAN_ARG_NAME,
+      acme_utils.SCHEDULING_PLAN_ARG_NAME,
       type=str,
       help=(
           '(For use with --run-affected-triggers) Only consider'
           ' test_execution_plans for the given scheduling plan. Defaults to'
           ' "presubmit".'
       ),
-      default=DEFAULT_SCHEDULING_PLAN,
+      default=acme_utils.DEFAULT_SCHEDULING_PLAN,
   )
   parser.add_argument(
-      CURRENT_PROJECT_ARG_NAME,
+      acme_utils.CURRENT_PROJECT_ARG_NAME,
       default=False,
       action='store_true',
       help=(
@@ -71,7 +64,7 @@ def add_arguments(parser: argparse.ArgumentParser):
       ),
   )
   parser.add_argument(
-      PROJECTS_ARG_NAME,
+      acme_utils.PROJECTS_ARG_NAME,
       default=[],
       nargs='*',
       help=(
@@ -81,7 +74,7 @@ def add_arguments(parser: argparse.ArgumentParser):
       ),
   )
   parser.add_argument(
-      FILE_PATHS_ARG_NAME,
+      acme_utils.FILE_PATHS_ARG_NAME,
       default=[],
       nargs='*',
       help=(
@@ -95,6 +88,7 @@ def add_arguments(parser: argparse.ArgumentParser):
 
 def process_parsed_args(args: argparse.Namespace):
   """Processes --run-affected-triggers related arguments."""
+  acme_utils.ensure_no_incompatible_args(args)
   if args.run_affected_triggers:
     metrics.LocalDetectEvent(
         detect_type=atest_enum.DetectType.RUN_AFFECTED_TRIGGERS_MODE, result=1
