@@ -310,7 +310,7 @@ pub fn run_process_with_retry_until_timeout(
         info!("       {} {:?}", output.status, String::from_utf8(output.stderr).expect("stderr"));
         sleep(delay);
     }
-    bail!("Command failed to execute {}", cmd.to_string());
+    bail!("Command failed to execute {}", cmd);
 }
 
 pub fn update(
