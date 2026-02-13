@@ -32,6 +32,9 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
   @unittest.mock.patch.object(
       acme_utils, 'get_file_paths_relative_to_build_top', autospec=True
   )
+  @unittest.mock.patch.object(
+      acme_utils, 'ensure_no_incompatible_args', autospec=True
+  )
   @unittest.mock.patch.object(sys, 'exit', autospec=True)
   @unittest.mock.patch.object(
       run_affected_triggers_mode.atest_utils,
@@ -42,6 +45,7 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
       self,
       mock_print_and_log_error,
       mock_sys_exit,
+      mock_ensure_no_incompatible_args,
       mock_get_rel_paths,
       mock_get_current_project,
       mock_local_detect_event,
@@ -100,6 +104,7 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
         # Set up mocks.
         mock_sys_exit.reset_mock()
         mock_print_and_log_error.reset_mock()
+        mock_ensure_no_incompatible_args.reset_mock()
         mock_get_rel_paths.reset_mock()
         mock_get_rel_paths.return_value = ([], [])
         mock_get_current_project.reset_mock()
@@ -111,6 +116,7 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
         run_affected_triggers_mode.process_parsed_args(args)
 
         # Assertions.
+        mock_ensure_no_incompatible_args.assert_called_once_with(args)
         mock_sys_exit.assert_not_called()
         mock_print_and_log_error.assert_not_called()
         if args.file_paths:

@@ -25,21 +25,16 @@ from atest.acme import acme_utils
 from test_configs_proto import test_configs_pb2
 
 
-RUN_TEST_EXECUTION_PLANS_ARG_NAME = '--test-execution-plans'
-RUN_TEST_TRIGGERS_ARG_NAME = '--test-triggers'
-RUN_TEST_WORKFLOWS_ARG_NAME = '--test-workflows'
-
-
 def add_global_arguments(parser: argparse.ArgumentParser):
   """Adds flags for running test configs directly to the global argument parser."""
   parser.add_argument(
-      RUN_TEST_EXECUTION_PLANS_ARG_NAME,
+      acme_utils.RUN_TEST_EXECUTION_PLANS_ARG_NAME,
       default=[],
       nargs='+',
       help='Run the specified test execution plans.',
   )
   parser.add_argument(
-      RUN_TEST_TRIGGERS_ARG_NAME,
+      acme_utils.RUN_TEST_TRIGGERS_ARG_NAME,
       default=[],
       nargs='+',
       help=(
@@ -48,7 +43,7 @@ def add_global_arguments(parser: argparse.ArgumentParser):
       ),
   )
   parser.add_argument(
-      RUN_TEST_WORKFLOWS_ARG_NAME,
+      acme_utils.RUN_TEST_WORKFLOWS_ARG_NAME,
       default=[],
       nargs='+',
       help=(
@@ -64,10 +59,9 @@ def add_arguments(parser: argparse.ArgumentParser):
   pass
 
 
-# pylint: disable=unused-argument
 def process_parsed_args(args: argparse.Namespace):
   """Processes run direct mode related arguments."""
-  pass
+  acme_utils.ensure_no_incompatible_args(args)
 
 
 def _ensure_input_test_configs_exist(
