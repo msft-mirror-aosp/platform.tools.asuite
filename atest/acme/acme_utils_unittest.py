@@ -248,6 +248,21 @@ class TestAcmeUtilsModule(unittest.TestCase):
     )
     self.assertCountEqual(expected_test_execution_plans, test_execution_plans)
 
+  def test_get_filtered_test_execution_plans_all_scheduling_plans(
+      self,
+  ):
+    """Tests getting test execution plans for all scheduling plans."""
+    expected_test_execution_plans = [
+        acme_test_constants.INLINE_WORKFLOW_SCHEDULING_PLAN_2_EXECUTION_PLAN,
+        acme_test_constants.TEST_EXECUTION_PLAN,
+        acme_test_constants.INLINE_WORKFLOW_EXECUTION_PLAN,
+    ]
+    test_execution_plans = acme_utils.get_filtered_test_execution_plans(
+        acme_test_constants.SAMPLE_TEST_CONFIG_MIXED_SCHEDULING_PLANS,
+        acme_utils.ALL_SCHEDULING_PLANS,
+    )
+    self.assertCountEqual(expected_test_execution_plans, test_execution_plans)
+
   def test_get_filtered_test_execution_plans_all_selected(self):
     """Tests getting execution plan when all belong to the scheduling plan."""
     expected_test_execution_plans = [
