@@ -31,6 +31,7 @@ import time
 from atest import atest_error
 from atest import atest_utils
 from atest import constants
+from atest import rollout_control
 from atest import test_finder_handler
 from atest import test_mapping
 from atest.acme import run_affected_triggers_mode
@@ -740,21 +741,41 @@ class CLITranslator:
       tests, test_details_list = self._get_test_mapping_tests(
           args, not bool(host_unit_tests)
       )
+    # Mapping of modules to execution plans from Soong TestConfigs.
+    module_execution_plans_map = None
     if any(
         [args.test_triggers, args.test_workflows, args.test_execution_plans]
     ):
-      tests, test_details_list = run_direct_mode.get_test_details(
-          args.test_execution_plans, args.test_workflows, args.test_triggers
-      )
+      if rollout_control.use_atest_execution_plan_suite_runner.is_enabled():
+        module_execution_plans_map = (
+            run_direct_mode.get_module_execution_plan_map(
+                args.test_execution_plans,
+                args.test_workflows,
+                args.test_triggers,
+            )
+        )
+        tests = module_execution_plans_map.get_all_module_names()
+      else:
+        tests, test_details_list = run_direct_mode.get_test_details(
+            args.test_execution_plans, args.test_workflows, args.test_triggers
+        )
     if args.run_affected_triggers:
-      tests, test_details_list = (
-          run_affected_triggers_mode.get_affected_test_details(
-              args.scheduling_plan,
-              args.current_project,
-              args.projects,
-              args.file_paths,
-          )
-      )
+      if rollout_control.use_atest_execution_plan_suite_runner.is_enabled():
+        module_execution_plans_map = (
+            run_affected_triggers_mode.get_module_execution_plan_map(
+                args.scheduling_plan
+            )
+        )
+        tests = module_execution_plans_map.get_all_module_names()
+      else:
+        tests, test_details_list = (
+            run_affected_triggers_mode.get_affected_test_details(
+                args.scheduling_plan,
+                args.current_project,
+                args.projects,
+                args.file_paths,
+            )
+        )
 
     atest_utils.colorful_print('\nFinding Tests...', constants.CYAN)
     logging.debug('Finding Tests: %s', tests)
@@ -782,6 +803,11 @@ class CLITranslator:
           host_unit_tests, host_unit_test_details
       )
       test_infos.extend(host_unit_test_infos)
+
+    if module_execution_plans_map:
+      test_infos = module_execution_plans_map.add_execution_plans_to_test_infos(
+          test_infos
+      )
     if (
         atest_utils.has_mixed_type_filters(test_infos)
         and not args.smart_test_selection

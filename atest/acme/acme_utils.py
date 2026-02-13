@@ -22,6 +22,7 @@ import typing
 from atest import atest_utils
 from atest import constants
 from atest import test_mapping
+from atest.test_finders.test_info import TestInfo
 from test_configs_proto import test_configs_pb2
 
 
@@ -32,6 +33,7 @@ REDUCE_TEST_CONFIGS_OUTPUT_SUB_PATH = (
 
 TEST_CONFIGS_BUILD_TARGET = 'test-configs-zip'
 TEST_CONFIGS_OUTPUT_SUB_PATH = 'soong/test-configs/test_configs.pb'
+TEST_CONFIGS_ZIP_PATH = 'soong/test-configs.zip'
 
 
 @dataclasses.dataclass(frozen=True)
@@ -232,3 +234,25 @@ def create_test_details_from_test_execution_plans(
       # Deduplicate identical TestDetails.
       test_details.add(test_detail)
   return list(test_details)
+
+
+def use_atest_execution_plan_suite_runner(test_infos: list[TestInfo]) -> bool:
+  """Returns true if the test_infos contains execution plans."""
+  return test_infos and test_infos[0].data.get('execution_plans', [])
+
+
+def create_atest_execution_plan_suite_runner_test_args(
+    test_infos: list[TestInfo],
+) -> list[str]:
+  """Create test arguments for invoking AtestExecutionPlanSuiteRunner."""
+  args = []
+  unique_exec_plans = []
+  for ti in test_infos:
+    unique_exec_plans.extend(ti.data.get('execution_plans', []))
+  for exec_plan in unique_exec_plans:
+    args.append('--execution-plans')
+    args.append(exec_plan)
+  test_configs_zip_path = atest_utils.get_build_out_dir(TEST_CONFIGS_ZIP_PATH)
+  args.extend(['--extra-file', f'test-configs.zip={test_configs_zip_path}'])
+  args.extend(['--config-zip-paths', 'test-configs.zip'])
+  return args
