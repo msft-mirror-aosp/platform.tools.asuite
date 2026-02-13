@@ -37,6 +37,7 @@ REDUCE_TEST_CONFIGS_OUTPUT_SUB_PATH = (
 TEST_CONFIGS_BUILD_TARGET = 'test-configs-zip'
 TEST_CONFIGS_OUTPUT_SUB_PATH = 'soong/test-configs/test_configs.pb'
 TEST_CONFIGS_ZIP_PATH = 'soong/test-configs.zip'
+ALL_SCHEDULING_PLANS = 'all'
 
 # Run affected triggers flags.
 RUN_AFFECTED_TRIGGERS_ARG_NAME = '--run-affected-triggers'
@@ -176,23 +177,30 @@ def get_filtered_test_execution_plans(
 
   # Filter test execution plans based on the scheduling plan.
   test_execution_plans = []
+  # TODO: b/484309276 - The test-configs-zip expands inline test configs now.
   for test_trigger in test_configs.triggers:
     # Handle inline workflows.
-    if test_trigger.inline.scheduling_plan.name == scheduling_plan_name:
+    if test_trigger.HasField('inline') and (
+        test_trigger.inline.scheduling_plan.name == scheduling_plan_name
+        or scheduling_plan_name == ALL_SCHEDULING_PLANS
+    ):
       test_exec_plan = test_configs_pb2.TestExecutionPlan(
           name=f'{test_trigger.name}_inline_plan',  # Give it a unique name.
           tests=test_trigger.inline.tests,
       )
       test_execution_plans.append(test_exec_plan)
     # Handle a list workflows.
-    else:
+    elif test_trigger.HasField('list'):
       for workflow in test_trigger.list.workflows:
         # Search for the workflow in the named_test_workflows_map if the
         # workflow proto only contains a reference.
         if not workflow.HasField('scheduling_plan'):
           workflow = named_test_workflows_map.get(workflow.name)
 
-        if workflow.scheduling_plan.name != scheduling_plan_name:
+        if not (
+            workflow.scheduling_plan.name == scheduling_plan_name
+            or scheduling_plan_name == ALL_SCHEDULING_PLANS
+        ):
           continue
 
         test_exec_plan_name = workflow.execution_plan.name

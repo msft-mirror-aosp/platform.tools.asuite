@@ -49,7 +49,8 @@ def add_arguments(parser: argparse.ArgumentParser):
       help=(
           '(For use with --run-affected-triggers) Only consider'
           ' test_execution_plans for the given scheduling plan. Defaults to'
-          ' "presubmit".'
+          ' "presubmit". Pass in "all" to run test_execution_plans for all'
+          ' scheduling plans.'
       ),
       default=acme_utils.DEFAULT_SCHEDULING_PLAN,
   )
