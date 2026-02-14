@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import copy
 import pathlib
 import subprocess
+import sys
 import unittest
 
+from atest import atest_enum
 from atest import atest_utils
 from atest import unittest_constants
 from atest.acme import acme_test_constants
@@ -248,6 +251,21 @@ class TestAcmeUtilsModule(unittest.TestCase):
     )
     self.assertCountEqual(expected_test_execution_plans, test_execution_plans)
 
+  def test_get_filtered_test_execution_plans_all_scheduling_plans(
+      self,
+  ):
+    """Tests getting test execution plans for all scheduling plans."""
+    expected_test_execution_plans = [
+        acme_test_constants.INLINE_WORKFLOW_SCHEDULING_PLAN_2_EXECUTION_PLAN,
+        acme_test_constants.TEST_EXECUTION_PLAN,
+        acme_test_constants.INLINE_WORKFLOW_EXECUTION_PLAN,
+    ]
+    test_execution_plans = acme_utils.get_filtered_test_execution_plans(
+        acme_test_constants.SAMPLE_TEST_CONFIG_MIXED_SCHEDULING_PLANS,
+        acme_utils.ALL_SCHEDULING_PLANS,
+    )
+    self.assertCountEqual(expected_test_execution_plans, test_execution_plans)
+
   def test_get_filtered_test_execution_plans_all_selected(self):
     """Tests getting execution plan when all belong to the scheduling plan."""
     expected_test_execution_plans = [
@@ -349,6 +367,56 @@ class TestAcmeUtilsModule(unittest.TestCase):
         acme_test_constants.SAMPLE_FULL_TEST_CONFIGS, ['invalid-trigger']
     )
     self.assertCountEqual([], test_execution_plans)
+
+  @unittest.mock.patch.object(sys, 'exit', autospec=True)
+  def test_ensure_no_incompatible_args_no_acme_args(self, mock_exit):
+    """Tests ensure_no_incompatible_args when no ACME args are passed in."""
+    args_dict = {arg: True for arg in acme_utils.ACME_INCOMPATIBLE_ARGS}
+    args = argparse.Namespace(**args_dict)
+    acme_utils.ensure_no_incompatible_args(args)
+    mock_exit.assert_not_called()
+
+  @unittest.mock.patch.object(sys, 'exit', autospec=True)
+  def test_ensure_no_incompatible_args_all_valid(self, mock_exit):
+    """Tests ensure_no_incompatible_args with valid flag combinations."""
+    for acme_arg in acme_utils.ACME_TRIGGER_ARGS:
+      with self.subTest(acme_arg=acme_arg):
+        mock_exit.reset_mock()
+        args_dict = {
+            acme_arg: True,
+            # Random atest flags.
+            'verbose': True,
+            'dry_run': True,
+        }
+        args = argparse.Namespace(**args_dict)
+        acme_utils.ensure_no_incompatible_args(args)
+        mock_exit.assert_not_called()
+
+  @unittest.mock.patch.object(atest_utils, 'print_and_log_error', autospec=True)
+  @unittest.mock.patch.object(sys, 'exit', autospec=True)
+  def test_ensure_no_incompatible_args_invalid_combinations(
+      self, mock_exit, mock_print_error
+  ):
+    """Tests ensure_no_incompatible_args with invalid flag combinations."""
+    for acme_arg in acme_utils.ACME_TRIGGER_ARGS:
+      for incompatible_arg in acme_utils.ACME_INCOMPATIBLE_ARGS:
+        with self.subTest(acme_arg=acme_arg, incompatible_arg=incompatible_arg):
+          mock_exit.reset_mock()
+          mock_print_error.reset_mock()
+          args_dict = {
+              acme_arg: True,
+              incompatible_arg: (
+                  ['fake-test'] if incompatible_arg == 'tests' else True
+              ),
+          }
+          args = argparse.Namespace(**args_dict)
+
+          acme_utils.ensure_no_incompatible_args(args)
+
+          mock_exit.assert_called_once_with(
+              atest_enum.ExitCode.INVALID_RUN_AFFECTED_TRIGGERS_ARGS
+          )
+          mock_print_error.assert_called_once()
 
   @unittest.mock.patch('subprocess.run', autospec=True)
   def test_get_current_project(self, mock_subprocess_run):
