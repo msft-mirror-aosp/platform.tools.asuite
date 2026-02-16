@@ -944,9 +944,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     # Create a copy of args as more args could be added to the list.
     test_args = list(args)
 
-    # Sometimes required for getting test results in real time during TF run (b/407065783).
-    test_args.append('--remove-module-buffering')
-
     if port:
       test_args.extend(['--subprocess-report-port', str(port)])
     if extra_args.get(constants.INVOCATION_ID, None):
@@ -981,6 +978,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     log_level = 'VERBOSE'
     test_args.extend(['--log-level-display', log_level])
     test_args.extend(['--log-level', log_level])
+
+    # Sometimes required for getting test results in real time during TF run (b/407065783).
+    test_args.append('--remove-module-buffering')
 
     # Set no-early-device-release by default to speed up TF teardown time.
     # TODO(b/300882567) remove this forever when it's the default behavor.
@@ -1024,6 +1024,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     for_test_mapping = test_infos and test_infos[0].from_test_mapping
     if is_log_upload_enabled(extra_args):
       test_args.extend(atest_utils.get_result_server_args(for_test_mapping))
+
     self.run_cmd_dict['args'] = ' '.join(test_args)
     self.run_cmd_dict['tf_customize_template'] = (
         self._extract_customize_tf_templates(extra_args)
