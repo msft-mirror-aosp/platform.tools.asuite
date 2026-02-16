@@ -134,8 +134,8 @@ class RunStat:
         passed: Count of passing tests.
         failed: Count of failed tests.
         ignored: Count of ignored tests.
-        assumption_failed: Count of assumption failure tests.
         run_errors: A boolean if there were run errors
+        assumption_failed: Count of assumption failure tests.
     """
     # TODO: b/109822985 - Track group and run estimated totals for updating
     # summary line
@@ -242,15 +242,14 @@ class ResultReporter:
     Args:
         test: A TestResult namedtuple.
     """
-    if test.runner_name not in self.runners:
-      self.runners[test.runner_name] = {}
-    assert self.runners[test.runner_name] != FAILURE_FLAG
+    runner_groups = self.runners.setdefault(test.runner_name, {})
+    assert runner_groups != FAILURE_FLAG
     self.all_test_results.append(test)
     group_name = self._get_group_name(test)
-    if group_name not in self.runners[test.runner_name]:
-      self.runners[test.runner_name][group_name] = RunStat()
+    if group_name not in runner_groups:
+      runner_groups[group_name] = RunStat()
       self._print_group_title(test)
-    self._update_stats(test, self.runners[test.runner_name][group_name])
+    self._update_stats(test, runner_groups[group_name])
     self._print_result(test)
 
   def runner_failure(self, runner_name, failure_msg):
@@ -265,7 +264,7 @@ class ResultReporter:
     """
     self.runners[runner_name] = FAILURE_FLAG
 
-    print('\n', runner_name, '\n', '-' * len(runner_name), sep='')
+    print(f'\n{runner_name}\n{"-" * len(runner_name)}')
     print(
         au.mark_red(
             'Runner encountered a critical failure. Skipping.\nFAILURE:'
@@ -291,7 +290,7 @@ class ResultReporter:
     """
     assert runner_name not in self.runners
     self.runners[runner_name] = UNSUPPORTED_FLAG
-    print('\n', runner_name, '\n', '-' * len(runner_name), sep='')
+    print(f'\n{runner_name}\n{"-" * len(runner_name)}')
     print(
         'This runner does not support normal results formatting. Below '
         'is the raw output of the test runner.\n\nRAW OUTPUT:'
@@ -327,16 +326,16 @@ class ResultReporter:
     summary_list.extend(run_summary)
     ITER_SUMMARY[iteration_num] = summary_list
 
-  def get_iterations_summary(self) -> None:
+  def get_iterations_summary(self) -> str:
     """Print the combined summary of all the iterations."""
-    total_summary = ''
-    for key, value in ITER_COUNTS.items():
-      total_summary += (
-          f'{key}: Passed: {value.get("passed", 0)}, Failed:'
-          f' {value.get("failed", 0)}, Ignored: {value.get("ignored", 0)},'
-          f' Assumption_failed: {value.get("assumption_failed", 0)}\n'
-      )
-    return f"{au.delimiter('-', 7)}\nITERATIONS RESULT\n{total_summary}"
+    summary_lines = [
+        f'{key}: Passed: {value.get("passed", 0)}, Failed:'
+        f' {value.get("failed", 0)}, Ignored: {value.get("ignored", 0)},'
+        f' Assumption_failed: {value.get("assumption_failed", 0)}'
+        for key, value in ITER_COUNTS.items()
+    ]
+    total_summary = '\n'.join(summary_lines)
+    return f"{au.delimiter('-', 7)}\nITERATIONS RESULT\n{total_summary}\n"
 
   # pylint: disable=too-many-branches
   def print_summary(self):
@@ -352,10 +351,11 @@ class ResultReporter:
       return tests_ret
     if not self.device_count:
       device_detail = ''
-    elif self.device_count == 1:
-      device_detail = '(Test executed with 1 device.)'
     else:
-      device_detail = f'(Test executed with {self.device_count} devices.)'
+      device_detail = (
+          f'(Test executed with {self.device_count} '
+          f'device{"s" if self.device_count > 1 else ""}.)'
+      )
     print(f'{au.mark_cyan(f"Summary {device_detail}")}\n')
     print(au.delimiter('-', 7))
 
@@ -448,9 +448,8 @@ class ResultReporter:
 
   def print_failed_tests(self):
     """Print the failed tests if existed."""
-    if self.failed_tests:
-      for test_name in self.failed_tests:
-        print(test_name)
+    for test_name in self.failed_tests:
+      print(test_name)
 
   def process_summary(self, name, stats, test_run_name=None):
     """Process the summary line.
@@ -499,7 +498,7 @@ class ResultReporter:
           host_log_content = au.mark_red('\n\nTradefederation host log:\n')
         for tf_log in find_logs:
           if zipfile.is_zipfile(tf_log):
-            host_log_content = host_log_content + au.extract_zip_text(tf_log)
+            host_log_content += au.extract_zip_text(tf_log)
           else:
             with open(tf_log, 'r', encoding='utf-8') as f:
               host_log_content += f.read()
@@ -515,17 +514,16 @@ class ResultReporter:
           )
           with open(log_file, 'r', encoding='utf-8') as f:
             for line in f:
-              print(' ' * 2 + str(line), end='')
+              print(' ' * 2 + line, end='')
     elif stats.failed == 0:
       passed_label = au.mark_green(passed_label)
-    temp = ITER_COUNTS.get(name, {})
+    temp = ITER_COUNTS.setdefault(name, {})
     temp['passed'] = temp.get('passed', 0) + stats.passed
     temp['failed'] = temp.get('failed', 0) + stats.failed
     temp['ignored'] = temp.get('ignored', 0) + stats.ignored
     temp['assumption_failed'] = (
         temp.get('assumption_failed', 0) + stats.assumption_failed
     )
-    ITER_COUNTS[name] = temp
 
     summary_name = f'{name}:{test_run_name}' if test_run_name else name
     summary = (
