@@ -944,6 +944,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
 
     # Create a copy of args as more args could be added to the list.
     test_args = list(args)
+
+    # Sometimes required for getting test results in real time during TF run (b/407065783).
+    test_args.append('--remove-module-buffering')
+
     if port:
       test_args.extend(['--subprocess-report-port', str(port)])
     if extra_args.get(constants.INVOCATION_ID, None):
