@@ -52,7 +52,7 @@ from pyfakefs import fake_filesystem_unittest
 # TODO(147567606): Replace {serial} with {extra_args} for general extra
 # arguments testing.
 RUN_CMD_ARGS = (
-    '--log-level-display VERBOSE --log-level VERBOSE'
+    '--log-level-display VERBOSE --log-level VERBOSE --remove-module-buffering'
     '{device_early_release}{serial}'
 )
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
