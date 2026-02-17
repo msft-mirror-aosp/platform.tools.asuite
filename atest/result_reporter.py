@@ -14,7 +14,7 @@
 
 # pylint: disable=import-outside-toplevel
 
-"""Result Reporter
+"""Result Reporter.
 
 The result reporter formats and prints test results.
 
@@ -126,7 +126,12 @@ class RunStat:
   """Class for storing stats of a test run."""
 
   def __init__(
-      self, passed=0, failed=0, ignored=0, run_errors=False, assumption_failed=0
+      self,
+      passed: int = 0,
+      failed: int = 0,
+      ignored: int = 0,
+      run_errors: bool = False,
+      assumption_failed: int = 0,
   ):
     """Initialize a new instance of RunStat class.
 
@@ -193,6 +198,12 @@ class ResultReporter:
             'RobolectricTestRunner': {None: RunStat(passed:5, failed:0)},
             'VtsTradefedTestRunner': {'Module1': RunStat(passed:4, failed:0)}}
   """
+
+  STATUS_COLORS = {
+      test_runner_base.PASSED_STATUS: constants.GREEN,
+      test_runner_base.IGNORED_STATUS: constants.MAGENTA,
+      test_runner_base.ASSUMPTION_FAILED: constants.MAGENTA,
+  }
 
   def __init__(
       self,
@@ -264,7 +275,8 @@ class ResultReporter:
     """
     self.runners[runner_name] = FAILURE_FLAG
 
-    print(f'\n{runner_name}\n{"-" * len(runner_name)}')
+    print(f'\n{runner_name}')
+    print(au.delimiter('-', len(runner_name)))
     print(
         au.mark_red(
             'Runner encountered a critical failure. Skipping.\nFAILURE:'
@@ -290,7 +302,8 @@ class ResultReporter:
     """
     assert runner_name not in self.runners
     self.runners[runner_name] = UNSUPPORTED_FLAG
-    print(f'\n{runner_name}\n{"-" * len(runner_name)}')
+    print(f'\n{runner_name}')
+    print(au.delimiter('-', len(runner_name)))
     print(
         'This runner does not support normal results formatting. Below '
         'is the raw output of the test runner.\n\nRAW OUTPUT:'
@@ -322,19 +335,16 @@ class ResultReporter:
           test_run_name = None
         summary = self.process_summary(name, stats, test_run_name=test_run_name)
         run_summary.append(summary)
-    summary_list = ITER_SUMMARY.get(iteration_num, [])
-    summary_list.extend(run_summary)
-    ITER_SUMMARY[iteration_num] = summary_list
+    ITER_SUMMARY.setdefault(iteration_num, []).extend(run_summary)
 
   def get_iterations_summary(self) -> str:
     """Print the combined summary of all the iterations."""
-    summary_lines = [
+    total_summary = '\n'.join(
         f'{key}: Passed: {value.get("passed", 0)}, Failed:'
         f' {value.get("failed", 0)}, Ignored: {value.get("ignored", 0)},'
         f' Assumption_failed: {value.get("assumption_failed", 0)}'
         for key, value in ITER_COUNTS.items()
-    ]
-    total_summary = '\n'.join(summary_lines)
+    )
     return f"{au.delimiter('-', 7)}\nITERATIONS RESULT\n{total_summary}\n"
 
   # pylint: disable=too-many-branches
@@ -435,9 +445,8 @@ class ResultReporter:
     Returns:
         0 if all tests collection done.
     """
-    tests_ret = ExitCode.SUCCESS
     if not self.runners:
-      return tests_ret
+      return ExitCode.SUCCESS
     print(f'\n{au.mark_cyan("Summary: "+ constants.COLLECT_TESTS_ONLY)}')
     print(au.delimiter('-', 26))
     for runner_name, groups in self.runners.items():
@@ -447,7 +456,7 @@ class ResultReporter:
     return ExitCode.SUCCESS
 
   def print_failed_tests(self):
-    """Print the failed tests if existed."""
+    """Print the failed tests if any."""
     for test_name in self.failed_tests:
       print(test_name)
 
@@ -518,12 +527,8 @@ class ResultReporter:
     elif stats.failed == 0:
       passed_label = au.mark_green(passed_label)
     temp = ITER_COUNTS.setdefault(name, {})
-    temp['passed'] = temp.get('passed', 0) + stats.passed
-    temp['failed'] = temp.get('failed', 0) + stats.failed
-    temp['ignored'] = temp.get('ignored', 0) + stats.ignored
-    temp['assumption_failed'] = (
-        temp.get('assumption_failed', 0) + stats.assumption_failed
-    )
+    for key in ['passed', 'failed', 'ignored', 'assumption_failed']:
+      temp[key] = temp.get(key, 0) + getattr(stats, key)
 
     summary_name = f'{name}:{test_run_name}' if test_run_name else name
     summary = (
@@ -574,8 +579,8 @@ class ResultReporter:
     if self.silent:
       return
     title = self._get_group_name(test) or test.runner_name
-    underline = '-' * (len(title))
-    print(f'\n{title}\n{underline}')
+    print(f'\n{title}')
+    print(au.delimiter('-', len(title)))
 
   # pylint: disable=too-many-branches
   def _print_result(self, test):
@@ -599,21 +604,7 @@ class ResultReporter:
       self.pre_test = test
       return
     if test.test_name:
-      color = ''
-      if test.status == test_runner_base.PASSED_STATUS:
-        # Example of output:
-        # [78/92] test_name: PASSED (92ms)
-        color = constants.GREEN
-      elif test.status in (
-          test_runner_base.IGNORED_STATUS,
-          test_runner_base.ASSUMPTION_FAILED,
-      ):
-        # Example: [33/92] test_name: IGNORED (12ms)
-        # Example: [33/92] test_name: ASSUMPTION_FAILED (12ms)
-        color = constants.MAGENTA
-      else:
-        # Example: [26/92] test_name: FAILED (32ms)
-        color = constants.RED
+      color = self.STATUS_COLORS.get(test.status, constants.RED)
       print(
           f'[{test.test_count}/{test.group_total}] {test.test_name}',
           end='',
