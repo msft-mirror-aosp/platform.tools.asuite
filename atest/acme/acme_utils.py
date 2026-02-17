@@ -16,6 +16,7 @@
 
 import argparse
 import dataclasses
+import glob
 import pathlib
 import subprocess
 import sys
@@ -118,9 +119,8 @@ def get_reduced_test_configs(
     cmd.append('-projects')
     cmd.extend(projects)
   if file_paths:
-    cmd.append('--filepaths')
-    relative_file_paths, _ = get_file_paths_relative_to_build_top(file_paths)
-    cmd.extend(relative_file_paths)
+    cmd.append('-filepaths')
+    cmd.extend(file_paths)
 
   # TODO: b/460119831 - Return a more informative error message.
   subprocess.run(cmd, cwd=atest_utils.get_build_top(), check=True)
@@ -138,7 +138,10 @@ def get_file_paths_relative_to_build_top(
   invalid_file_paths = []
   for fp in file_paths:
     try:
-      resolved_path = pathlib.Path(fp).resolve(strict=True)
+      if glob.has_magic(fp):
+        if not glob.glob(fp, recursive=True):
+          raise FileNotFoundError
+      resolved_path = pathlib.Path(fp).resolve(strict=not glob.has_magic(fp))
       relative_paths.append(
           str(resolved_path.relative_to(atest_utils.get_build_top()))
       )
