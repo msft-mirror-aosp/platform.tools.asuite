@@ -38,8 +38,8 @@ TEST_CONFIGS = test_configs_pb2.TestConfigs(
         acme_test_constants.TEST_WORKFLOW_3,
     ],
     triggers=[
-        acme_test_constants.TEST_TRIGGER_LIST_WORKFLOW_REFERENCE_ONLY,
-        acme_test_constants.TEST_TRIGGER_LIST_WORKFLOW_2_REFERENCE_ONLY,
+        acme_test_constants.TEST_TRIGGER_1_REFERENCE_ONLY,
+        acme_test_constants.TEST_TRIGGER_2_REFERENCE_ONLY,
     ],
 )
 
@@ -380,9 +380,7 @@ class RunDirectModeUnittest(unittest.TestCase):
             acme_test_constants.TEST_EXECUTION_PLAN_3.name
         ],
         test_workflow_names=[acme_test_constants.TEST_WORKFLOW_2.name],
-        test_trigger_names=[
-            acme_test_constants.TEST_TRIGGER_LIST_WORKFLOW.name
-        ],
+        test_trigger_names=[acme_test_constants.TEST_TRIGGER_1.name],
     )
     actual_return_val = zip(tests, test_details)
     expected_return_val = zip(
@@ -412,9 +410,7 @@ class RunDirectModeUnittest(unittest.TestCase):
             acme_test_constants.TEST_EXECUTION_PLAN_3.name
         ],
         test_workflow_names=[acme_test_constants.TEST_WORKFLOW_2.name],
-        test_trigger_names=[
-            acme_test_constants.TEST_TRIGGER_LIST_WORKFLOW.name
-        ],
+        test_trigger_names=[acme_test_constants.TEST_TRIGGER_1.name],
     )
 
     self.assertCountEqual(

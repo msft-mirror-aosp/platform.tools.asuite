@@ -389,7 +389,7 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
     """Tests that get_affected_test_details returns the correct TestDetails."""
     # Set up mocks.
     mock_get_reduced_test_configs.return_value = (
-        acme_test_constants.SAMPLE_TEST_CONFIG
+        acme_test_constants.SAMPLE_TEST_CONFIG_MIXED_SCHEDULING_PLANS
     )
 
     # Function call.
@@ -422,7 +422,7 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
     """Tests get_affected_test_details when called with a list of projects."""
     # Set up mocks.
     mock_get_reduced_test_configs.return_value = (
-        acme_test_constants.SAMPLE_TEST_CONFIG
+        acme_test_constants.SAMPLE_TEST_CONFIG_MIXED_SCHEDULING_PLANS
     )
 
     # Function call.
@@ -459,7 +459,7 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
     """Tests get_affected_test_details when called with a list of file paths."""
     # Set up mocks.
     mock_get_reduced_test_configs.return_value = (
-        acme_test_constants.SAMPLE_TEST_CONFIG
+        acme_test_constants.SAMPLE_TEST_CONFIG_MIXED_SCHEDULING_PLANS
     )
     rel_paths = ['a/b/c', 'd/e/f']
     mock_get_rel_paths.return_value = (rel_paths, [])
@@ -499,7 +499,7 @@ class TestRunAffectedTriggersModeModule(unittest.TestCase):
     """Tests get_affected_test_details when filtering by the current project."""
     # Set up mocks.
     mock_get_reduced_test_configs.return_value = (
-        acme_test_constants.SAMPLE_TEST_CONFIG
+        acme_test_constants.SAMPLE_TEST_CONFIG_MIXED_SCHEDULING_PLANS
     )
     mock_project = 'some/mock/project'
     mock_get_current_project.return_value = mock_project

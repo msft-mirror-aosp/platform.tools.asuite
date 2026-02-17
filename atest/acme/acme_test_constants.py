@@ -68,12 +68,17 @@ TEST_WORKFLOW_3 = test_configs_pb2.TestWorkflow(
     scheduling_plan=SCHEDULING_PLAN,
     execution_plan=TEST_EXECUTION_PLAN_3,
 )
-TEST_TRIGGER_LIST_WORKFLOW = test_configs_pb2.TestTrigger(
-    name='sample-list-test-workflow',
+TEST_WORKFLOW_3_SCHEDULING_PLAN_2 = test_configs_pb2.TestWorkflow(
+    name='sample-workflow-3',
+    scheduling_plan=SCHEDULING_PLAN_2,
+    execution_plan=TEST_EXECUTION_PLAN_3,
+)
+TEST_TRIGGER_1 = test_configs_pb2.TestTrigger(
+    name='sample-test-trigger',
     list=test_configs_pb2.TestWorkflowCollection(
         workflows=[
             test_configs_pb2.TestWorkflow(
-                name='sample-workflow-1',
+                name=TEST_WORKFLOW.name,
                 scheduling_plan=test_configs_pb2.TestSchedulingPlan(
                     name=SCHEDULING_PLAN.name
                 ),
@@ -84,28 +89,94 @@ TEST_TRIGGER_LIST_WORKFLOW = test_configs_pb2.TestTrigger(
         ]
     ),
 )
-TEST_TRIGGER_LIST_WORKFLOW_REFERENCE_ONLY = test_configs_pb2.TestTrigger(
-    name='sample-list-test-workflow',
+TEST_TRIGGER_1_REFERENCE_ONLY = test_configs_pb2.TestTrigger(
+    name='sample-test-trigger',
     list=test_configs_pb2.TestWorkflowCollection(
         workflows=[
             test_configs_pb2.TestWorkflow(
-                name='sample-workflow-1',
+                name=TEST_WORKFLOW.name,
             )
         ]
     ),
 )
-TEST_TRIGGER_LIST_WORKFLOW_2_REFERENCE_ONLY = test_configs_pb2.TestTrigger(
-    name='sample-list-test-workflow-2',
+TEST_TRIGGER_2 = test_configs_pb2.TestTrigger(
+    name='sample-test-trigger-2',
     list=test_configs_pb2.TestWorkflowCollection(
         workflows=[
             test_configs_pb2.TestWorkflow(
-                name='sample-workflow-2',
+                name=TEST_WORKFLOW_2.name,
+                scheduling_plan=test_configs_pb2.TestSchedulingPlan(
+                    name=SCHEDULING_PLAN.name
+                ),
+                execution_plan=test_configs_pb2.TestExecutionPlan(
+                    name=TEST_EXECUTION_PLAN_2.name
+                ),
             ),
             test_configs_pb2.TestWorkflow(
-                name='sample-workflow-3',
+                name=TEST_WORKFLOW_3.name,
+                scheduling_plan=test_configs_pb2.TestSchedulingPlan(
+                    name=SCHEDULING_PLAN.name
+                ),
+                execution_plan=test_configs_pb2.TestExecutionPlan(
+                    name=TEST_EXECUTION_PLAN_3.name
+                ),
             ),
         ]
     ),
+)
+TEST_TRIGGER_2_REFERENCE_ONLY = test_configs_pb2.TestTrigger(
+    name='sample-test-trigger-2',
+    list=test_configs_pb2.TestWorkflowCollection(
+        workflows=[
+            test_configs_pb2.TestWorkflow(
+                name=TEST_WORKFLOW_2.name,
+            ),
+            test_configs_pb2.TestWorkflow(
+                name=TEST_WORKFLOW_3.name,
+            ),
+        ]
+    ),
+)
+TEST_TRIGGER_2_MIXED_SCHEDULING_PLANS = test_configs_pb2.TestTrigger(
+    name='sample-test-trigger-2',
+    list=test_configs_pb2.TestWorkflowCollection(
+        workflows=[
+            test_configs_pb2.TestWorkflow(
+                name=TEST_WORKFLOW_2.name,
+                scheduling_plan=test_configs_pb2.TestSchedulingPlan(
+                    name=SCHEDULING_PLAN.name
+                ),
+                execution_plan=test_configs_pb2.TestExecutionPlan(
+                    name=TEST_EXECUTION_PLAN_2.name
+                ),
+            ),
+            test_configs_pb2.TestWorkflow(
+                name=TEST_WORKFLOW_3_SCHEDULING_PLAN_2.name,
+                scheduling_plan=test_configs_pb2.TestSchedulingPlan(
+                    name=SCHEDULING_PLAN_2.name
+                ),
+                execution_plan=test_configs_pb2.TestExecutionPlan(
+                    name=TEST_EXECUTION_PLAN_3.name
+                ),
+            ),
+        ]
+    ),
+)
+
+TEST_TRIGGER_2_MIXED_SCHEDULING_PLANS_REFERENCE_ONLY = (
+    test_configs_pb2.TestTrigger(
+        name='sample-test-trigger-2',
+        list=test_configs_pb2.TestWorkflowCollection(
+            workflows=[
+                test_configs_pb2.TestWorkflow(
+                    name=TEST_WORKFLOW_2.name,
+                ),
+                test_configs_pb2.TestWorkflow(
+                    name=TEST_WORKFLOW_3_SCHEDULING_PLAN_2.name,
+                ),
+            ]
+        ),
+    )
 )
 
 INLINE_WORKFLOW_EXECUTION_PLAN = test_configs_pb2.TestExecutionPlan(
@@ -119,45 +190,43 @@ TEST_TRIGGER_INLINE_WORKFLOW = test_configs_pb2.TestTrigger(
         tests=[MODULE2_PLAN, MODULE_PLAN_SIMPLE],
     ),
 )
-INLINE_WORKFLOW_SCHEDULING_PLAN_2_EXECUTION_PLAN = (
-    test_configs_pb2.TestExecutionPlan(
-        name='sample-inline-workflow-another-plan_inline_plan',
-        tests=[MODULE2_PLAN_SIMPLE],
-    )
-)
-TEST_TRIGGER_INLINE_WORKFLOW_SCHEDULING_PLAN_2 = test_configs_pb2.TestTrigger(
-    name='sample-inline-workflow-another-plan',
-    inline=test_configs_pb2.TestWorkflowInline(
-        scheduling_plan=SCHEDULING_PLAN_2,
-        tests=[MODULE2_PLAN_SIMPLE],
-    ),
-)
 
 SAMPLE_TEST_CONFIG = test_configs_pb2.TestConfigs(
-    execution_plans=[TEST_EXECUTION_PLAN],
-    workflows=[TEST_WORKFLOW],
+    execution_plans=[
+        TEST_EXECUTION_PLAN,
+        TEST_EXECUTION_PLAN_2,
+        TEST_EXECUTION_PLAN_3,
+    ],
+    workflows=[TEST_WORKFLOW, TEST_WORKFLOW_2, TEST_WORKFLOW_3],
     triggers=[
-        TEST_TRIGGER_INLINE_WORKFLOW,
-        TEST_TRIGGER_LIST_WORKFLOW,
+        TEST_TRIGGER_1,
+        TEST_TRIGGER_2,
     ],
 )
 SAMPLE_TEST_CONFIG_MIXED_SCHEDULING_PLANS = test_configs_pb2.TestConfigs(
-    execution_plans=[TEST_EXECUTION_PLAN],
-    workflows=[TEST_WORKFLOW],
+    execution_plans=[
+        TEST_EXECUTION_PLAN,
+        TEST_EXECUTION_PLAN_2,
+        TEST_EXECUTION_PLAN_3,
+    ],
+    workflows=[TEST_WORKFLOW, TEST_WORKFLOW_2, TEST_WORKFLOW_3],
     triggers=[
-        TEST_TRIGGER_INLINE_WORKFLOW,
-        TEST_TRIGGER_LIST_WORKFLOW,
-        TEST_TRIGGER_INLINE_WORKFLOW_SCHEDULING_PLAN_2,
+        TEST_TRIGGER_1,
+        TEST_TRIGGER_2_MIXED_SCHEDULING_PLANS,
     ],
 )
 # When generating the full test-configs.pb, the triggers field only has the name
 # of the workflow populated.
 SAMPLE_FULL_TEST_CONFIGS = test_configs_pb2.TestConfigs(
-    execution_plans=[TEST_EXECUTION_PLAN],
-    workflows=[TEST_WORKFLOW],
+    execution_plans=[
+        TEST_EXECUTION_PLAN,
+        TEST_EXECUTION_PLAN_2,
+        TEST_EXECUTION_PLAN_3,
+    ],
+    workflows=[TEST_WORKFLOW, TEST_WORKFLOW_2, TEST_WORKFLOW_3],
     triggers=[
-        TEST_TRIGGER_INLINE_WORKFLOW,
-        TEST_TRIGGER_LIST_WORKFLOW_REFERENCE_ONLY,
+        TEST_TRIGGER_1_REFERENCE_ONLY,
+        TEST_TRIGGER_2_REFERENCE_ONLY,
     ],
 )
 
