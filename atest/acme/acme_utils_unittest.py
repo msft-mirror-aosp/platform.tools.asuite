@@ -240,11 +240,33 @@ class TestAcmeUtilsModule(unittest.TestCase):
     mock_build.assert_called_once_with([acme_utils.TEST_CONFIGS_BUILD_TARGET])
     mock_open_builtin.assert_called_once_with(fake_pb_path, 'rb')
 
+  def test_get_filtered_test_execution_plans_inline_workflows_ignored(self):
+    """Tests get_filtered_test_execution_plans ignores inline workflows."""
+
+    # Test configs only contain inlined workflows.
+    mock_test_configs = test_configs_pb2.TestConfigs(
+        triggers=[
+            test_configs_pb2.TestTrigger(
+                name='sample-inline-workflow',
+                inline=test_configs_pb2.TestWorkflowInline(
+                    scheduling_plan=acme_test_constants.SCHEDULING_PLAN,
+                    tests=[
+                        acme_test_constants.MODULE2_PLAN,
+                        acme_test_constants.MODULE_PLAN_SIMPLE,
+                    ],
+                ),
+            )
+        ]
+    )
+    test_execution_plans = acme_utils.get_filtered_test_execution_plans(
+        mock_test_configs,
+        acme_test_constants.SCHEDULING_PLAN_2.name,
+    )
+    self.assertCountEqual([], test_execution_plans)
+
   def test_get_filtered_test_execution_plans_mixed_scheduling_plans(self):
     """Tests filtering test execution plans by scheduling plan."""
-    expected_test_execution_plans = [
-        acme_test_constants.INLINE_WORKFLOW_SCHEDULING_PLAN_2_EXECUTION_PLAN
-    ]
+    expected_test_execution_plans = [acme_test_constants.TEST_EXECUTION_PLAN_3]
     test_execution_plans = acme_utils.get_filtered_test_execution_plans(
         acme_test_constants.SAMPLE_TEST_CONFIG_MIXED_SCHEDULING_PLANS,
         acme_test_constants.SCHEDULING_PLAN_2.name,
@@ -256,9 +278,9 @@ class TestAcmeUtilsModule(unittest.TestCase):
   ):
     """Tests getting test execution plans for all scheduling plans."""
     expected_test_execution_plans = [
-        acme_test_constants.INLINE_WORKFLOW_SCHEDULING_PLAN_2_EXECUTION_PLAN,
         acme_test_constants.TEST_EXECUTION_PLAN,
-        acme_test_constants.INLINE_WORKFLOW_EXECUTION_PLAN,
+        acme_test_constants.TEST_EXECUTION_PLAN_2,
+        acme_test_constants.TEST_EXECUTION_PLAN_3,
     ]
     test_execution_plans = acme_utils.get_filtered_test_execution_plans(
         acme_test_constants.SAMPLE_TEST_CONFIG_MIXED_SCHEDULING_PLANS,
@@ -269,8 +291,9 @@ class TestAcmeUtilsModule(unittest.TestCase):
   def test_get_filtered_test_execution_plans_all_selected(self):
     """Tests getting execution plan when all belong to the scheduling plan."""
     expected_test_execution_plans = [
-        acme_test_constants.INLINE_WORKFLOW_EXECUTION_PLAN,
         acme_test_constants.TEST_EXECUTION_PLAN,
+        acme_test_constants.TEST_EXECUTION_PLAN_2,
+        acme_test_constants.TEST_EXECUTION_PLAN_3,
     ]
     test_execution_plans = acme_utils.get_filtered_test_execution_plans(
         acme_test_constants.SAMPLE_TEST_CONFIG,
@@ -281,8 +304,9 @@ class TestAcmeUtilsModule(unittest.TestCase):
   def test_get_filtered_test_execution_plans_only_references(self):
     """Tests getting execution plans when test-triggers contain references."""
     expected_test_execution_plans = [
-        acme_test_constants.INLINE_WORKFLOW_EXECUTION_PLAN,
         acme_test_constants.TEST_EXECUTION_PLAN,
+        acme_test_constants.TEST_EXECUTION_PLAN_2,
+        acme_test_constants.TEST_EXECUTION_PLAN_3,
     ]
     test_execution_plans = acme_utils.get_filtered_test_execution_plans(
         acme_test_constants.SAMPLE_FULL_TEST_CONFIGS,
@@ -350,7 +374,7 @@ class TestAcmeUtilsModule(unittest.TestCase):
     expected_plans = [acme_test_constants.TEST_EXECUTION_PLAN]
     test_execution_plans = acme_utils.get_execution_plans_for_test_triggers(
         acme_test_constants.SAMPLE_FULL_TEST_CONFIGS,
-        [acme_test_constants.TEST_TRIGGER_LIST_WORKFLOW.name],
+        [acme_test_constants.TEST_TRIGGER_1.name],
     )
     self.assertCountEqual(expected_plans, test_execution_plans)
 
