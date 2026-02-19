@@ -366,6 +366,11 @@ def create_atest_arg_parser():
       help='Display DEBUG level logging.',
   )
   parser.add_argument(
+      '--run-in-compatibility-mode',
+      action='store_true',
+      help='Run the test in compatibility mode.',
+  )
+  parser.add_argument(
       '-V', '--version', action='store_true', help='Display version string.'
   )
   parser.add_argument(

@@ -1513,6 +1513,20 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
         cmd[0],
     )
 
+  def test_args_with_run_in_compatibility_mode_and_generate_in_run_cmd(self):
+    extra_args = {constants.RUN_IN_COMPATIBILITY_MODE: True}
+
+    cmd = self.tr.generate_run_commands([], extra_args)
+
+    self.assertTokensIn(
+        [
+            '--enable-parameterized-modules',
+            '--module-parameter',
+            'compatibility_mode',
+        ],
+        cmd[0],
+    )
+
   def test_args_with_user_type_and_generate_in_run_cmd(self):
     extra_args = {constants.USER_TYPE: 'hello_user'}
 
