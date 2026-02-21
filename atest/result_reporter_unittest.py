@@ -377,6 +377,15 @@ class ResultReporterUnittests(unittest.TestCase):
 
     self.assertEqual(atest_enum.ExitCode.SUCCESS, rr.print_collect_tests())
 
+  def test_set_current_iteration_summary_with_failed_runner(self):
+    """Test set_current_iteration_summary with a failed runner."""
+    self.rr.runner_failure('FailedRunner', 'Reason')
+    # This should not raise an AttributeError
+    try:
+      self.rr.set_current_iteration_summary(1)
+    except AttributeError:
+      self.fail('set_current_iteration_summary raised AttributeError with failed runner')
+
 
 if __name__ == '__main__':
   unittest.main()

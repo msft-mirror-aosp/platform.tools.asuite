@@ -14,6 +14,7 @@
 
 import argparse
 import copy
+import glob
 import pathlib
 import subprocess
 import sys
@@ -135,41 +136,74 @@ class TestAcmeUtilsModule(unittest.TestCase):
         raise FileNotFoundError
       return pathlib.Path(str(path_instance))
 
+    invalid_glob_count = 0
+
+    def mock_glob_side_effect(pattern, recursive=False):
+      nonlocal invalid_glob_count
+      _ = recursive
+      if 'invalid' in pattern:
+        invalid_glob_count += 1
+        return []
+      return [pattern]
+
     test_cases = [
         {
             'name': 'all_valid_paths',
             'file_paths': [
                 f'{MOCK_BUILD_TOP_PATH}/a/b',
                 f'{MOCK_BUILD_TOP_PATH}/c',
+                f'{MOCK_BUILD_TOP_PATH}/**/*',
             ],
-            'expected': (['a/b', 'c'], []),
+            'expected': (['a/b', 'c', '**/*'], []),
         },
         {
             'name': 'all_invalid_paths',
-            'file_paths': ['/invalid/path1', '/another/invalid/path'],
-            'expected': ([], ['/invalid/path1', '/another/invalid/path']),
+            'file_paths': [
+                '/invalid/path1',
+                '/another/invalid/path',
+                '/invalid/**/*',
+            ],
+            'expected': (
+                [],
+                ['/invalid/path1', '/another/invalid/path', '/invalid/**/*'],
+            ),
         },
         {
             'name': 'mixed_paths',
             'file_paths': [
                 f'{MOCK_BUILD_TOP_PATH}/a/b',
+                f'{MOCK_BUILD_TOP_PATH}/c/*',
                 '/some/invalid/path',
+                '/some/invalid/glob/*',
             ],
-            'expected': (['a/b'], ['/some/invalid/path']),
+            'expected': (
+                ['a/b', 'c/*'],
+                ['/some/invalid/path', '/some/invalid/glob/*'],
+            ),
         },
         {'name': 'empty_list', 'file_paths': [], 'expected': ([], [])},
     ]
 
-    with unittest.mock.patch.object(
-        pathlib.Path,
-        'resolve',
-        side_effect=mock_resolve_side_effect,
-        autospec=True,
-    ) as mock_resolve:
+    with (
+        unittest.mock.patch.object(
+            pathlib.Path,
+            'resolve',
+            side_effect=mock_resolve_side_effect,
+            autospec=True,
+        ) as mock_resolve,
+        unittest.mock.patch.object(
+            glob,
+            'glob',
+            side_effect=mock_glob_side_effect,
+            autospec=True,
+        ) as mock_glob,
+    ):
       for test_case in test_cases:
         with self.subTest(test_case['name']):
           mock_get_build_top.reset_mock()
           mock_resolve.reset_mock()
+          mock_glob.reset_mock()
+          invalid_glob_count = 0
           expected_relative_paths, expected_invalid_paths = test_case[
               'expected'
           ]
@@ -184,9 +218,11 @@ class TestAcmeUtilsModule(unittest.TestCase):
           self.assertEqual(
               len(expected_relative_paths), mock_get_build_top.call_count
           )
-          # resolve should be called once for each path.
+          # Each valid path will call resolve once and glob 0 or 1 times,
+          # but an invalid glob will not call resolve.
           self.assertEqual(
-              len(test_case['file_paths']), mock_resolve.call_count
+              len(test_case['file_paths']),
+              mock_resolve.call_count + invalid_glob_count,
           )
 
   def test_create_test_details_from_test_execution_plans(self):

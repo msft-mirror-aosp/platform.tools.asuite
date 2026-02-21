@@ -104,7 +104,7 @@ WmTests:com.android.tradefed.targetprep.UnitTests: Passed: 0, Failed: 0
 (Completed With ERRORS)
 """
 
-import os
+from pathlib import Path
 import zipfile
 
 from atest import atest_enum
@@ -325,6 +325,8 @@ class ResultReporter:
     """Add the given iteration's current summary to the list of its existing summaries."""
     run_summary = []
     for runner_name, groups in self.runners.items():
+      if groups == UNSUPPORTED_FLAG or groups == FAILURE_FLAG:
+        continue
       for group_name, stats in groups.items():
         name = group_name if group_name else runner_name
         # If `name` contains all information in `test_run_name`, do not
@@ -457,8 +459,8 @@ class ResultReporter:
 
   def print_failed_tests(self):
     """Print the failed tests if any."""
-    for test_name in self.failed_tests:
-      print(test_name)
+    if self.failed_tests:
+      print('\n'.join(map(str, self.failed_tests)))
 
   def process_summary(self, name, stats, test_run_name=None):
     """Process the summary line.
@@ -497,8 +499,6 @@ class ResultReporter:
       else:
         error_label = au.mark_red('(Completed With ERRORS)')
       # Only extract host_log_content if test name is tradefed
-      # Import here to prevent circular-import error.
-
       if name == atest_tf_test_runner.AtestTradefedTestRunner.NAME:
         find_logs = au.find_files(
             self.log_path, file_name=constants.TF_HOST_LOG
@@ -509,21 +509,19 @@ class ResultReporter:
           if zipfile.is_zipfile(tf_log):
             host_log_content += au.extract_zip_text(tf_log)
           else:
-            with open(tf_log, 'r', encoding='utf-8') as f:
-              host_log_content += f.read()
+            host_log_content += Path(tf_log).read_text(encoding='utf-8')
 
       # Print the content for the standard error file for a single module.
-      if name and self.log_path and len(str(name).split()) > 1:
-        log_name = str(name).split()[1] + '-stderr_*.txt'
-        module_logs = au.find_files(self.log_path, file_name=log_name)
-        for log_file in module_logs:
-          print(
-              ' ' * 2
-              + au.mark_magenta(f'Logs in {os.path.basename(log_file)}:')
-          )
-          with open(log_file, 'r', encoding='utf-8') as f:
-            for line in f:
-              print(' ' * 2 + line, end='')
+      if name and self.log_path:
+        parts = str(name).split()
+        if len(parts) > 1:
+          log_name = parts[1] + '-stderr_*.txt'
+          module_logs = au.find_files(self.log_path, file_name=log_name)
+          for log_file in module_logs:
+            print(' ' * 2 + au.mark_magenta(f'Logs in {Path(log_file).name}:'))
+            with open(log_file, 'r', encoding='utf-8') as f:
+              for line in f:
+                print(' ' * 2 + line, end='')
     elif stats.failed == 0:
       passed_label = au.mark_green(passed_label)
     temp = ITER_COUNTS.setdefault(name, {})
@@ -605,14 +603,16 @@ class ResultReporter:
       return
     if test.test_name:
       color = self.STATUS_COLORS.get(test.status, constants.RED)
-      print(
-          f'[{test.test_count}/{test.group_total}] {test.test_name}',
-          end='',
+      test_name_part = (
+          f'[{test.test_count}/{test.group_total}] {test.test_name}'
       )
       if self.collect_only:
-        print()
+        print(test_name_part)
       else:
-        print(f': {au.colorize(test.status, color)} {test.test_time}')
+        print(
+            f'{test_name_part}:'
+            f' {au.colorize(test.status, color)} {test.test_time}'
+        )
       if test.status == test_runner_base.PASSED_STATUS:
         metric_printer.PerfInfo.print_banchmark_result(test)
       if test.status == test_runner_base.FAILED_STATUS:
