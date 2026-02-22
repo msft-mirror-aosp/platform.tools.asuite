@@ -13,8 +13,8 @@
 // limitations under the License.
 
 cc_test_host {
-    name: "deviceless_cc_test_host",
-    srcs: ["deviceless_cc_test_host.cpp"],
+    name: "deviceless_cc_test",
+    srcs: ["deviceless_cc_test.cpp"],
 
     gtest: true,
     compile_multilib: "first",
