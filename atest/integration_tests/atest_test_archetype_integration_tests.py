@@ -56,6 +56,40 @@ class DevicelessPythonTestHostTest(atest_integration_test.AtestTestCase):
     )
 
 
+class DevicelessCcTestHostTest(atest_integration_test.AtestTestCase):
+  _TARGET_NAME = 'deviceless_cc_test_host'
+
+  def test_passed_failed_counts(self):
+    _run_and_verify(
+        self,
+        atest_command=self._TARGET_NAME + ' --host',
+        is_device_required=False,
+        verifiers=_create_pass_fail_ignore_verifiers(
+            expected_passed_count=2,
+            expected_failed_count=1,
+            expected_ignored_count=0,
+        )
+        + _create_elapsed_time_verifiers(max_sec=10),
+    )
+
+
+class DevicelessCcTestTest(atest_integration_test.AtestTestCase):
+  _TARGET_NAME = 'deviceless_cc_test'
+
+  def test_passed_failed_counts(self):
+    _run_and_verify(
+        self,
+        atest_command=self._TARGET_NAME + ' --host',
+        is_device_required=False,
+        verifiers=_create_pass_fail_ignore_verifiers(
+            expected_passed_count=2,
+            expected_failed_count=1,
+            expected_ignored_count=0,
+        )
+        + _create_elapsed_time_verifiers(max_sec=10),
+    )
+
+
 class DeviceAndroidTestTest(atest_integration_test.AtestTestCase):
 
   def test_passed_failed_counts(self):
