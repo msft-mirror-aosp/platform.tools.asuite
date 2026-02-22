@@ -16,7 +16,7 @@
 
 """Integration tests to make sure selected test archetypes works in atest."""
 
-from dataclasses import dataclass
+import dataclasses
 from typing import Callable
 
 import atest_integration_test
@@ -146,7 +146,7 @@ class DeviceCcTestTest(atest_integration_test.AtestTestCase):
     )
 
 
-@dataclass
+@dataclasses.dataclass
 class _Verifier:
   """Wrapper class to store a verifier function with a subtest name."""
 
