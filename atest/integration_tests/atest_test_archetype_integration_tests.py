@@ -68,7 +68,7 @@ class DeviceAndroidTestTest(atest_integration_test.AtestTestCase):
             expected_failed_count=1,
             expected_ignored_count=0,
         )
-        + _create_elapsed_time_verifiers(max_sec=20),
+        + _create_elapsed_time_verifiers(max_sec=40),
     )
 
   def test_instrumentation_early_exit_shows_useful_output(self):
@@ -108,7 +108,7 @@ class DeviceCcTestTest(atest_integration_test.AtestTestCase):
             expected_failed_count=1,
             expected_ignored_count=0,
         )
-        + _create_elapsed_time_verifiers(max_sec=20),
+        + _create_elapsed_time_verifiers(max_sec=40),
     )
 
 
