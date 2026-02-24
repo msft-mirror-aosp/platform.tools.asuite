@@ -56,6 +56,7 @@ from atest import result_reporter
 from atest import test_runner_handler
 from atest.atest_enum import DetectType
 from atest.atest_enum import ExitCode
+from atest.atest_execution_info import create_symlink_to_result
 from atest.coverage import coverage
 from atest.crystalball import perf_mode
 from atest.metrics import metrics
@@ -274,6 +275,9 @@ def make_test_run_dir() -> str:
       prefix=f'{ctime}_', dir=constants.ATEST_RESULT_ROOT
   )
   print(_RESULTS_DIR_PRINT_PREFIX + test_result_dir)
+
+  current_symlink = create_symlink_to_result(test_result_dir, 'CURRENT')
+  print(f'Or use: {current_symlink}')
   return test_result_dir
 
 

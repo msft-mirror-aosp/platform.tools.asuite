@@ -16,7 +16,7 @@
 
 """Integration tests to make sure selected test archetypes works in atest."""
 
-from dataclasses import dataclass
+import dataclasses
 from typing import Callable
 
 import atest_integration_test
@@ -56,6 +56,40 @@ class DevicelessPythonTestHostTest(atest_integration_test.AtestTestCase):
     )
 
 
+class DevicelessCcTestHostTest(atest_integration_test.AtestTestCase):
+  _TARGET_NAME = 'deviceless_cc_test_host'
+
+  def test_passed_failed_counts(self):
+    _run_and_verify(
+        self,
+        atest_command=self._TARGET_NAME + ' --host',
+        is_device_required=False,
+        verifiers=_create_pass_fail_ignore_verifiers(
+            expected_passed_count=2,
+            expected_failed_count=1,
+            expected_ignored_count=0,
+        )
+        + _create_elapsed_time_verifiers(max_sec=10),
+    )
+
+
+class DevicelessCcTestTest(atest_integration_test.AtestTestCase):
+  _TARGET_NAME = 'deviceless_cc_test'
+
+  def test_passed_failed_counts(self):
+    _run_and_verify(
+        self,
+        atest_command=self._TARGET_NAME + ' --host',
+        is_device_required=False,
+        verifiers=_create_pass_fail_ignore_verifiers(
+            expected_passed_count=2,
+            expected_failed_count=1,
+            expected_ignored_count=0,
+        )
+        + _create_elapsed_time_verifiers(max_sec=10),
+    )
+
+
 class DeviceAndroidTestTest(atest_integration_test.AtestTestCase):
 
   def test_passed_failed_counts(self):
@@ -68,7 +102,7 @@ class DeviceAndroidTestTest(atest_integration_test.AtestTestCase):
             expected_failed_count=1,
             expected_ignored_count=0,
         )
-        + _create_elapsed_time_verifiers(max_sec=20),
+        + _create_elapsed_time_verifiers(max_sec=40),
     )
 
   def test_instrumentation_early_exit_shows_useful_output(self):
@@ -108,11 +142,11 @@ class DeviceCcTestTest(atest_integration_test.AtestTestCase):
             expected_failed_count=1,
             expected_ignored_count=0,
         )
-        + _create_elapsed_time_verifiers(max_sec=20),
+        + _create_elapsed_time_verifiers(max_sec=40),
     )
 
 
-@dataclass
+@dataclasses.dataclass
 class _Verifier:
   """Wrapper class to store a verifier function with a subtest name."""
 

@@ -275,8 +275,7 @@ class ResultReporter:
     """
     self.runners[runner_name] = FAILURE_FLAG
 
-    print(f'\n{runner_name}')
-    print(au.delimiter('-', len(runner_name)))
+    self._print_header(runner_name)
     print(
         au.mark_red(
             'Runner encountered a critical failure. Skipping.\nFAILURE:'
@@ -302,8 +301,7 @@ class ResultReporter:
     """
     assert runner_name not in self.runners
     self.runners[runner_name] = UNSUPPORTED_FLAG
-    print(f'\n{runner_name}')
-    print(au.delimiter('-', len(runner_name)))
+    self._print_header(runner_name)
     print(
         'This runner does not support normal results formatting. Below '
         'is the raw output of the test runner.\n\nRAW OUTPUT:'
@@ -462,6 +460,41 @@ class ResultReporter:
     if self.failed_tests:
       print('\n'.join(map(str, self.failed_tests)))
 
+  def _get_tf_host_log_content(self, name):
+    """Get the content of the Tradefed host log if applicable.
+
+    Args:
+        name: A string of test name.
+
+    Returns:
+        A string of the host log content.
+    """
+    if name != atest_tf_test_runner.AtestTradefedTestRunner.NAME:
+      return ''
+
+    find_logs = au.find_files(self.log_path, file_name=constants.TF_HOST_LOG)
+    if not find_logs:
+      return ''
+
+    host_log_content = au.mark_red('\n\nTradefederation host log:\n')
+    for tf_log in find_logs:
+      if zipfile.is_zipfile(tf_log):
+        host_log_content += au.extract_zip_text(tf_log)
+      else:
+        host_log_content += Path(tf_log).read_text(encoding='utf-8')
+    return host_log_content
+
+  def _update_iter_counts(self, name, stats):
+    """Update the iteration counts with the stats of the current test run.
+
+    Args:
+        name: A string of the test name.
+        stats: A RunStat instance.
+    """
+    temp = ITER_COUNTS.setdefault(name, {})
+    for key in ['passed', 'failed', 'ignored', 'assumption_failed']:
+      temp[key] = temp.get(key, 0) + getattr(stats, key)
+
   def process_summary(self, name, stats, test_run_name=None):
     """Process the summary line.
 
@@ -498,18 +531,7 @@ class ResultReporter:
         )
       else:
         error_label = au.mark_red('(Completed With ERRORS)')
-      # Only extract host_log_content if test name is tradefed
-      if name == atest_tf_test_runner.AtestTradefedTestRunner.NAME:
-        find_logs = au.find_files(
-            self.log_path, file_name=constants.TF_HOST_LOG
-        )
-        if find_logs:
-          host_log_content = au.mark_red('\n\nTradefederation host log:\n')
-        for tf_log in find_logs:
-          if zipfile.is_zipfile(tf_log):
-            host_log_content += au.extract_zip_text(tf_log)
-          else:
-            host_log_content += Path(tf_log).read_text(encoding='utf-8')
+      host_log_content = self._get_tf_host_log_content(name)
 
       # Print the content for the standard error file for a single module.
       if name and self.log_path:
@@ -524,9 +546,7 @@ class ResultReporter:
                 print(' ' * 2 + line, end='')
     elif stats.failed == 0:
       passed_label = au.mark_green(passed_label)
-    temp = ITER_COUNTS.setdefault(name, {})
-    for key in ['passed', 'failed', 'ignored', 'assumption_failed']:
-      temp[key] = temp.get(key, 0) + getattr(stats, key)
+    self._update_iter_counts(name, stats)
 
     summary_name = f'{name}:{test_run_name}' if test_run_name else name
     summary = (
@@ -565,6 +585,15 @@ class ResultReporter:
       group.run_errors = True
     self.run_stats.perf_info.update_perf_info(test)
 
+  def _print_header(self, heading):
+    """Print a header with a delimiter line.
+
+    Args:
+        heading: A string to print as the header.
+    """
+    print(f'\n{heading}')
+    print(au.delimiter('-', len(heading)))
+
   def _print_group_title(self, test):
     """Print the title line for a test group.
 
@@ -577,8 +606,7 @@ class ResultReporter:
     if self.silent:
       return
     title = self._get_group_name(test) or test.runner_name
-    print(f'\n{title}')
-    print(au.delimiter('-', len(title)))
+    self._print_header(title)
 
   # pylint: disable=too-many-branches
   def _print_result(self, test):

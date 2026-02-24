@@ -96,10 +96,24 @@ def symlink_latest_result(test_result_dir):
   Args:
       test_result_dir: A string of the dir path.
   """
-  symlink = os.path.join(constants.ATEST_RESULT_ROOT, 'LATEST')
+  create_symlink_to_result(test_result_dir, 'LATEST')
+
+
+def create_symlink_to_result(test_result_dir, symlink_name) -> str:
+  """Make a symbolic link to given test result.
+
+  Args:
+      test_result_dir: A string of the dir path.
+      symlink_name: the name of the symlink, e.g. 'LATEST' or 'CURRENT'
+
+  Returns:
+      the path of the symlink that was created.
+  """
+  symlink = os.path.join(constants.ATEST_RESULT_ROOT, symlink_name)
   if os.path.exists(symlink) or os.path.islink(symlink):
     os.remove(symlink)
   os.symlink(test_result_dir, symlink)
+  return symlink
 
 
 def print_test_result(root, history_arg):
