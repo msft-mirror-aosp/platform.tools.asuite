@@ -14,7 +14,6 @@
 
 """Various globals used by atest."""
 
-
 from collections import namedtuple
 import os
 from pathlib import Path
@@ -63,6 +62,7 @@ TEST_TIMEOUT = 'TEST_TIMEOUT'
 VERBOSE = 'VERBOSE'
 LD_LIBRARY_PATH = 'LD_LIBRARY_PATH'
 USE_TF_MIN_BASE_TEMPLATE = 'USE_TF_MIN_BASE_TEMPLATE'
+RUN_IN_COMPATIBILITY_MODE = 'RUN_IN_COMPATIBILITY_MODE'
 
 # Robolectric Types:
 ROBOTYPE_MODERN = 1

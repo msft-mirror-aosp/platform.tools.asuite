@@ -305,6 +305,7 @@ _ARG_TO_CONST_MAP = {
     'tf_template': constants.TF_TEMPLATE,
     'user_type': constants.USER_TYPE,
     'verbose': constants.VERBOSE,
+    'run_in_compatibility_mode': constants.RUN_IN_COMPATIBILITY_MODE,
     'wait_for_debugger': constants.WAIT_FOR_DEBUGGER,
     'use_tf_min_base_template': constants.USE_TF_MIN_BASE_TEMPLATE,
     'smart_test_selection': constants.SMART_TEST_SELECTION,
