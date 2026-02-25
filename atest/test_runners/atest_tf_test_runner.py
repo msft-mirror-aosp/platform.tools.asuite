@@ -1496,6 +1496,11 @@ def extra_args_to_tf_args(
       # custom args value is a list.
       lambda arg_value: arg_value,
       constants.ALL_ABI: constant_list('--all-abi'),
+      constants.RUN_IN_COMPATIBILITY_MODE: constant_list(
+          constants.TF_ENABLE_PARAMETERIZED_MODULES,
+          constants.TF_MODULE_PARAMETER,
+          'compatibility_mode',
+      ),
       constants.INSTANT: constant_list(
           constants.TF_ENABLE_PARAMETERIZED_MODULES,
           constants.TF_MODULE_PARAMETER,
