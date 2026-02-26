@@ -522,12 +522,13 @@ class TestAcmeUtilsModule(unittest.TestCase):
     test_info1 = copy.deepcopy(unittest_constants.MODULE_INFO)
     test_info1.data = {'execution_plans': ['plan1', 'plan2']}
     test_info2 = copy.deepcopy(unittest_constants.MODULE_INFO2)
-    test_info2.data = {'execution_plans': ['plan3']}
+    test_info2.data = {'execution_plans': ['plan2', 'plan3']}
 
     args = acme_utils.create_atest_execution_plan_suite_runner_test_args(
         [test_info1, test_info2]
     )
 
+    # plan2 appears in two TestInfo, but only needs to be passed in once.
     expected_args = [
         '--execution-plans',
         'plan1',
