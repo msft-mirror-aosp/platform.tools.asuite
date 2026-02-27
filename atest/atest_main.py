@@ -103,11 +103,13 @@ _SMART_TEST_SELECTION_FLAG = '--sts'
 class _StreamToLogger:
   """A file like class to that redirect writes to a printer and logger."""
 
-  def __init__(self, logger, log_level, printer):
+  def __init__(self, logger, log_level, printer, silent_mode=False):
     self._logger = logger
     self._log_level = log_level
     self._printer = printer
     self._buffers = []
+    if silent_mode and self._printer == sys.stdout:
+      self._printer = open(os.devnull, 'w')
 
   def write(self, buf: str) -> None:
     self._printer.write(buf)
