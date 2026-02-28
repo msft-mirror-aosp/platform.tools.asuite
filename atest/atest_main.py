@@ -103,11 +103,13 @@ _SMART_TEST_SELECTION_FLAG = '--sts'
 class _StreamToLogger:
   """A file like class to that redirect writes to a printer and logger."""
 
-  def __init__(self, logger, log_level, printer):
+  def __init__(self, logger, log_level, printer, silent_mode=False):
     self._logger = logger
     self._log_level = log_level
     self._printer = printer
     self._buffers = []
+    if silent_mode and self._printer == sys.stdout:
+      self._printer = open(os.devnull, 'w')
 
   def write(self, buf: str) -> None:
     self._printer.write(buf)
@@ -242,8 +244,10 @@ def _configure_logging(results_dir: str):
   stderr_log_level = 45
   logging.addLevelName(stdout_log_level, 'STDOUT')
   logging.addLevelName(stderr_log_level, 'STDERR')
-  sys.stdout = _StreamToLogger(logger, stdout_log_level, sys.stdout)
-  sys.stderr = _StreamToLogger(logger, stderr_log_level, sys.stderr)
+  sys.stdout = _StreamToLogger(
+      logger, stdout_log_level, sys.stdout, silent_mode=os.environ.get('GEMINI_CLI') == '1'
+  )
+  sys.stderr = _StreamToLogger(logger, stderr_log_level, sys.stderr, silent_mode=False)
 
 
 def _missing_environment_variables():
@@ -1484,6 +1488,7 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
           wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
           args=self._args,
           test_infos=self._test_infos,
+          print_all_using_stderr=(os.environ.get('GEMINI_CLI') == '1'),
       )
       reporter.print_starting_text()
 
@@ -1592,6 +1597,7 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
         'args': self._args,
         'test_infos': self._test_infos,
         'class_level_report': self._args.class_level_report,
+        'print_all_using_stderr': os.environ.get('GEMINI_CLI') == '1',
     }
     if self._args.smart_test_selection:
       reporter_kwargs['class_level_report'] = True
