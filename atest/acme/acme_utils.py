@@ -274,10 +274,10 @@ def create_atest_execution_plan_suite_runner_test_args(
 ) -> list[str]:
   """Create test arguments for invoking AtestExecutionPlanSuiteRunner."""
   args = []
-  unique_exec_plans = []
+  unique_exec_plans = set()
   for ti in test_infos:
-    unique_exec_plans.extend(ti.data.get('execution_plans', []))
-  for exec_plan in unique_exec_plans:
+    unique_exec_plans.update(ti.data.get('execution_plans', []))
+  for exec_plan in sorted(unique_exec_plans):
     args.append('--execution-plans')
     args.append(exec_plan)
   test_configs_zip_path = atest_utils.get_build_out_dir(TEST_CONFIGS_ZIP_PATH)
