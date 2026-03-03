@@ -9,6 +9,7 @@ from atest import result_reporter
 from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
 from atest.mobly.rerun_options import RerunOptions
+from atest.mobly.utils import add_result_link
 
 try:
   from googleapiclient import errors, http
@@ -217,10 +218,6 @@ class AntsTestResultUploader:
     Args:
         reporter: The result reporter to add to.
     """
-    new_result_link = constants.RESULT_LINK % self._invocation['invocationId']
-    if isinstance(reporter.test_result_link, list):
-      reporter.test_result_link.append(new_result_link)
-    elif isinstance(reporter.test_result_link, str):
-      reporter.test_result_link = [reporter.test_result_link, new_result_link]
-    else:
-      reporter.test_result_link = [new_result_link]
+    add_result_link(
+        constants.RESULT_LINK % self._invocation['invocationId'], reporter
+    )
