@@ -34,6 +34,7 @@ python_defaults {
         "pyyaml",
         "ca_certs_locater",
         "resultdb_uploader_python_library",
+        "mobly_sponge_converter_lib",
     ],
     exclude_srcs: [
         "asuite_lib_test/*.py",
