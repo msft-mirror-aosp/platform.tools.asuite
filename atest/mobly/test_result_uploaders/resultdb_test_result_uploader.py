@@ -4,6 +4,7 @@ from typing import Any
 from urllib import parse
 
 from atest import result_reporter
+from atest.mobly.utils import add_result_link
 
 from resultdb_uploader import resultdb_uploader_wrapper
 
@@ -84,11 +85,4 @@ class ResultDBUploader:
     Args:
         reporter: The result reporter to add to.
     """
-    new_result_link = self.get_test_result_url()
-    if isinstance(reporter.test_result_link, list):
-      reporter.test_result_link.append(new_result_link)
-    elif isinstance(reporter.test_result_link, str):
-      reporter.test_result_link = [reporter.test_result_link, new_result_link]
-    else:
-      reporter.test_result_link = [new_result_link]
-
+    add_result_link(self.get_test_result_url(), reporter)
