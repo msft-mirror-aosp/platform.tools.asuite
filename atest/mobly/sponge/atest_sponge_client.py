@@ -6,9 +6,12 @@ import time
 from typing import Any
 import uuid
 
+from atest import constants
+from atest import result_reporter
 from atest.mobly.sponge import sponge_client
 from atest.mobly.sponge import status_aggregation
 from atest.mobly.storage import gcs_client
+from atest.mobly.utils import add_result_link
 
 from sponge_artifact_creator import invocation_level_artifact_creator
 from sponge_artifact_creator import target_level_artifact_creator
@@ -38,12 +41,12 @@ class SpongeUrl:
 
 
 PROD_SPONGE_URL = SpongeUrl(
-    api_url="https://resultstoreupload.corp.googleapis.com",
-    test_fusion_url="http://sponge2/",
+    api_url=constants.SPONGE_PROD_API_URL,
+    test_fusion_url=constants.TEST_FUSION_PROD_URL,
 )
 QA_SPONGE_URL = SpongeUrl(
-    api_url="https://qa-resultstoreupload.corp.googleapis.com",
-    test_fusion_url="http://sponge2-qa/",
+    api_url=constants.SPONGE_QA_API_URL,
+    test_fusion_url=constants.TEST_FUSION_QA_URL,
 )
 
 
@@ -60,10 +63,12 @@ class AtestSpongeClient:
       sponge_authorization_token: str,
       gcs_bucket: str,
       results_dir: str,
+      user_enabled_upload: bool = True,
   ):
     self.sponge_url = PROD_SPONGE_URL if is_prod else QA_SPONGE_URL
     self.gcs_bucket = gcs_bucket
     self.results_dir = results_dir
+    self.user_enabled_upload = user_enabled_upload
     self._sponge_client = sponge_client.SpongeClient(
         self.sponge_url.api_url, sponge_api_key, sponge_authorization_token
     )
@@ -71,6 +76,15 @@ class AtestSpongeClient:
     self._status_aggregator = status_aggregation.SpongeStatusAggregator()
     self.sponge_data = SpongeData()
     self.target_start_time = 0.0
+
+  @property
+  def enabled(self) -> bool:
+    """Returns whether the Sponge client is enabled."""
+    return self.user_enabled_upload
+
+  def _get_result_url(self) -> str:
+    """Returns the result URL for the given Sponge invocation."""
+    return f"{self.sponge_url.test_fusion_url}{self.sponge_data.invocation_id}"
 
   def _create_invocation(self, invocation_id: str) -> None:
     """Creates a Sponge invocation."""
@@ -165,10 +179,7 @@ class AtestSpongeClient:
     """Preprocesses the Sponge Invocation."""
     invocation_id = str(uuid.uuid4())
     self._create_invocation(invocation_id)
-    print(
-        f"Streaming test results to: {self.sponge_url.test_fusion_url}"
-        f"{self.sponge_data.invocation_id}"
-    )
+    print(f"Streaming test results to: {self._get_result_url()}")
     config_id = str(uuid.uuid4())
     self._create_configuration(config_id)
 
@@ -197,10 +208,7 @@ class AtestSpongeClient:
         status=self._status_aggregator.get_current_invocation_status(),
     )
     self._finalize_invocation()
-    print(
-        f"Uploaded test results to: {self.sponge_url.test_fusion_url}"
-        f"{self.sponge_data.invocation_id}"
-    )
+    print(f"Streaming test results to: {self._get_result_url()}")
 
   def reset_target_data(self) -> None:
     """Resets the target data."""
@@ -263,3 +271,7 @@ class AtestSpongeClient:
           gcs_dir=gcs_dir,
           gcs_filepaths=gcs_filepaths,
       )
+
+  def add_result_link(self, reporter: result_reporter.ResultReporter):
+    """Add the Sponge result link to the result reporter."""
+    add_result_link(self._get_result_url(), reporter)
