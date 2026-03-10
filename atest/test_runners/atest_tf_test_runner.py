@@ -550,8 +550,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                   constants.RED,
               )
             atest_utils.colorful_print(
-                r'No test results available. This is possibly due to'
-                r' no tests matching the current test filters,'
+                r'No test results available from TradeFed. This is possibly'
+                r' due to no tests matching the current test filters,'
                 r' a misconfigured AndroidTest.xml, or an internal crash from'
                 r' the TradeFed process. Test Logs are saved in '
                 f'{reporter.log_path}.',
