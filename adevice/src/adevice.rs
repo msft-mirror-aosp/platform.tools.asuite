@@ -65,6 +65,9 @@ pub trait Device {
     /// Returns any relevant output from waiting.
     fn wait(&self, profiler: &mut Profiler) -> Result<String>;
 
+    /// Check if the device is connected.
+    fn check_connectivity(&self) -> Result<()>;
+
     /// Run the commands needed to prep a userdebug device after a flash.
     fn prep_after_flash(&self, profiler: &mut Profiler) -> Result<()>;
 }
@@ -155,6 +158,14 @@ pub fn adevice(
         cli::Commands::Untrack(names) => return config.untrack(&names.modules),
         _ => (),
     }
+
+    if let Err(e) = device.check_connectivity() {
+        bail!(
+            "No devices found ({}). Please connect a device and make sure adb has access to it.",
+            e
+        );
+    }
+
     config.print();
 
     writeln!(stdout, " * Checking for files to push to device")?;

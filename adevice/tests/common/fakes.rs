@@ -142,6 +142,11 @@ impl Device for FakeDevice {
         *counter += 1;
         Ok(String::new())
     }
+
+    fn check_connectivity(&self) -> Result<()> {
+        Ok(())
+    }
+
     fn prep_after_flash(&self, _profiler: &mut Profiler) -> Result<()> {
         Ok(())
     }

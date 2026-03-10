@@ -90,6 +90,11 @@ impl Device for RealDevice {
         )
     }
 
+    fn check_connectivity(&self) -> Result<()> {
+        self.run_raw_adb_command(&["get-state".to_string()])?;
+        Ok(())
+    }
+
     fn prep_after_flash(&self, profiler: &mut Profiler) -> Result<()> {
         progress::start(" * [1/2] Remounting device");
         let timeout = Duration::from_secs(60);
