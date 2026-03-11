@@ -35,6 +35,7 @@ from atest import constants
 from atest import result_reporter
 from atest.logstorage import logstorage_utils
 from atest.mobly.rerun_options import RerunOptions
+from atest.mobly.sponge import atest_sponge_client
 from atest.mobly.test_result_uploaders import ants_test_result_uploader
 from atest.mobly.test_result_uploaders import resultdb_test_result_uploader
 from atest.test_finders import test_info
@@ -164,6 +165,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
   ):
     super().__init__(results_dir, **kwargs)
     self._skip_test_build = extra_args.get(constants.SKIP_BUILDING_TEST, False)
+    self._sponge_client = None
 
   def run_tests(
       self,
@@ -215,6 +217,19 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         ants_invocation_id = str(uuid.uuid4())
       resultdb_uploader.set_ants_invocation_id(ants_invocation_id)
 
+    # Initialize Sponge client.
+    self._sponge_client = atest_sponge_client.AtestSpongeClient(
+        is_prod=True,
+        sponge_api_key=constants.MOBLY_SPONGE_API_KEY,
+        sponge_authorization_token=str(uuid.uuid4()),
+        gcs_bucket=constants.MOBLY_SPONGE_GCS_BUCKET,
+        results_dir=self.results_dir,
+        user_enabled_upload=user_enabled_upload,
+    )
+
+    if self._sponge_client.enabled:
+      self._sponge_client.preprocess_invocation()
+
     try:
       for tinfo in test_infos:
         # Pre-test setup
@@ -258,6 +273,9 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
           resultdb_uploader.add_result_link(reporter)
         else:
           logging.error('Failed to upload test results to ResultDB.')
+      if self._sponge_client.enabled:
+        self._sponge_client.add_result_link(reporter)
+        self._sponge_client.postprocess_invocation()
       self._cleanup()
     return ret_code
 
@@ -599,6 +617,11 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         rerun_options.retry_any_failure,
     )
     ret_code = atest_enum.ExitCode.SUCCESS
+
+    # Create a Sponge target and configured target for the test.
+    if self._sponge_client.enabled:
+      self._sponge_client.preprocess_target(tinfo.test_name)
+
     for iteration_num in range(rerun_options.iterations):
       # Set up result reporter and uploader
       reporter.runners.clear()
@@ -645,6 +668,10 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
           rerun_options.retry_any_failure and curr_ret_code == 0
       ):
         break
+
+    # Finalize the Sponge target and configured target.
+    if self._sponge_client.enabled:
+      self._sponge_client.postprocess_target()
     return ret_code
 
   def _run_mobly_command(self, mobly_cmd: List[str]) -> int:
@@ -798,6 +825,11 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
           )
         resultdb_uploader.add_test_result(uploaded_result)
 
+    # Upload test result to Sponge and GCS
+    if self._sponge_client.enabled:
+      self._sponge_client.upload_test_result(
+          log_dir, summary_file, iteration_num
+      )
     return reported_results
 
   def _cleanup(self) -> None:

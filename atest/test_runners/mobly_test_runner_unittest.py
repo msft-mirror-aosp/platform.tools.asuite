@@ -274,6 +274,13 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
   """Unit tests for MoblyTestRunner."""
 
   def setUp(self) -> None:
+    self.patchers = [
+        mock.patch(
+            'atest.test_runners.mobly_test_runner.atest_sponge_client.AtestSpongeClient',
+            autospec=True,
+        ),
+    ]
+    self.mock_sponge_client_cls = self.patchers[0].start()
     self.runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR, extra_args={})
     self.tinfo = test_info.TestInfo(
         test_name=TEST_NAME,
@@ -282,6 +289,9 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     )
     self.reporter = result_reporter.ResultReporter()
     self.mobly_args = argparse.Namespace(config='', testbed='', testparam=[])
+
+  def tearDown(self) -> None:
+    mock.patch.stopall()
 
   @mock.patch('atest.test_runners.mobly_test_runner.os.readlink', side_effect=lambda x: x)
   @mock.patch.object(
@@ -354,6 +364,37 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     mock_cleanup.assert_called_once()
     mock_ants_uploader.finalize_invocation.assert_called_once()
     mock_ants_uploader.add_result_link.assert_called_once_with(reporter)
+
+  @mock.patch.object(
+      mobly_test_runner.MoblyTestRunner, '_cleanup', autospec=True
+  )
+  @mock.patch(
+      'atest.logstorage.logstorage_utils.update_upload_preference',
+      return_value=True,
+  )
+  @mock.patch(
+      'atest.mobly.test_result_uploaders.ants_test_result_uploader.AntsTestResultUploader',
+      autospec=True,
+  )
+  @mock.patch(
+      'atest.mobly.test_result_uploaders.resultdb_test_result_uploader.ResultDBUploader',
+      autospec=True,
+  )
+  def test_run_tests_sponge_calls(
+      self,
+      _mock_resultdb_uploader_cls,
+      _mock_ants_uploader_cls,
+      _mock_update_upload,
+      _mock_cleanup,
+  ) -> None:
+    """Tests that sponge client is called during run_tests."""
+    # Avoid running any mobly tests.
+    self.runner.run_tests([], {}, self.reporter)
+    self.runner._sponge_client.preprocess_invocation.assert_called_once()
+    self.runner._sponge_client.postprocess_invocation.assert_called_once()
+    self.runner._sponge_client.add_result_link.assert_called_once_with(
+        self.reporter
+    )
 
   @mock.patch.object(pathlib.Path, 'is_file', autospec=True)
   def test_get_test_files_all_files_present(self, is_file) -> None:
@@ -607,14 +648,16 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     """Tests _run_and_handle_results with multiple iterations."""
     mock_ants_uploader = mock_ants_uploader_cls.return_value
     mock_resultdb_uploader = mock_resultdb_uploader_cls.return_value
+    self.runner._sponge_client = self.mock_sponge_client_cls.return_value
+    self.runner._sponge_client.enabled = True
+
     with mock.patch.object(
-        mobly_test_runner.MoblyTestRunner,
+        self.runner,
         '_run_mobly_command',
         side_effect=(1, 1, 0, 0, 1),
         autospec=True,
     ) as run_mobly_command:
-      runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR, extra_args={})
-      runner._run_and_handle_results(
+      self.runner._run_and_handle_results(
           [],
           self.tinfo,
           mobly_test_runner.RerunOptions(5, False, False),
@@ -646,14 +689,16 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     """Tests _run_and_handle_results with rerun_until_failure."""
     mock_ants_uploader = mock_ants_uploader_cls.return_value
     mock_resultdb_uploader = mock_resultdb_uploader_cls.return_value
+    self.runner._sponge_client = self.mock_sponge_client_cls.return_value
+    self.runner._sponge_client.enabled = True
+
     with mock.patch.object(
-        mobly_test_runner.MoblyTestRunner,
+        self.runner,
         '_run_mobly_command',
         side_effect=(0, 0, 1, 0, 1),
         autospec=True,
     ) as run_mobly_command:
-      runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR, extra_args={})
-      runner._run_and_handle_results(
+      self.runner._run_and_handle_results(
           [],
           self.tinfo,
           mobly_test_runner.RerunOptions(5, True, False),
@@ -685,14 +730,16 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     """Tests _run_and_handle_results with retry_any_failure."""
     mock_ants_uploader = mock_ants_uploader_cls.return_value
     mock_resultdb_uploader = mock_resultdb_uploader_cls.return_value
+    self.runner._sponge_client = self.mock_sponge_client_cls.return_value
+    self.runner._sponge_client.enabled = True
+
     with mock.patch.object(
-        mobly_test_runner.MoblyTestRunner,
+        self.runner,
         '_run_mobly_command',
         side_effect=(1, 1, 1, 0, 0),
         autospec=True,
     ) as run_mobly_command:
-      runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR, extra_args={})
-      runner._run_and_handle_results(
+      self.runner._run_and_handle_results(
           [],
           self.tinfo,
           mobly_test_runner.RerunOptions(5, False, True),
@@ -703,7 +750,6 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
       )
       self.assertEqual(run_mobly_command.call_count, 4)
 
-  @mock.patch('atest.test_runners.mobly_test_runner.uuid.uuid4')
   @mock.patch(
       'atest.test_runners.mobly_test_runner.resultdb_test_result_uploader'
   )
@@ -716,7 +762,6 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
       mock_logstorage,
       mock_ants_uploader,
       mock_resultdb_uploader,
-      mock_uuid,
   ):
     """Tests that ResultDBUploader uses ANTS invocation ID if available."""
     mock_logstorage.update_upload_preference.return_value = True
@@ -730,7 +775,6 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     mock_resultdb_uploader.ResultDBUploader.return_value.set_ants_invocation_id.assert_called_with(
         'I00000'
     )
-    mock_uuid.assert_not_called()
 
   @mock.patch('atest.test_runners.mobly_test_runner.uuid.uuid4')
   @mock.patch(
@@ -775,6 +819,8 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     """Tests _process_results_from_summary outputs correct test names."""
     ants_uploader = mock_ants_uploader_cls.return_value
     resultdb_uploader = mock_resultdb_uploader_cls.return_value
+    self.runner._sponge_client = self.mock_sponge_client_cls.return_value
+    self.runner._sponge_client.enabled = True
     test_results = self.runner._process_test_results_from_summary(
         MOBLY_LOGS_DIR, MOBLY_SUMMARY_FILE, self.tinfo, 0, 1, ants_uploader, resultdb_uploader
     )
@@ -810,13 +856,15 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     """
     ants_uploader = mock_ants_uploader_cls.return_value
     resultdb_uploader = mock_resultdb_uploader_cls.return_value
+    self.runner._sponge_client = self.mock_sponge_client_cls.return_value
+    self.runner._sponge_client.enabled = True
     test_results = self.runner._process_test_results_from_summary(
         MOBLY_LOGS_DIR, MOBLY_SUMMARY_FILE, self.tinfo, 0, 1, ants_uploader, resultdb_uploader
     )
 
     # passed case
     self.assertEqual(test_results[0].status, test_runner_base.PASSED_STATUS)
-    self.assertEqual(test_results[0].details, None)
+    self.assertIsNone(test_results[0].details)
     # failed case
     self.assertEqual(test_results[1].status, test_runner_base.FAILED_STATUS)
     self.assertEqual(test_results[1].details, 'mobly.signals.TestFailure')
@@ -841,6 +889,8 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     """Tests _process_results_from_summary outputs correct stats."""
     ants_uploader = mock_ants_uploader_cls.return_value
     resultdb_uploader = mock_resultdb_uploader_cls.return_value
+    self.runner._sponge_client = self.mock_sponge_client_cls.return_value
+    self.runner._sponge_client.enabled = True
     test_results = self.runner._process_test_results_from_summary(
         MOBLY_LOGS_DIR, MOBLY_SUMMARY_FILE, self.tinfo, 0, 1, ants_uploader, resultdb_uploader
     )
@@ -869,6 +919,8 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     """
     ants_uploader = mock_ants_uploader_cls.return_value
     resultdb_uploader = mock_resultdb_uploader_cls.return_value
+    self.runner._sponge_client = self.mock_sponge_client_cls.return_value
+    self.runner._sponge_client.enabled = True
     ants_uploader.enabled = True
     ants_uploader.invocation = {'invocationId': 'I12345'}
     ants_uploader.current_workunit = {'id': 'WU12345'}
@@ -918,6 +970,8 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     """
     mock_ants_uploader = mock_ants_uploader_cls.return_value
     mock_resultdb_uploader = mock_resultdb_uploader_cls.return_value
+    self.runner._sponge_client = self.mock_sponge_client_cls.return_value
+    self.runner._sponge_client.enabled = True
     mock_ants_uploader.enabled = True
     mock_ants_uploader.current_workunit = {'id': 'WU12345'}
     mock_resultdb_uploader.enabled = True
@@ -987,6 +1041,8 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     """
     mock_ants_uploader = mock_ants_uploader_cls.return_value
     mock_resultdb_uploader = mock_resultdb_uploader_cls.return_value
+    self.runner._sponge_client = self.mock_sponge_client_cls.return_value
+    self.runner._sponge_client.enabled = True
     mock_ants_uploader.enabled = False
     mock_ants_uploader.current_workunit = None
     mock_resultdb_uploader.enabled = True
@@ -1017,6 +1073,88 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     self.assertEqual(
         mock_resultdb_uploader.add_test_result.call_args_list[0].args[0],
         expected_passed_result,
+    )
+
+  @mock.patch.object(
+      mobly_test_runner.MoblyTestRunner,
+      '_process_test_results_from_summary',
+      return_value=(),
+      autospec=True,
+  )
+  @mock.patch(
+      'atest.test_runners.mobly_test_runner.os.readlink', side_effect=lambda x: x
+  )
+  @mock.patch(
+      'atest.mobly.test_result_uploaders.resultdb_test_result_uploader.ResultDBUploader',
+      autospec=True,
+  )
+  @mock.patch(
+      'atest.mobly.test_result_uploaders.ants_test_result_uploader.AntsTestResultUploader',
+      autospec=True,
+  )
+  def test_run_and_handle_results_sponge_calls(
+      self,
+      mock_ants_uploader_cls,
+      mock_resultdb_uploader_cls,
+      _readlink,
+      _process_results,
+  ) -> None:
+    """Tests that sponge client is called during _run_and_handle_results."""
+    mock_ants_uploader = mock_ants_uploader_cls.return_value
+    mock_resultdb_uploader = mock_resultdb_uploader_cls.return_value
+    self.runner._sponge_client = self.mock_sponge_client_cls.return_value
+    self.runner._sponge_client.enabled = True
+
+    with mock.patch.object(
+        self.runner,
+        '_run_mobly_command',
+        return_value=0,
+        autospec=True,
+    ):
+      self.runner._run_and_handle_results(
+          [],
+          self.tinfo,
+          mobly_test_runner.RerunOptions(1, False, False),
+          self.mobly_args,
+          self.reporter,
+          mock_ants_uploader,
+          mock_resultdb_uploader,
+      )
+
+    self.runner._sponge_client.preprocess_target.assert_called_once_with(
+        self.tinfo.test_name
+    )
+    self.runner._sponge_client.postprocess_target.assert_called_once()
+
+  @mock.patch(
+      'atest.mobly.test_result_uploaders.resultdb_test_result_uploader.ResultDBUploader',
+      autospec=True,
+  )
+  @mock.patch(
+      'atest.mobly.test_result_uploaders.ants_test_result_uploader.AntsTestResultUploader',
+      autospec=True,
+  )
+  def test_process_test_results_from_summary_sponge_upload(
+      self, mock_ants_uploader_cls, mock_resultdb_uploader_cls
+  ) -> None:
+    """Tests that sponge client uploads test results."""
+    mock_ants_uploader = mock_ants_uploader_cls.return_value
+    mock_resultdb_uploader = mock_resultdb_uploader_cls.return_value
+    self.runner._sponge_client = self.mock_sponge_client_cls.return_value
+    self.runner._user_enabled_upload = True
+
+    self.runner._process_test_results_from_summary(
+        MOBLY_LOGS_DIR,
+        MOBLY_SUMMARY_FILE,
+        self.tinfo,
+        0,
+        1,
+        mock_ants_uploader,
+        mock_resultdb_uploader,
+    )
+
+    self.runner._sponge_client.upload_test_result.assert_called_once_with(
+        MOBLY_LOGS_DIR, MOBLY_SUMMARY_FILE, 0
     )
 
 
