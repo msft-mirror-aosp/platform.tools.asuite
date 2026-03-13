@@ -169,6 +169,7 @@ class ExitCode(IntEnum):
   INVALID_CROSS_BRANCH_ARGS = 24
   CROSS_BRANCH_FETCH_FAILURE = 25
   INVALID_RUN_AFFECTED_TRIGGERS_ARGS = 26
+  DEVICE_OFFLINE = 27
   # The code > 100 are reserved for collecting data only, actually the run
   # doesn't finish at the point.
   COLLECT_ONLY_FILE_NOT_FOUND = 101

@@ -1653,6 +1653,13 @@ def get_adb_devices():
   return [sut.split('\t')[0] for sut in suts]
 
 
+def are_all_devices_offline():
+  """Check if all ADB devices are offline."""
+  probe_cmd = 'adb devices | grep -E -v "^List|^$"||true'
+  devices = subprocess.check_output(probe_cmd, shell=True).decode().splitlines()
+  return all('offline' in device for device in devices)
+
+
 def get_android_config():
   """Get Android config as "printconfig" shows.
 
