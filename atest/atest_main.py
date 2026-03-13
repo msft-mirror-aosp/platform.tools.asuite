@@ -421,22 +421,35 @@ def _validate_adb_devices(args, test_infos):
   all_device_modes = {x.get_supported_exec_mode() for x in test_infos}
   # Only block testing if it is a device test.
   if constants.DEVICE_TEST in all_device_modes:
+    device_tests = [
+        x.test_name
+        for x in test_infos
+        if x.get_supported_exec_mode() != constants.DEVICELESS_TEST
+    ]
+
     if (
         not any((args.host, args.start_avd, args.acloud_create))
         and not atest_utils.get_adb_devices()
     ):
-      device_tests = [
-          x.test_name
-          for x in test_infos
-          if x.get_supported_exec_mode() != constants.DEVICELESS_TEST
-      ]
       err_msg = (
           f'Stop running test(s): {", ".join(device_tests)} require a device.'
       )
-      atest_utils.colorful_print(err_msg, constants.RED)
-      logging.debug(atest_utils.mark_red(constants.REQUIRE_DEVICES_MSG))
-      metrics_utils.send_exit_event(ExitCode.DEVICE_NOT_FOUND, logs=err_msg)
-      sys.exit(ExitCode.DEVICE_NOT_FOUND)
+      _handle_no_device_error(err_msg, ExitCode.DEVICE_NOT_FOUND)
+
+    if atest_utils.are_all_devices_offline():
+      err_msg = (
+          f'Stop running test(s): {", ".join(device_tests)}, '
+          'all devices are offline.'
+      )
+      _handle_no_device_error(err_msg, ExitCode.DEVICE_OFFLINE)
+
+
+def _handle_no_device_error(err_msg, exit_code):
+  """Handles device related errors by logging, printing, and exiting."""
+  atest_utils.colorful_print(err_msg, constants.RED)
+  logging.debug(atest_utils.mark_red(constants.REQUIRE_DEVICES_MSG))
+  metrics_utils.send_exit_event(exit_code, logs=err_msg)
+  sys.exit(exit_code)
 
 
 def _validate_tm_tests_exec_mode(
