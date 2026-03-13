@@ -1576,6 +1576,11 @@ def extra_args_to_tf_args(
               'com.android.compatibility.testtype.LibcoreTest:'
               f'test-timeout:{arg_value}'
           ),
+          '--test-arg',
+          (
+              'com.android.tradefed.testtype.InstrumentationTest:'
+              f'test-timeout:{arg_value}'
+          ),
       ],
       constants.COVERAGE: lambda _: coverage.tf_args(mod_info),
       _INCREMENTAL_SETUP_KEY: constant_list('--incremental-setup=YES'),
