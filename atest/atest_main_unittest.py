@@ -122,11 +122,13 @@ class AtestUnittests(unittest.TestCase):
             f'Failed to validate: {args}',
         )
 
+  @mock.patch.object(atest_utils, 'are_all_devices_offline', autospec=True)
   @mock.patch.object(atest_utils, 'get_adb_devices', autospec=True)
   @mock.patch.object(metrics_utils, 'send_exit_event', autospec=True)
-  def test_validate_exec_mode(self, _send_exit, _devs):
+  def test_validate_exec_mode(self, _send_exit, _devs, _offline):
     """Test _validate_exec_mode."""
     _devs.return_value = ['127.0.0.1:34556']
+    _offline.return_value = False
     no_install_test_info = test_info.TestInfo(
         'mod',
         '',
@@ -208,13 +210,45 @@ class AtestUnittests(unittest.TestCase):
     atest_main._validate_exec_mode(parsed_args, test_infos)
     self.assertFalse(parsed_args.host)
 
+  @mock.patch.object(atest_utils, 'are_all_devices_offline', autospec=True)
+  @mock.patch.object(atest_utils, 'has_command', autospec=True)
+  @mock.patch.object(atest_utils, 'get_adb_devices', autospec=True)
+  @mock.patch.object(metrics_utils, 'send_exit_event', autospec=True)
+  def test_validate_exec_mode_all_devices_offline(
+      self, _send_exit, _devs, _has_command, _offline
+  ):
+    """Test _validate_exec_mode when all devices are offline."""
+    _has_command.return_value = True
+    _devs.return_value = ['127.0.0.1:34556', '127.0.0.1:34557']
+    _offline.return_value = True
+
+    parsed_args = atest_main._parse_args([])
+    device_test_info = test_info.TestInfo(
+        'mod',
+        '',
+        set(),
+        data={},
+        module_class=['NATIVE_TESTS'],
+        install_locations=set(['device']),
+    )
+    test_infos = [device_test_info]
+
+    self.assertRaises(
+        SystemExit,
+        atest_main._validate_exec_mode,
+        parsed_args,
+        test_infos,
+    )
+
+  @mock.patch.object(atest_utils, 'are_all_devices_offline', autospec=True)
   @mock.patch.object(atest_utils, 'get_adb_devices', autospec=True)
   @mock.patch.object(metrics_utils, 'send_exit_event', autospec=True)
   def test_validate_exec_mode_no_system_exit_with_smart_test_selection(
-      self, _send_exit, _devs
+      self, _send_exit, _devs, _offline
   ):
     """Test _validate_exec_mode."""
     _devs.return_value = ['127.0.0.1:34556']
+    _offline.return_value = False
     parsed_args = atest_main._parse_args(['--sts'])
     host_test_info = test_info.TestInfo(
         'mod',

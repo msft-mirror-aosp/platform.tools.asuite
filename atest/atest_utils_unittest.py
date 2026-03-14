@@ -1146,6 +1146,38 @@ class AtestUtilsUnittests(unittest.TestCase):
     expect_types = set([FilterType.WILDCARD_FILTER.value])
     self.assertEqual(atest_utils.get_filter_types(filters), expect_types)
 
+  @mock.patch(
+      'subprocess.check_output',
+      return_value=b'127.0.0.1:40623\toffline\n127.0.0.1:40625\toffline\n',
+      autospec=True,
+  )
+  def test_are_all_devices_offline_all_offline(self, _):
+    """Test method are_all_devices_offline with all devices offline."""
+    self.assertTrue(atest_utils.are_all_devices_offline())
+
+  @mock.patch(
+      'subprocess.check_output',
+      return_value=b'127.0.0.1:40623\toffline\n127.0.0.1:40625\tdevice\n',
+      autospec=True,
+  )
+  def test_are_all_devices_offline_mixed(self, _):
+    """Test method are_all_devices_offline with mixed devices."""
+    self.assertFalse(atest_utils.are_all_devices_offline())
+
+  @mock.patch(
+      'subprocess.check_output',
+      return_value=b'127.0.0.1:40623\tdevice\n127.0.0.1:40625\tdevice\n',
+      autospec=True,
+  )
+  def test_are_all_devices_offline_all_online(self, _):
+    """Test method are_all_devices_offline with all devices online."""
+    self.assertFalse(atest_utils.are_all_devices_offline())
+
+  @mock.patch('subprocess.check_output', return_value=b'', autospec=True)
+  def test_are_all_devices_offline_no_devices(self, _):
+    """Test method are_all_devices_offline with no devices."""
+    self.assertTrue(atest_utils.are_all_devices_offline())
+
   def test_get_bp_content(self):
     """Method get_bp_content."""
     # 1. "manifest" and "instrumentation_for" are defined.
