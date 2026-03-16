@@ -167,6 +167,7 @@ def get_adb_device_identifiers() -> DeviceIds | None:
     return None
 
   device_address_resp = _adb_run_cmd(['adb', 'devices'])
+  logging.debug('"adb devices" output: %s', device_address_resp)
   try:
     device_addresses = device_address_resp.splitlines()
     for line in device_addresses:
