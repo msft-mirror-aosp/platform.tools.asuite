@@ -40,6 +40,13 @@ rust_binary {
     ],
     defaults: ["adevice_deps_defaults"],
     static_executable: true,
+    target: {
+        android_arm: {
+            flags: [
+                "-Clink-arg=-Wl,--image-base=0x200000",
+            ],
+        },
+    },
 }
 
 rust_test {
