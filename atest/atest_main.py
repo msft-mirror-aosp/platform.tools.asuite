@@ -441,6 +441,9 @@ def _validate_adb_devices(args, test_infos):
           f'Stop running test(s): {", ".join(device_tests)}, '
           'all devices are offline.'
       )
+      metrics.LocalDetectEvent(
+          detect_type=DetectType.DEVICE_OFFLINE, result=1
+      )
       _handle_no_device_error(err_msg, ExitCode.DEVICE_OFFLINE)
 
 
