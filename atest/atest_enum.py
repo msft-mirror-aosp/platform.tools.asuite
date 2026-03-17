@@ -135,7 +135,9 @@ class DetectType(IntEnum):
   # To indicate if the invocation is using --run-affected-triggers.
   # Non-zero if the invocation is running via run affected triggers mode.
   RUN_AFFECTED_TRIGGERS_MODE = 72
-  # Next expansion: 73
+  # Whether all connected devices are offline.
+  DEVICE_OFFLINE = 73
+  # Next expansion: 74
 
 
 @unique
