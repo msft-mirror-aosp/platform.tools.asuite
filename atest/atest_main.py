@@ -978,10 +978,13 @@ class _AtestMain:
     )
 
     if not self._test_infos and not self._module_info_rebuild_required:
-      print('Did you just add a new test file?')
+      print()
+      print(atest_utils.mark_green('Did you just add a new test file?'))
       print(
-          'Automatically re-trying with module-info rebuilding and searching'
-          ' again...'
+          atest_utils.mark_green(
+              'Automatically re-trying with module-info rebuilding and searching'
+              ' again...'
+          )
       )
       self._test_infos, translate_time_retry = self._get_test_infos(
           indexing_thread, force_build=True
