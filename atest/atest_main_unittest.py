@@ -33,6 +33,7 @@ from atest import constants
 from atest import module_info
 from atest.atest_enum import DetectType
 from atest.atest_enum import ExitCode
+from atest.atest_enum import ModuleInfoAutoRebuildTriggerStat
 from atest.metrics import metrics_utils
 from atest.test_finders import test_info
 from pyfakefs import fake_filesystem_unittest
@@ -495,6 +496,119 @@ class AtestMainUnitTests(unittest.TestCase):
         pseudo_atest_main._check_envs_and_args(),
         ExitCode.INVALID_CROSS_BRANCH_ARGS,
     )
+
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
+  @mock.patch.object(atest_main._AtestMain, '_get_test_infos')
+  @mock.patch.object(atest_main._AtestMain, '_start_indexing_if_required')
+  @mock.patch.object(atest_main._AtestMain, '_inject_default_arguments_based_on_test_infos')
+  @mock.patch.object(atest_main, 'get_device_count_config', return_value=0)
+  @mock.patch.object(atest_main._TestExecutionPlan, 'create')
+  def test_load_test_info_and_execution_plan_test_not_found_auto_rebuilt_not_triggered(
+      self, _mock_create, _mock_device, _mock_inject, _mock_indexing, _mock_get_test_infos, mock_metrics
+  ):
+    """Tests when test is not found and auto rebuild is not triggered."""
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(argv=[])
+    pseudo_atest_main._module_info_rebuild_required = True
+    pseudo_atest_main._results_dir = ''
+    pseudo_atest_main._mod_info = None
+
+    _mock_get_test_infos.return_value = ([], 0)
+
+    pseudo_atest_main._load_test_info_and_execution_plan()
+
+    mock_metrics.assert_called_with(
+        detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
+        result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_NOT_TRIGGERED,
+    )
+
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
+  @mock.patch.object(atest_main._AtestMain, '_get_test_infos')
+  @mock.patch.object(atest_main._AtestMain, '_start_indexing_if_required')
+  @mock.patch.object(atest_main._AtestMain, '_inject_default_arguments_based_on_test_infos')
+  @mock.patch.object(atest_main, 'get_device_count_config', return_value=0)
+  @mock.patch.object(atest_main._TestExecutionPlan, 'create')
+  def test_load_test_info_and_execution_plan_test_not_found_auto_rebuilt_triggered(
+      self, _mock_create, _mock_device, _mock_inject, _mock_indexing, _mock_get_test_infos, mock_metrics
+  ):
+    """Tests when test is not found and auto rebuild is triggered, but user interrupts."""
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(argv=[])
+    pseudo_atest_main._module_info_rebuild_required = False
+    pseudo_atest_main._results_dir = ''
+    pseudo_atest_main._mod_info = None
+
+    _mock_get_test_infos.side_effect = [([], 0), KeyboardInterrupt()]
+
+    with self.assertRaises(KeyboardInterrupt):
+      pseudo_atest_main._load_test_info_and_execution_plan()
+
+    mock_metrics.assert_called_once_with(
+        detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
+        result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED,
+    )
+
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
+  @mock.patch.object(atest_main._AtestMain, '_get_test_infos')
+  @mock.patch.object(atest_main._AtestMain, '_start_indexing_if_required')
+  @mock.patch.object(atest_main._AtestMain, '_inject_default_arguments_based_on_test_infos')
+  @mock.patch.object(atest_main, 'get_device_count_config', return_value=0)
+  @mock.patch.object(atest_main._TestExecutionPlan, 'create')
+  def test_load_test_info_and_execution_plan_test_not_found_auto_rebuilt_triggered_and_test_found(
+      self, _mock_create, _mock_device, _mock_inject, _mock_indexing, _mock_get_test_infos, mock_metrics
+  ):
+    """Tests when test is not found, auto rebuild is triggered, and retry finds it."""
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(argv=[])
+    pseudo_atest_main._module_info_rebuild_required = False
+    pseudo_atest_main._results_dir = ''
+    pseudo_atest_main._mod_info = None
+
+    _mock_get_test_infos.side_effect = [([], 0), (['fake_test_info'], 0)]
+
+    pseudo_atest_main._load_test_info_and_execution_plan()
+
+    mock_metrics.assert_has_calls([
+        mock.call(
+            detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
+            result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED,
+        ),
+        mock.call(
+            detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
+            result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED_AND_TEST_FOUND,
+        )
+    ], any_order=False)
+
+  @mock.patch('atest.metrics.metrics.LocalDetectEvent')
+  @mock.patch.object(atest_main._AtestMain, '_get_test_infos')
+  @mock.patch.object(atest_main._AtestMain, '_start_indexing_if_required')
+  @mock.patch.object(atest_main._AtestMain, '_inject_default_arguments_based_on_test_infos')
+  @mock.patch.object(atest_main, 'get_device_count_config', return_value=0)
+  @mock.patch.object(atest_main._TestExecutionPlan, 'create')
+  def test_load_test_info_and_execution_plan_test_not_found_auto_rebuilt_triggered_still_test_not_found(
+      self, _mock_create, _mock_device, _mock_inject, _mock_indexing, _mock_get_test_infos, mock_metrics
+  ):
+    """Tests when test is not found, auto rebuild is triggered, and retry still doesn't find it."""
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(argv=[])
+    pseudo_atest_main._module_info_rebuild_required = False
+    pseudo_atest_main._results_dir = ''
+    pseudo_atest_main._mod_info = None
+
+    _mock_get_test_infos.return_value = ([], 0)
+
+    pseudo_atest_main._load_test_info_and_execution_plan()
+
+    mock_metrics.assert_has_calls([
+        mock.call(
+            detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
+            result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED,
+        ),
+        mock.call(
+            detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
+            result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED_STILL_TEST_NOT_FOUND,
+        )
+    ], any_order=False)
 
 
 # pylint: disable=missing-function-docstring
