@@ -247,3 +247,11 @@ use_atest_execution_plan_suite_runner = RolloutControlledFeature(
     feature_id=5,
     print_message='Running tests using ExecutionPlanSuiteRunner.',
 )
+
+auto_rebuild_module_info = RolloutControlledFeature(
+    name='Auto rebuild module info',
+    rollout_percentage=1,
+    env_control_flag='AUTO_REBUILD_MODULE_INFO',
+    feature_id=6,
+    randomization_type=_RandomizationType.BY_RUN_ID,
+)

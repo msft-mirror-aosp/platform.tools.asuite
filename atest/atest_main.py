@@ -53,6 +53,7 @@ from atest import constants
 from atest import device_update
 from atest import module_info
 from atest import result_reporter
+from atest import rollout_control
 from atest import test_runner_handler
 from atest.atest_enum import DetectType
 from atest.atest_enum import ExitCode
@@ -246,9 +247,14 @@ def _configure_logging(results_dir: str):
   logging.addLevelName(stdout_log_level, 'STDOUT')
   logging.addLevelName(stderr_log_level, 'STDERR')
   sys.stdout = _StreamToLogger(
-      logger, stdout_log_level, sys.stdout, silent_mode=os.environ.get('GEMINI_CLI') == '1'
+      logger,
+      stdout_log_level,
+      sys.stdout,
+      silent_mode=os.environ.get('GEMINI_CLI') == '1',
   )
-  sys.stderr = _StreamToLogger(logger, stderr_log_level, sys.stderr, silent_mode=False)
+  sys.stderr = _StreamToLogger(
+      logger, stderr_log_level, sys.stderr, silent_mode=False
+  )
 
 
 def _missing_environment_variables():
@@ -442,9 +448,7 @@ def _validate_adb_devices(args, test_infos):
           f'Stop running test(s): {", ".join(device_tests)}, '
           'all devices are offline.'
       )
-      metrics.LocalDetectEvent(
-          detect_type=DetectType.DEVICE_OFFLINE, result=1
-      )
+      metrics.LocalDetectEvent(detect_type=DetectType.DEVICE_OFFLINE, result=1)
       _handle_no_device_error(err_msg, ExitCode.DEVICE_OFFLINE)
 
 
@@ -938,7 +942,9 @@ class _AtestMain:
     self._is_out_clean_before_module_info_build = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, '')
     )
-    self._module_info_rebuild_required = force_build or self._need_rebuild_module_info()
+    self._module_info_rebuild_required = (
+        force_build or self._need_rebuild_module_info()
+    )
     logging.debug(
         'need_rebuild_module_info returned %s',
         self._module_info_rebuild_required,
@@ -974,43 +980,45 @@ class _AtestMain:
     """
     indexing_thread = self._start_indexing_if_required()
 
-    self._test_infos, translate_duration = self._get_test_infos(
-        indexing_thread
-    )
+    self._test_infos, translate_duration = self._get_test_infos(indexing_thread)
 
-    if not self._test_infos and not self._module_info_rebuild_required:
-      print()
-      print(atest_utils.mark_green('Did you just add a new test file?'))
-      print(
-          atest_utils.mark_green(
-              'Automatically re-trying with module-info rebuilding and searching'
-              ' again...'
-          )
-      )
-      metrics.LocalDetectEvent(
-          detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
-          result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED,
-      )
-      self._test_infos, translate_time_retry = self._get_test_infos(
-          indexing_thread, force_build=True
-      )
-      translate_duration += translate_time_retry
-
-      if self._test_infos:
+    if (
+        not self._test_infos
+        and rollout_control.auto_rebuild_module_info.is_enabled()
+    ):
+      if self._module_info_rebuild_required:
         metrics.LocalDetectEvent(
             detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
-            result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED_AND_TEST_FOUND,
+            result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_NOT_TRIGGERED,
         )
       else:
+        print()
+        print(atest_utils.mark_green('Did you just add a new test file?'))
+        print(
+            atest_utils.mark_green(
+                'Automatically re-trying with module-info rebuilding and'
+                ' searching again...'
+            )
+        )
         metrics.LocalDetectEvent(
             detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
-            result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED_STILL_TEST_NOT_FOUND,
+            result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED,
         )
-    if not self._test_infos and self._module_info_rebuild_required:
-      metrics.LocalDetectEvent(
-          detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
-          result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_NOT_TRIGGERED,
-      )
+        self._test_infos, translate_time_retry = self._get_test_infos(
+            indexing_thread, force_build=True
+        )
+        translate_duration += translate_time_retry
+
+        if self._test_infos:
+          metrics.LocalDetectEvent(
+              detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
+              result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED_AND_TEST_FOUND,
+          )
+        else:
+          metrics.LocalDetectEvent(
+              detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
+              result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED_STILL_TEST_NOT_FOUND,
+          )
 
     args_injection_start = time.time()
 
