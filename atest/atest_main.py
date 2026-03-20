@@ -979,10 +979,13 @@ class _AtestMain:
     )
 
     if not self._test_infos and not self._module_info_rebuild_required:
-      print('Did you just add a new test file?')
+      print()
+      print(atest_utils.mark_green('Did you just add a new test file?'))
       print(
-          'Automatically re-trying with module-info rebuilding and searching'
-          ' again...'
+          atest_utils.mark_green(
+              'Automatically re-trying with module-info rebuilding and searching'
+              ' again...'
+          )
       )
       metrics.LocalDetectEvent(
           detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
