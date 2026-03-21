@@ -18,6 +18,16 @@ from enum import Enum, IntEnum, unique
 
 
 @unique
+class ModuleInfoAutoRebuildTriggerStat(IntEnum):
+  """Enum for test find result stat."""
+
+  INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_NOT_TRIGGERED = 1
+  INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED = 2
+  INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED_STILL_TEST_NOT_FOUND = 3
+  INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED_AND_TEST_FOUND = 4
+
+
+@unique
 class DetectType(IntEnum):
   """Enum for local_detect_event detection types."""
 
@@ -137,7 +147,9 @@ class DetectType(IntEnum):
   RUN_AFFECTED_TRIGGERS_MODE = 72
   # Whether all connected devices are offline.
   DEVICE_OFFLINE = 73
-  # Next expansion: 74
+  # The stat of module info auto rebuild.
+  MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT = 74
+  # Next expansion: 75
 
 
 @unique

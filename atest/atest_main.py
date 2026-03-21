@@ -56,6 +56,7 @@ from atest import result_reporter
 from atest import test_runner_handler
 from atest.atest_enum import DetectType
 from atest.atest_enum import ExitCode
+from atest.atest_enum import ModuleInfoAutoRebuildTriggerStat
 from atest.atest_execution_info import create_symlink_to_result
 from atest.coverage import coverage
 from atest.crystalball import perf_mode
@@ -978,15 +979,38 @@ class _AtestMain:
     )
 
     if not self._test_infos and not self._module_info_rebuild_required:
-      print('Did you just add a new test file?')
+      print()
+      print(atest_utils.mark_green('Did you just add a new test file?'))
       print(
-          'Automatically re-trying with module-info rebuilding and searching'
-          ' again...'
+          atest_utils.mark_green(
+              'Automatically re-trying with module-info rebuilding and searching'
+              ' again...'
+          )
+      )
+      metrics.LocalDetectEvent(
+          detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
+          result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED,
       )
       self._test_infos, translate_time_retry = self._get_test_infos(
           indexing_thread, force_build=True
       )
       translate_duration += translate_time_retry
+
+      if self._test_infos:
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
+            result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED_AND_TEST_FOUND,
+        )
+      else:
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
+            result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_TRIGGERED_STILL_TEST_NOT_FOUND,
+        )
+    if not self._test_infos and self._module_info_rebuild_required:
+      metrics.LocalDetectEvent(
+          detect_type=DetectType.MODULE_INFO_AUTO_REBUILD_TRIGGER_STAT,
+          result=ModuleInfoAutoRebuildTriggerStat.INITIAL_TEST_NOT_FOUND_AUTO_REBUILT_NOT_TRIGGERED,
+      )
 
     args_injection_start = time.time()
 
