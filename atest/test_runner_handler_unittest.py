@@ -86,10 +86,11 @@ class TestRunnerHandlerUnittests(unittest.TestCase):
   }
 
   def setUp(self):
-    mock.patch(
+    self.mock_get_test_runners = mock.patch(
         'atest.test_runner_handler._get_test_runners',
-        return_value=self._TEST_RUNNERS,
-    ).start()
+        return_value=dict(self._TEST_RUNNERS),
+    )
+    self.mock_get_test_runners.start()
 
   def tearDown(self):
     mock.patch.stopall()
@@ -117,6 +118,36 @@ class TestRunnerHandlerUnittests(unittest.TestCase):
         test_runner_handler.group_tests_by_test_runners,
         [BAD_TESTINFO],
     )
+
+  def test_group_tests_by_test_runners_empty(self):
+    """Test group_tests_by_test_runners with empty input."""
+    self.assertEqual([], test_runner_handler.group_tests_by_test_runners([]))
+
+  def test_create_test_runner_invocations(self):
+    """Test create_test_runner_invocations correctly creates invocations."""
+    test_infos = [MODULE_INFO_A]
+    results_dir = '/tmp/results'
+    mod_info = mock.MagicMock()
+    extra_args = {'key': 'value'}
+
+    with mock.patch.object(
+        FakeTestRunnerA, 'create_invocations'
+    ) as mock_create_inv:
+      mock_invocation = mock.MagicMock()
+      mock_create_inv.return_value = [mock_invocation]
+
+      invocations = test_runner_handler.create_test_runner_invocations(
+          test_infos=test_infos,
+          results_dir=results_dir,
+          mod_info=mod_info,
+          extra_args=extra_args,
+          minimal_build=True,
+      )
+
+      self.assertEqual([mock_invocation], invocations)
+      mock_create_inv.assert_called_once_with(
+          extra_args=extra_args, test_infos=[MODULE_INFO_A]
+      )
 
   def test_get_test_runner_reqs(self):
     """Test that we get all the reqs from the test runners."""
