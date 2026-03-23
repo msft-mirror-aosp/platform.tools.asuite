@@ -250,7 +250,8 @@ def _configure_logging(results_dir: str):
       logger,
       stdout_log_level,
       sys.stdout,
-      silent_mode=os.environ.get('GEMINI_CLI') == '1',
+      # TODO (b/475909203)
+      False
   )
   sys.stderr = _StreamToLogger(
       logger, stderr_log_level, sys.stderr, silent_mode=False
