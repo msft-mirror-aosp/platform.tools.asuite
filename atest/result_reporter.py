@@ -104,6 +104,7 @@ WmTests:com.android.tradefed.targetprep.UnitTests: Passed: 0, Failed: 0
 (Completed With ERRORS)
 """
 
+import os
 from pathlib import Path
 import sys
 import zipfile
@@ -215,7 +216,6 @@ class ResultReporter:
       test_infos=None,
       class_level_report=False,
       runner_errors_as_warnings=False,
-      print_all_using_stderr=False,
   ):
     """Init ResultReporter.
 
@@ -228,7 +228,6 @@ class ResultReporter:
         class_level_report: A boolean of class level report or not.
         runner_errors_as_warnings: A boolean of treating runner errors as
           warnings or not.
-        print_all_using_stderr: A boolean of printing all results using stderr.
     """
     self.run_stats = RunStat()
     self.runners = {}
@@ -244,14 +243,14 @@ class ResultReporter:
     self.test_result_link = None
     self.device_count = 0
     self.wait_for_debugger = wait_for_debugger
-    self.print_all_using_stderr = print_all_using_stderr
+    self._print_all_using_stderr = os.getenv('GEMINI_CLI', '0') == '1'
     self._args = args
     self._test_infos = test_infos or []
 
   @property
   def out(self):
     """Returns the output stream based on silent flag."""
-    return sys.stderr if self.print_all_using_stderr else sys.stdout
+    return sys.stderr if self._print_all_using_stderr else sys.stdout
 
   def get_test_results_by_runner(self, runner_name):
     return [t for t in self.all_test_results if t.runner_name == runner_name]

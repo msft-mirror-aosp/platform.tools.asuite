@@ -108,10 +108,11 @@ class _StreamToLogger:
   def __init__(self, logger, log_level, printer, silent_mode=False):
     self._logger = logger
     self._log_level = log_level
-    self._printer = printer
-    self._buffers = []
-    if silent_mode and self._printer == sys.stdout:
+    if silent_mode:
       self._printer = open(os.devnull, 'w')
+    else:
+      self._printer = printer
+    self._buffers = []
 
   def write(self, buf: str) -> None:
     self._printer.write(buf)
@@ -250,7 +251,7 @@ def _configure_logging(results_dir: str):
       logger,
       stdout_log_level,
       sys.stdout,
-      silent_mode=os.environ.get('GEMINI_CLI') == '1',
+      silent_mode=os.environ.get('GEMINI_CLI', '0') == '1',
   )
   sys.stderr = _StreamToLogger(
       logger, stderr_log_level, sys.stderr, silent_mode=False
@@ -1320,6 +1321,54 @@ class _AtestMain:
 
     return None
 
+  def _perform_early_device_check(self) -> int | None:
+    """Performs an early device check if required.
+
+    Returns:
+        Exit code if an early device issue is detected, None otherwise.
+    """
+    if not rollout_control.early_device_check.is_enabled():
+      return None
+
+    skip_early_check = any([
+        self._args.host,
+        not self._steps.test,
+        self._args.no_checking_device,
+        self._args.collect_tests_only,
+        self._args.host_unit_test_only,
+    ])
+    if skip_early_check:
+      logging.debug('Skipping early device check due to arguments.')
+      return None
+
+    if not atest_utils.get_product_out('module-info.json').is_file():
+      logging.debug('No product out found, deferring early device check.')
+      return None
+
+    logging.debug('Performing early device check.')
+    temp_mod_info = module_info.load(
+        force_build=False,
+        sqlite_module_cache=self._args.sqlite_module_cache,
+    )
+    if not temp_mod_info:
+      logging.debug('Could not load module info for early check, deferring.')
+      return None
+
+    translator = cli_translator.CLITranslator(
+        mod_info=temp_mod_info,
+        print_cache_msg=False,
+        host=self._args.host,
+        indexing_thread=None,
+    )
+    temp_test_infos = translator.translate(self._args)
+
+    if not temp_test_infos:
+      logging.debug('No tests found in early translation, deferring device check.')
+      return None
+
+    _validate_adb_devices(self._args, temp_test_infos)
+    return None
+
   def _run_all_steps(self) -> int:
     """Executes the atest script.
 
@@ -1341,6 +1390,10 @@ class _AtestMain:
       return exit_code
 
     self._start_acloud_if_requested()
+
+    early_check_exit_code = self._perform_early_device_check()
+    if early_check_exit_code is not None:
+      return early_check_exit_code
 
     error_code = self._load_test_info_and_execution_plan()
     if error_code is not None:
@@ -1559,7 +1612,6 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
           wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
           args=self._args,
           test_infos=self._test_infos,
-          print_all_using_stderr=(os.environ.get('GEMINI_CLI') == '1'),
       )
       reporter.print_starting_text()
 
@@ -1668,7 +1720,6 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
         'args': self._args,
         'test_infos': self._test_infos,
         'class_level_report': self._args.class_level_report,
-        'print_all_using_stderr': os.environ.get('GEMINI_CLI') == '1',
     }
     if self._args.smart_test_selection:
       reporter_kwargs['class_level_report'] = True
