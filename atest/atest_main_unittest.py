@@ -677,6 +677,84 @@ class AtestMainUnitTests(unittest.TestCase):
         any_order=False,
     )
 
+  @mock.patch.object(
+      rollout_control.early_device_check, 'is_enabled', return_value=False
+  )
+  def test_perform_early_device_check_disabled(self, _mock_is_enabled):
+    """Tests that early device check is skipped when disabled."""
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(argv=[])
+    pseudo_atest_main._steps = atest_main.parse_steps(pseudo_atest_main._args)
+    self.assertIsNone(pseudo_atest_main._perform_early_device_check())
+
+  @mock.patch.object(
+      rollout_control.early_device_check, 'is_enabled', return_value=True
+  )
+  def test_perform_early_device_check_skip(self, _mock_is_enabled):
+    """Tests that early device check is skipped for host tests."""
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(argv=['--host'])
+    pseudo_atest_main._steps = atest_main.parse_steps(pseudo_atest_main._args)
+    self.assertIsNone(pseudo_atest_main._perform_early_device_check())
+
+  @mock.patch.object(
+      rollout_control.early_device_check, 'is_enabled', return_value=True
+  )
+  @mock.patch.object(atest_utils, 'get_product_out')
+  @mock.patch.object(module_info, 'load', return_value=None)
+  def test_perform_early_device_check_no_mod_info(self, _mock_load, mock_get_product_out, _mock_is_enabled):
+    """Tests that early device check defers when module info fails to load."""
+    mock_get_product_out.return_value.is_file.return_value = True
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(argv=[])
+    pseudo_atest_main._steps = atest_main.parse_steps(pseudo_atest_main._args)
+    self.assertIsNone(pseudo_atest_main._perform_early_device_check())
+    _mock_load.assert_called_once()
+
+  @mock.patch.object(
+      rollout_control.early_device_check, 'is_enabled', return_value=True
+  )
+  @mock.patch.object(atest_utils, 'get_product_out')
+  @mock.patch.object(module_info, 'load', return_value=mock.MagicMock())
+  @mock.patch('atest.cli_translator.CLITranslator.translate', return_value=[])
+  def test_perform_early_device_check_no_test_infos(self, _mock_translate, _mock_load, mock_get_product_out, _mock_is_enabled):
+    """Tests that early device check defers when no test infos are found."""
+    mock_get_product_out.return_value.is_file.return_value = True
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(argv=[])
+    pseudo_atest_main._steps = atest_main.parse_steps(pseudo_atest_main._args)
+    self.assertIsNone(pseudo_atest_main._perform_early_device_check())
+    _mock_translate.assert_called_once()
+
+  @mock.patch.object(
+      rollout_control.early_device_check, 'is_enabled', return_value=True
+  )
+  @mock.patch.object(atest_utils, 'get_product_out')
+  @mock.patch.object(module_info, 'load', return_value=mock.MagicMock())
+  @mock.patch('atest.cli_translator.CLITranslator.translate', return_value=['fake_test_info'])
+  @mock.patch.object(atest_main, '_validate_adb_devices')
+  def test_perform_early_device_check_success(self, _mock_validate, _mock_translate, _mock_load, mock_get_product_out, _mock_is_enabled):
+    """Tests that early device check calls validation successfully."""
+    mock_get_product_out.return_value.is_file.return_value = True
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(argv=[])
+    pseudo_atest_main._steps = atest_main.parse_steps(pseudo_atest_main._args)
+    self.assertIsNone(pseudo_atest_main._perform_early_device_check())
+    _mock_validate.assert_called_once_with(pseudo_atest_main._args, ['fake_test_info'])
+
+  @mock.patch.object(
+      rollout_control.early_device_check, 'is_enabled', return_value=True
+  )
+  @mock.patch.object(atest_utils, 'get_product_out')
+  def test_perform_early_device_check_no_module_info_file(self, mock_get_product_out, _mock_is_enabled):
+    """Tests that early device check defers when module-info.json is missing."""
+    mock_get_product_out.return_value.is_file.return_value = False
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(argv=[])
+    pseudo_atest_main._steps = atest_main.parse_steps(pseudo_atest_main._args)
+    self.assertIsNone(pseudo_atest_main._perform_early_device_check())
+    mock_get_product_out.assert_called_once_with('module-info.json')
+
 
 # pylint: disable=missing-function-docstring
 class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
