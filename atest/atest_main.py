@@ -108,10 +108,11 @@ class _StreamToLogger:
   def __init__(self, logger, log_level, printer, silent_mode=False):
     self._logger = logger
     self._log_level = log_level
-    self._printer = printer
-    self._buffers = []
-    if silent_mode and self._printer == sys.stdout:
+    if silent_mode:
       self._printer = open(os.devnull, 'w')
+    else:
+      self._printer = printer
+    self._buffers = []
 
   def write(self, buf: str) -> None:
     self._printer.write(buf)
@@ -250,8 +251,7 @@ def _configure_logging(results_dir: str):
       logger,
       stdout_log_level,
       sys.stdout,
-      # TODO (b/475909203)
-      False
+      silent_mode=os.environ.get('GEMINI_CLI', '0') == '1',
   )
   sys.stderr = _StreamToLogger(
       logger, stderr_log_level, sys.stderr, silent_mode=False
@@ -1612,7 +1612,6 @@ class _TestMappingExecutionPlan(_TestExecutionPlan):
           wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
           args=self._args,
           test_infos=self._test_infos,
-          print_all_using_stderr=(os.environ.get('GEMINI_CLI') == '1'),
       )
       reporter.print_starting_text()
 
@@ -1721,7 +1720,6 @@ class _TestModuleExecutionPlan(_TestExecutionPlan):
         'args': self._args,
         'test_infos': self._test_infos,
         'class_level_report': self._args.class_level_report,
-        'print_all_using_stderr': os.environ.get('GEMINI_CLI') == '1',
     }
     if self._args.smart_test_selection:
       reporter_kwargs['class_level_report'] = True
