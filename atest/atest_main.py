@@ -1320,6 +1320,54 @@ class _AtestMain:
 
     return None
 
+  def _perform_early_device_check(self) -> int | None:
+    """Performs an early device check if required.
+
+    Returns:
+        Exit code if an early device issue is detected, None otherwise.
+    """
+    if not rollout_control.early_device_check.is_enabled():
+      return None
+
+    skip_early_check = any([
+        self._args.host,
+        not self._steps.test,
+        self._args.no_checking_device,
+        self._args.collect_tests_only,
+        self._args.host_unit_test_only,
+    ])
+    if skip_early_check:
+      logging.debug('Skipping early device check due to arguments.')
+      return None
+
+    if not atest_utils.get_product_out('module-info.json').is_file():
+      logging.debug('No product out found, deferring early device check.')
+      return None
+
+    logging.debug('Performing early device check.')
+    temp_mod_info = module_info.load(
+        force_build=False,
+        sqlite_module_cache=self._args.sqlite_module_cache,
+    )
+    if not temp_mod_info:
+      logging.debug('Could not load module info for early check, deferring.')
+      return None
+
+    translator = cli_translator.CLITranslator(
+        mod_info=temp_mod_info,
+        print_cache_msg=False,
+        host=self._args.host,
+        indexing_thread=None,
+    )
+    temp_test_infos = translator.translate(self._args)
+
+    if not temp_test_infos:
+      logging.debug('No tests found in early translation, deferring device check.')
+      return None
+
+    _validate_adb_devices(self._args, temp_test_infos)
+    return None
+
   def _run_all_steps(self) -> int:
     """Executes the atest script.
 
@@ -1341,6 +1389,10 @@ class _AtestMain:
       return exit_code
 
     self._start_acloud_if_requested()
+
+    early_check_exit_code = self._perform_early_device_check()
+    if early_check_exit_code is not None:
+      return early_check_exit_code
 
     error_code = self._load_test_info_and_execution_plan()
     if error_code is not None:
