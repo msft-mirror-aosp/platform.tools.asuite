@@ -32,9 +32,12 @@ import dataclasses
 import functools
 import itertools
 import logging
+import multiprocessing
+import queue
 import os
 import platform
 import shlex
+import signal
 import subprocess
 import sys
 import tempfile
@@ -658,6 +661,8 @@ class _AtestMain:
     self._module_info_rebuild_required: bool = False
     self._is_out_clean_before_module_info_build: bool = False
     self._invocation_begin_time: float = None
+    self._early_check_queue: multiprocessing.Queue = None
+    self._early_check_proc: multiprocessing.Process = None
 
   def run(self):
     self._results_dir = make_test_run_dir()
@@ -1327,9 +1332,6 @@ class _AtestMain:
     Returns:
         Exit code if an early device issue is detected, None otherwise.
     """
-    if not rollout_control.early_device_check.is_enabled():
-      return None
-
     skip_early_check = any([
         self._args.host,
         not self._steps.test,
@@ -1369,6 +1371,17 @@ class _AtestMain:
     _validate_adb_devices(self._args, temp_test_infos)
     return None
 
+  def _async_early_device_check(self, queue: multiprocessing.Queue):
+    """Performs an early device check in a separate process."""
+    try:
+      exit_code = self._perform_early_device_check()
+      if exit_code is not None:
+        queue.put(exit_code)
+        os.kill(os.getppid(), signal.SIGINT)
+    except SystemExit as e:
+      queue.put(e.code)
+      os.kill(os.getppid(), signal.SIGINT)
+
   def _run_all_steps(self) -> int:
     """Executes the atest script.
 
@@ -1391,29 +1404,52 @@ class _AtestMain:
 
     self._start_acloud_if_requested()
 
-    early_check_exit_code = self._perform_early_device_check()
-    if early_check_exit_code is not None:
-      return early_check_exit_code
+    if rollout_control.early_device_check.is_enabled():
+      self._early_check_queue = multiprocessing.Queue()
 
-    error_code = self._load_test_info_and_execution_plan()
-    if error_code is not None:
-      return error_code
+      self._early_check_proc = atest_utils.run_multi_proc(
+          func=self._async_early_device_check,
+          args=(self._early_check_queue,),
+      )
 
-    if self._steps.build:
-      error_code = self._run_build_step()
+    try:
+      error_code = self._load_test_info_and_execution_plan()
+      if (
+          self._early_check_queue is not None
+          and not self._early_check_queue.empty()
+      ):
+        return self._early_check_queue.get()
       if error_code is not None:
         return error_code
 
-    acloud_status = self._check_acloud_status()
-    if acloud_status:
-      return acloud_status
+      if self._steps.build:
+        error_code = self._run_build_step()
+        if error_code is not None:
+          return error_code
 
-    self._update_device_if_requested()
+      acloud_status = self._check_acloud_status()
+      if acloud_status:
+        return acloud_status
 
-    if self._steps.test and self._run_test_step() != ExitCode.SUCCESS:
-      return ExitCode.TEST_FAILURE
+      self._update_device_if_requested()
 
-    return ExitCode.SUCCESS
+      if self._steps.test and self._run_test_step() != ExitCode.SUCCESS:
+        return ExitCode.TEST_FAILURE
+
+      return ExitCode.SUCCESS
+    except KeyboardInterrupt:
+      if self._early_check_queue is not None:
+        try:
+          return self._early_check_queue.get(timeout=0.1)
+        except queue.Empty:
+          pass
+      raise
+    finally:
+      if (
+          self._early_check_proc is not None
+          and self._early_check_proc.is_alive()
+      ):
+        self._early_check_proc.terminate()
 
 
 class _TestExecutionPlan(abc.ABC):
