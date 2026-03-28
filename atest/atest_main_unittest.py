@@ -21,11 +21,14 @@
 import datetime
 from importlib import reload
 import os
+import queue
+import signal
 import subprocess
 import tempfile
 from typing import List
 import unittest
 from unittest import mock
+
 from atest import arg_parser
 from atest import atest_main
 from atest import atest_utils
@@ -754,6 +757,206 @@ class AtestMainUnitTests(unittest.TestCase):
     pseudo_atest_main._steps = atest_main.parse_steps(pseudo_atest_main._args)
     self.assertIsNone(pseudo_atest_main._perform_early_device_check())
     mock_get_product_out.assert_called_once_with('module-info.json')
+
+  @mock.patch('os.kill')
+  @mock.patch('os.getppid', return_value=1234)
+  @mock.patch.object(atest_main._AtestMain, '_perform_early_device_check')
+  def test_async_early_device_check_success(self, mock_perform, _mock_getppid, mock_kill):
+    """Tests that async check does not signal when successful."""
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    mock_queue = mock.MagicMock()
+    mock_perform.return_value = None
+
+    pseudo_atest_main._async_early_device_check(mock_queue)
+
+    mock_queue.put.assert_not_called()
+    mock_kill.assert_not_called()
+
+  @mock.patch('os.kill')
+  @mock.patch('os.getppid', return_value=1234)
+  @mock.patch.object(atest_main._AtestMain, '_perform_early_device_check')
+  def test_async_early_device_check_failure(self, mock_perform, _mock_getppid, mock_kill):
+    """Tests that async check signals main process when failing."""
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    mock_queue = mock.MagicMock()
+    mock_perform.return_value = ExitCode.DEVICE_NOT_FOUND
+
+    pseudo_atest_main._async_early_device_check(mock_queue)
+
+    mock_queue.put.assert_called_once_with(ExitCode.DEVICE_NOT_FOUND)
+    mock_kill.assert_called_once_with(1234, signal.SIGINT)
+
+  @mock.patch('os.kill')
+  @mock.patch('os.getppid', return_value=1234)
+  @mock.patch.object(atest_main._AtestMain, '_perform_early_device_check')
+  def test_async_early_device_check_system_exit(self, mock_perform, _mock_getppid, mock_kill):
+    """Tests that async check signals main process when raising SystemExit."""
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    mock_queue = mock.MagicMock()
+    mock_perform.side_effect = SystemExit(ExitCode.DEVICE_NOT_FOUND)
+
+    pseudo_atest_main._async_early_device_check(mock_queue)
+
+    mock_queue.put.assert_called_once_with(ExitCode.DEVICE_NOT_FOUND)
+    mock_kill.assert_called_once_with(1234, signal.SIGINT)
+
+  @mock.patch.object(rollout_control.early_device_check, 'is_enabled', return_value=True)
+  @mock.patch('atest.atest_utils.run_multi_proc')
+  @mock.patch('multiprocessing.Queue')
+  @mock.patch.object(atest_main._AtestMain, '_load_test_info_and_execution_plan')
+  @mock.patch.object(atest_main._AtestMain, '_check_envs_and_args', return_value=None)
+  @mock.patch.object(atest_main._AtestMain, '_update_build_env')
+  @mock.patch.object(atest_main._AtestMain, '_send_start_event')
+  @mock.patch.object(atest_main._AtestMain, '_handle_special_commands', return_value=None)
+  @mock.patch.object(atest_main._AtestMain, '_start_acloud_if_requested')
+  def test_run_all_steps_async_device_check_interrupts(
+      self,
+      _mock_start_acloud,
+      _mock_handle_special,
+      _mock_send_start,
+      _mock_update_build,
+      _mock_check_envs,
+      mock_load_test_info,
+      mock_queue,
+      _mock_run_multi_proc,
+      _mock_is_enabled,
+  ):
+    """Test early device check failure returns exit code quietly without stack trace."""
+    mock_queue_instance = mock.MagicMock()
+    mock_queue_instance.get.return_value = ExitCode.DEVICE_NOT_FOUND
+    mock_queue.return_value = mock_queue_instance
+
+    mock_load_test_info.side_effect = KeyboardInterrupt()
+
+    atest = atest_main._AtestMain(['atest', 'hello_world_test'])
+    atest._args = mock.MagicMock()
+    atest._steps = mock.MagicMock()
+
+    exit_code = atest._run_all_steps()
+
+    self.assertEqual(exit_code, ExitCode.DEVICE_NOT_FOUND)
+
+  @mock.patch.object(rollout_control.early_device_check, 'is_enabled', return_value=True)
+  @mock.patch('atest.atest_utils.run_multi_proc')
+  @mock.patch('multiprocessing.Queue')
+  @mock.patch.object(atest_main._AtestMain, '_load_test_info_and_execution_plan', return_value=None)
+  @mock.patch.object(atest_main._AtestMain, '_check_envs_and_args', return_value=None)
+  @mock.patch.object(atest_main._AtestMain, '_update_build_env')
+  @mock.patch.object(atest_main._AtestMain, '_send_start_event')
+  @mock.patch.object(atest_main._AtestMain, '_handle_special_commands', return_value=None)
+  @mock.patch.object(atest_main._AtestMain, '_start_acloud_if_requested')
+  def test_run_all_steps_async_device_check_fast_failure(
+      self,
+      _mock_start_acloud,
+      _mock_handle_special,
+      _mock_send_start,
+      _mock_update_build,
+      _mock_check_envs,
+      _mock_load_test_info,
+      mock_queue_cls,
+      mock_run_multi_proc,
+      _mock_is_enabled,
+  ):
+    """Tests that main process returns fast if queue has item before exception."""
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(argv=[])
+    pseudo_atest_main._steps = atest_main.parse_steps(pseudo_atest_main._args)
+
+    mock_queue = mock.MagicMock()
+    mock_queue_cls.return_value = mock_queue
+    mock_queue.empty.return_value = False
+    mock_queue.get.return_value = ExitCode.DEVICE_NOT_FOUND
+
+    mock_proc = mock.MagicMock()
+    mock_proc.is_alive.return_value = False
+    mock_run_multi_proc.return_value = mock_proc
+
+    exit_code = pseudo_atest_main._run_all_steps()
+
+    self.assertEqual(exit_code, ExitCode.DEVICE_NOT_FOUND)
+    mock_proc.terminate.assert_not_called()
+
+  @mock.patch.object(rollout_control.early_device_check, 'is_enabled', return_value=True)
+  @mock.patch('atest.atest_utils.run_multi_proc')
+  @mock.patch('multiprocessing.Queue')
+  @mock.patch.object(atest_main._AtestMain, '_load_test_info_and_execution_plan')
+  @mock.patch.object(atest_main._AtestMain, '_check_envs_and_args', return_value=None)
+  @mock.patch.object(atest_main._AtestMain, '_update_build_env')
+  @mock.patch.object(atest_main._AtestMain, '_send_start_event')
+  @mock.patch.object(atest_main._AtestMain, '_handle_special_commands', return_value=None)
+  @mock.patch.object(atest_main._AtestMain, '_start_acloud_if_requested')
+  def test_run_all_steps_user_keyboard_interrupt(
+      self,
+      _mock_start_acloud,
+      _mock_handle_special,
+      _mock_send_start,
+      _mock_update_build,
+      _mock_check_envs,
+      mock_load_test_info,
+      mock_queue,
+      _mock_run_multi_proc,
+      _mock_is_enabled,
+  ):
+    """Test user KeyboardInterrupt is properly raised and not swallowed."""
+    mock_queue_instance = mock.MagicMock()
+    mock_queue_instance.get.side_effect = queue.Empty
+    mock_queue.return_value = mock_queue_instance
+
+    mock_load_test_info.side_effect = KeyboardInterrupt()
+
+    atest = atest_main._AtestMain(['atest', 'hello_world_test'])
+    atest._args = mock.MagicMock()
+    atest._steps = mock.MagicMock()
+
+    with self.assertRaises(KeyboardInterrupt):
+      atest._run_all_steps()
+
+  @mock.patch.object(rollout_control.early_device_check, 'is_enabled', return_value=True)
+  @mock.patch('atest.atest_utils.run_multi_proc')
+  @mock.patch('multiprocessing.Queue')
+  @mock.patch.object(atest_main._AtestMain, '_load_test_info_and_execution_plan', return_value=None)
+  @mock.patch.object(atest_main._AtestMain, '_check_envs_and_args', return_value=None)
+  @mock.patch.object(atest_main._AtestMain, '_update_build_env')
+  @mock.patch.object(atest_main._AtestMain, '_send_start_event')
+  @mock.patch.object(atest_main._AtestMain, '_handle_special_commands', return_value=None)
+  @mock.patch.object(atest_main._AtestMain, '_start_acloud_if_requested')
+  @mock.patch.object(atest_main._AtestMain, '_run_build_step', return_value=None)
+  @mock.patch.object(atest_main._AtestMain, '_check_acloud_status', return_value=None)
+  @mock.patch.object(atest_main._AtestMain, '_update_device_if_requested')
+  @mock.patch.object(atest_main._AtestMain, '_run_test_step', return_value=ExitCode.SUCCESS)
+  def test_run_all_steps_async_device_check_success_terminates_proc(
+      self,
+      _mock_run_test,
+      _mock_update_device,
+      _mock_check_acloud,
+      _mock_run_build,
+      _mock_start_acloud,
+      _mock_handle_special,
+      _mock_send_start,
+      _mock_update_build,
+      _mock_check_envs,
+      _mock_load_test_info,
+      mock_queue_cls,
+      mock_run_multi_proc,
+      _mock_is_enabled,
+  ):
+    """Tests successful run where async check is still alive and gets terminated."""
+    pseudo_atest_main = atest_main._AtestMain(argv=[])
+    pseudo_atest_main._args = atest_main._parse_args(argv=[])
+    pseudo_atest_main._steps = atest_main.parse_steps(pseudo_atest_main._args)
+
+    mock_queue = mock.MagicMock()
+    mock_queue_cls.return_value = mock_queue
+    mock_queue.empty.return_value = True
+
+    mock_proc = mock.MagicMock()
+    mock_proc.is_alive.return_value = True
+    mock_run_multi_proc.return_value = mock_proc
+
+    exit_code = pseudo_atest_main._run_all_steps()
+
+    self.assertEqual(exit_code, ExitCode.SUCCESS)
+    mock_proc.terminate.assert_called_once()
 
 
 # pylint: disable=missing-function-docstring
